@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.5 - 2026-03-16
+
+Launch workspace bootstrap follow-up.
+
+- Production bootstrap now creates the same default workspace slug used by the app fallback
+- Active workspace resolution now falls back to the first available workspace if no cookie-matched slug exists
+- This fixes first launch for installs that signed in successfully but showed no workspace
+
 ## v0.1.4 - 2026-03-16
 
 Production install hardening follow-up.

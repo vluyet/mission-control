@@ -23,7 +23,7 @@ async function main() {
     workspace = await prisma.workspace.create({
       data: {
         name: "Main Workspace",
-        slug: "main-workspace",
+        slug: "north-star-lab",
         visibility: "personal",
         context: {
           title: "Workspace context",

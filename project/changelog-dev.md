@@ -8,6 +8,12 @@
 - Hardened fresh install generation so production `.env` files now set `COMPOSE_PROJECT_NAME=missioncontrol`, preventing collisions with stale `mission-control` containers and volumes on host machines.
 - Published release notes and docs updates for `v0.1.4`.
 
+### Release batch: workspace bootstrap follow-up
+
+- Aligned the production bootstrap workspace slug with the app's default workspace lookup.
+- Hardened active workspace resolution so first launch can recover from missing or stale workspace cookies by falling back to the first available workspace.
+- Published release notes and docs updates for `v0.1.5`.
+
 ### Launch cleanup batch: empty workspace seed
 
 - Removed seeded operational demo data from the database reset flow.

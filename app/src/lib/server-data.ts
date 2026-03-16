@@ -313,6 +313,9 @@ async function getActiveWorkspaceRecord() {
     })) ??
     (await db.workspace.findFirst({
       where: { slug: DEFAULT_WORKSPACE_SLUG }
+    })) ??
+    (await db.workspace.findFirst({
+      orderBy: { createdAt: "asc" }
     }));
 
   return workspace;
