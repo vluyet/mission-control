@@ -92,7 +92,7 @@ export function WorkspaceOpenClawPanel({ integration }: { integration: OpenClawS
 
         <div>
           <label className="section-eyebrow">Gateway base URL</label>
-          <input name="baseUrl" defaultValue={integration?.baseUrl ?? ""} placeholder="http://host.docker.internal:18789" className="input-control mt-2" />
+          <input name="baseUrl" defaultValue={integration?.baseUrl ?? ""} placeholder="http://openclaw-proxy:18790" className="input-control mt-2" />
         </div>
 
         <div>
@@ -105,7 +105,7 @@ export function WorkspaceOpenClawPanel({ integration }: { integration: OpenClawS
             className="input-control mt-2"
           />
           <p className="mt-2 text-xs text-[var(--text-dim)]">
-            Used for authenticated agent discovery. Leave blank to keep the currently saved token.
+            Used for authenticated agent discovery. In Docker deployments, prefer http://openclaw-proxy:18790. Leave blank to keep the currently saved token.
           </p>
         </div>
 
