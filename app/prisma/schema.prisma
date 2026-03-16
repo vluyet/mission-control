@@ -1,0 +1,359 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceVisibility {
+  personal
+  shared
+}
+
+enum OpenClawDiscoveryMode {
+  cli
+  config_file
+}
+
+enum MemberKind {
+  human
+  agent
+}
+
+enum WorkspaceRole {
+  owner
+  admin
+  member
+  viewer
+}
+
+enum ProjectStatus {
+  active
+  archived
+}
+
+enum ProjectVisibility {
+  workspace
+  project_members
+}
+
+enum ProjectRole {
+  lead
+  member
+  observer
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  review
+  blocked
+  done
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum CommentTone {
+  human
+  agent
+}
+
+enum ExecutionStatus {
+  queued
+  running
+  blocked
+  done
+  failed
+}
+
+model User {
+  id          String      @id @default(cuid())
+  email       String      @unique
+  displayName String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  memberships Membership[]
+}
+
+model Workspace {
+  id          String          @id @default(cuid())
+  name        String
+  slug        String          @unique
+  visibility  WorkspaceVisibility @default(personal)
+  context     Json?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  memberships Membership[]
+  projects    Project[]
+  assets      WorkspaceAsset[]
+  openclawIntegration WorkspaceOpenClawIntegration?
+  authEvents  AuthEvent[]
+}
+
+model Membership {
+  id           String     @id @default(cuid())
+  workspaceId  String
+  userId       String?
+  name         String
+  kind         MemberKind
+  workspaceRole WorkspaceRole @default(member)
+  email        String?
+  avatarUrl    String?
+  roleLabel    String?
+  sourceSystem String?
+  sourceKey    String?
+  capabilities String[]
+  agentPermissions String[]
+  enabled      Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  workspace    Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user         User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  projectMemberships ProjectMembership[]
+  tasks        Task[]     @relation("TaskAssignee")
+  reviewingTasks Task[]   @relation("TaskReviewer")
+  comments     Comment[]
+  attachments  Attachment[]
+  workspaceAssets WorkspaceAsset[]
+  activity     TaskActivity[]
+  executions   TaskExecution[]
+  watchers     TaskWatcher[]
+  agentCredentials AgentCredential[]
+  authEvents   AuthEvent[]
+
+  @@index([workspaceId, kind, enabled])
+  @@unique([workspaceId, sourceSystem, sourceKey])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  workspaceId String
+  name        String
+  slug        String
+  description String?
+  status      ProjectStatus @default(active)
+  visibility  ProjectVisibility @default(workspace)
+  context     Json?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberships ProjectMembership[]
+  tasks       Task[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, status])
+}
+
+model ProjectMembership {
+  id           String     @id @default(cuid())
+  projectId     String
+  membershipId  String
+  role          ProjectRole @default(member)
+  createdAt     DateTime   @default(now())
+  project       Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  membership    Membership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, membershipId])
+  @@index([projectId, createdAt])
+  @@index([membershipId, createdAt])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  projectId   String
+  parentTaskId String?
+  assigneeId  String?
+  reviewerId  String?
+  title       String
+  description String?
+  status      TaskStatus   @default(todo)
+  priority    TaskPriority @default(medium)
+  effort      String?
+  tags        String[]
+  contextHint String?
+  blockedReason String?
+  startDate   DateTime?
+  dueDate     DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentTask  Task?        @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks  Task[]       @relation("TaskHierarchy")
+  assignee    Membership?  @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  reviewer    Membership?  @relation("TaskReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  comments    Comment[]
+  activity    TaskActivity[]
+  executions  TaskExecution[]
+  watchers    TaskWatcher[]
+  attachments Attachment[]
+
+  @@index([projectId, status])
+  @@index([parentTaskId])
+  @@index([assigneeId, status])
+  @@index([dueDate])
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  taskId        String
+  authorId      String?
+  originalName  String
+  storagePath   String
+  mimeType      String
+  sizeBytes     Int
+  artifactType  String   @default("reference")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  task          Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author        Membership? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+}
+
+model WorkspaceAsset {
+  id           String      @id @default(cuid())
+  workspaceId   String
+  authorId      String?
+  originalName  String
+  storagePath   String
+  mimeType      String
+  sizeBytes     Int
+  assetType     String      @default("reference")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  workspace     Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author        Membership? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+}
+
+model AgentCredential {
+  id           String      @id @default(cuid())
+  membershipId String
+  name         String
+  tokenHash    String      @unique
+  scopes       String[]
+  enabled      Boolean     @default(true)
+  lastUsedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  membership   Membership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([membershipId, createdAt])
+}
+
+model WorkspaceOpenClawIntegration {
+  id             String                @id @default(cuid())
+  workspaceId    String                @unique
+  label          String?
+  dashboardUrl   String?
+  enabled        Boolean               @default(false)
+  discoveryMode  OpenClawDiscoveryMode @default(cli)
+  executable     String?
+  arguments      String[]
+  configPath     String?
+  lastSyncedAt   DateTime?
+  lastSyncStatus String?
+  lastSyncMessage String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  workspace      Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, updatedAt])
+}
+
+model AuthEvent {
+  id          String      @id @default(cuid())
+  workspaceId String?
+  membershipId String?
+  actorType   String
+  actorLabel  String
+  eventType   String
+  detail      String
+  createdAt   DateTime    @default(now())
+  workspace   Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  membership  Membership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([membershipId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model TaskWatcher {
+  id           String     @id @default(cuid())
+  taskId        String
+  membershipId  String
+  createdAt     DateTime   @default(now())
+  task          Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  membership    Membership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, membershipId])
+  @@index([taskId, createdAt])
+  @@index([membershipId, createdAt])
+}
+
+model Comment {
+  id         String      @id @default(cuid())
+  taskId     String
+  authorId   String?
+  authorName String
+  authorRole String
+  tone       CommentTone
+  body       String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  task       Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author     Membership? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+}
+
+model TaskActivity {
+  id         String      @id @default(cuid())
+  taskId     String
+  actorId    String?
+  actorName  String?
+  label      String
+  detail     String
+  createdAt  DateTime    @default(now())
+  task       Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor      Membership? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+}
+
+model TaskExecution {
+  id            String            @id @default(cuid())
+  taskId         String
+  agentId        String
+  status         ExecutionStatus  @default(queued)
+  blockedReason  String?
+  summary        String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  task           Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  agent          Membership       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  logs           TaskExecutionLog[]
+
+  @@index([taskId, createdAt])
+  @@index([agentId, status])
+}
+
+model TaskExecutionLog {
+  id          String        @id @default(cuid())
+  executionId String
+  line        String
+  createdAt   DateTime      @default(now())
+  execution   TaskExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId, createdAt])
+}

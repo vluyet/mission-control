@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  app-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare env
+        run: cp .env.example .env
+
+      - name: Start stack
+        run: docker compose up -d --build
+
+      - name: Reset database
+        run: docker compose exec -T app npm run db:reset
+
+      - name: Migration check
+        run: docker compose exec -T app npm run test:migrations
+
+      - name: Smoke and activity tests
+        run: docker compose exec -T app npm run test
+
+      - name: Production build
+        run: docker compose exec -T app npm run build

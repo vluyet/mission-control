@@ -1,0 +1,9 @@
+.env
+.env.local
+.next
+.next-dev
+.next-build
+node_modules
+storage
+tests
+npm-debug.log*
