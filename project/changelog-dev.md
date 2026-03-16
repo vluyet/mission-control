@@ -14,6 +14,13 @@
 - Hardened active workspace resolution so first launch can recover from missing or stale workspace cookies by falling back to the first available workspace.
 - Published release notes and docs updates for `v0.1.5`.
 
+### OpenClaw binding documentation and UX clarification
+
+- Added a dedicated operator document for OpenClaw agent binding, supported discovery modes, Docker setup, and common errors.
+- Clarified in the product UI that the dashboard URL is reference metadata only and does not power agent discovery.
+- Improved the raw `spawn openclaw ENOENT` failure into a clearer CLI-not-found error message.
+- Logged follow-up backlog items for JSON5-safe config parsing and container-aware OpenClaw diagnostics.
+
 ### Launch cleanup batch: empty workspace seed
 
 - Removed seeded operational demo data from the database reset flow.

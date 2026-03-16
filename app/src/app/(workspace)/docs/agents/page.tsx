@@ -70,7 +70,7 @@ export default function AgentDocsPage() {
             },
             {
               title: "PATCH /api/workspaces/current/openclaw",
-              body: "Registers the active workspace against an OpenClaw instance using either CLI discovery or a mounted openclaw.json source."
+              body: "Registers OpenClaw discovery settings using either CLI discovery or a mounted openclaw.json source. The dashboard URL is stored as operator metadata only."
             },
             {
               title: "POST /api/workspaces/current/openclaw/sync",
@@ -195,7 +195,7 @@ export default function AgentDocsPage() {
             },
             {
               title: "Register OpenClaw integration",
-              code: `PATCH /api/workspaces/current/openclaw\n{\n  "label": "Primary OpenClaw",\n  "enabled": true,\n  "discoveryMode": "config_file",\n  "configPath": "/workspace/openclaw/openclaw.json"\n}`
+              code: `PATCH /api/workspaces/current/openclaw\n{\n  "label": "Primary OpenClaw",\n  "dashboardUrl": "https://control.openclaw.local",\n  "enabled": true,\n  "discoveryMode": "config_file",\n  "configPath": "/workspace/openclaw/openclaw.json"\n}`
             },
             {
               title: "Sync OpenClaw agents",

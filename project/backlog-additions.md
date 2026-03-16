@@ -258,3 +258,25 @@ Notes:
 - current sync is owner-triggered from `Manage Workspace`
 - future work should report stale syncs and failed discovery clearly
 - should stay compatible with both config-file and CLI discovery modes
+
+25. `JSON5-safe OpenClaw config parsing`
+Priority: P2
+Size: S
+
+As a workspace owner, I want Mission Control to safely parse real-world `openclaw.json` config files even when they use JSON5-style comments or trailing commas so config-file discovery matches OpenClaw behavior more closely.
+
+Notes:
+- current Mission Control config-file discovery uses standard JSON parsing
+- OpenClaw operators may keep comments or trailing commas in local config files
+- future work should avoid forcing operators to maintain a second sanitized copy unless they want to
+
+26. `OpenClaw integration diagnostics and mount validation`
+Priority: P2
+Size: S
+
+As a workspace owner, I want the OpenClaw panel to validate executable presence, config-path readability, and discovery-mode prerequisites before sync so setup errors are actionable instead of surfacing as raw process failures.
+
+Notes:
+- should detect cases like `spawn openclaw ENOENT` before a full sync attempt
+- should verify that config paths exist inside the app container, not just on the host
+- should stay lightweight and operator-oriented rather than becoming a full infrastructure console

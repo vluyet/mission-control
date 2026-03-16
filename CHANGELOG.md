@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.6 - 2026-03-16
+
+OpenClaw binding documentation and operator UX follow-up.
+
+- Added a dedicated OpenClaw binding guide covering supported discovery modes, Docker setup, and common failure cases
+- Clarified in the product UI and agent docs that dashboard URL is reference metadata only and does not power agent discovery
+- Improved the raw `spawn openclaw ENOENT` failure into a clearer CLI-not-found setup error
+- Added follow-up backlog items for JSON5-safe config parsing and container-aware OpenClaw diagnostics
+
 ## v0.1.5 - 2026-03-16
 
 Launch workspace bootstrap follow-up.

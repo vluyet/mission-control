@@ -148,7 +148,7 @@ export function WorkspaceOpenClawPanel({
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr),160px]">
           <div>
-            <label className="section-eyebrow">Dashboard URL</label>
+            <label className="section-eyebrow">Dashboard URL (optional reference)</label>
             <input
               name="dashboardUrl"
               defaultValue={defaultConfig.dashboardUrl}
@@ -164,7 +164,10 @@ export function WorkspaceOpenClawPanel({
 
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
           <p className="text-sm font-medium text-[var(--text-strong)]">
-            Launch-safe discovery uses either <code className="text-xs">openclaw agents list --json</code> or a mounted <code className="text-xs">openclaw.json</code> file.
+            Agent discovery does not use the dashboard URL yet. Launch-safe discovery uses either <code className="text-xs">openclaw agents list --json</code> inside the app container or a mounted <code className="text-xs">openclaw.json</code> file.
+          </p>
+          <p className="mt-2 text-sm text-[var(--text-dim)]">
+            If you see <code className="text-xs">spawn openclaw ENOENT</code>, the CLI mode is enabled but the <code className="text-xs">openclaw</code> binary is not available inside the Mission Control container.
           </p>
         </div>
 

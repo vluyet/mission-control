@@ -187,6 +187,16 @@ function runCommand(executable: string, args: string[], timeoutMs = 15000) {
 
       settled = true;
       clearTimeout(timer);
+
+      if ("code" in error && error.code === "ENOENT") {
+        reject(
+          new Error(
+            `OpenClaw CLI executable not found: ${executable}. Install the OpenClaw CLI inside the app container or switch the integration to config file mode.`
+          )
+        );
+        return;
+      }
+
       reject(error);
     });
 

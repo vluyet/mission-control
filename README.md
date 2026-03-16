@@ -4,7 +4,7 @@ Mission Control is a task operations app for human teammates and AI agents worki
 
 ## Release status
 
-Current version: `v0.1.5`
+Current version: `v0.1.6`
 
 This release is launch-ready with:
 
@@ -37,7 +37,7 @@ docker compose exec app npm run db:reset
 Fresh machine install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.5/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.6/scripts/bootstrap-public.sh | bash
 ```
 
 Optional overrides:
@@ -47,7 +47,7 @@ MC_INSTALL_DIR=/opt/mission-control \
 MC_OWNER_EMAIL=owner@example.com \
 MC_OWNER_PASSWORD='change-me-now' \
 MC_APP_PORT=3000 \
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.5/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.6/scripts/bootstrap-public.sh | bash
 ```
 
 ## Production install
@@ -57,7 +57,7 @@ Use the production compose file plus the install script.
 From a cloned repo:
 
 ```bash
-./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.5
+./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.6
 ```
 
 Optional environment overrides:
@@ -87,7 +87,7 @@ Run this from the installed repo directory:
 Or pin to a specific release:
 
 ```bash
-./scripts/update.sh --version v0.1.5
+./scripts/update.sh --version v0.1.6
 ```
 
 ## Deployment model
@@ -113,6 +113,10 @@ The current launch-safe discovery modes are:
 
 This intentionally avoids shipping a partial Gateway device-auth client in the first release.
 
+Operational binding notes:
+
+- [project/openclaw-agent-binding.md](/Users/vluyet/Sites/mission-control/project/openclaw-agent-binding.md)
+
 ## API docs
 
 - Product-facing agent docs: `/docs/agents`
@@ -123,3 +127,4 @@ This intentionally avoids shipping a partial Gateway device-auth client in the f
 
 - [CHANGELOG.md](/Users/vluyet/Sites/mission-control/CHANGELOG.md)
 - [project/release-v0.1.5.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.5.md)
+- [project/release-v0.1.6.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.6.md)
