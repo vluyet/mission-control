@@ -113,9 +113,9 @@ Health endpoint:
 
 Mission Control now ships an MVP OpenClaw integration for workspace linking, agent sync, and task dispatch through the OpenClaw gateway API.
 
-For Docker production installs, the bundled `openclaw-proxy` service exposes a stable in-stack endpoint for the app. Configure Mission Control OpenClaw linkage with:
+For Docker production installs, the bundled `openclaw-connector` service exposes a stable in-stack endpoint for the app. Configure Mission Control OpenClaw linkage with:
 
-- Base URL: `http://openclaw-proxy:18790`
+- Base URL: `http://openclaw-connector:18790`
 - Token: the OpenClaw `gateway.auth.token`
 
 

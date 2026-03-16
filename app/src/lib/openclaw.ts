@@ -68,16 +68,15 @@ function normalizeAgent(value: unknown): OpenClawAgentDescriptor | null {
 
 export async function fetchOpenClawAgents(input: { baseUrl: string; gatewayToken: string }) {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const response = await fetch(`${baseUrl}/tools/invoke`, {
-    method: "POST",
+  const useConnector = baseUrl.includes("openclaw-connector");
+  const agentsUrl = useConnector ? `${baseUrl}/agents` : `${baseUrl}/tools/invoke`;
+  const response = await fetch(agentsUrl, {
+    method: useConnector ? "GET" : "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${input.gatewayToken}`
     },
-    body: JSON.stringify({
-      tool: "agents_list",
-      args: {}
-    }),
+    ...(useConnector ? {} : { body: JSON.stringify({ tool: "agents_list", args: {} }) }),
     cache: "no-store"
   });
 
@@ -113,23 +112,21 @@ export async function dispatchOpenClawTaskRun(input: {
   prompt: string;
 }) {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const response = await fetch(`${baseUrl}/v1/responses`, {
+  const dispatchUrl = baseUrl.includes('openclaw-connector') ? `${baseUrl}/dispatch` : `${baseUrl}/v1/responses`;
+  const response = await fetch(dispatchUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${input.gatewayToken}`
     },
-    body: JSON.stringify({
-      model: `agent:${input.agentId}`,
-      user: `mission-control-task:${input.taskId}`,
-      input: input.prompt
-    }),
+    body: JSON.stringify(dispatchUrl.endsWith('/dispatch') ? { agentId: input.agentId, taskId: input.taskId, prompt: input.prompt } : { model: `agent:${input.agentId}`, user: `mission-control-task:${input.taskId}`, input: input.prompt }),
     cache: "no-store"
   });
 
   const payload = (await response.json().catch(() => null)) as
     | {
         id?: string;
+        result?: { id?: string };
         error?: { message?: string };
       }
     | null;
@@ -139,7 +136,7 @@ export async function dispatchOpenClawTaskRun(input: {
   }
 
   return {
-    responseId: payload?.id ?? null,
+    responseId: payload?.id ?? payload?.result?.id ?? null,
     raw: payload
   };
 }

@@ -6,7 +6,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      openclaw-proxy:
+      openclaw-connector:
         condition: service_started
     env_file:
       - ./.env
@@ -28,9 +28,13 @@ services:
       retries: 10
       start_period: 30s
 
-  openclaw-proxy:
-    image: alpine/socat
-    command: ["TCP-LISTEN:18790,fork,reuseaddr,bind=0.0.0.0", "TCP:host.docker.internal:18789"]
+  openclaw-connector:
+    build:
+      context: ./connector
+    environment:
+      PORT: 18790
+      OPENCLAW_BASE_URL: ${OPENCLAW_BASE_URL:-http://host.docker.internal:18789}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
