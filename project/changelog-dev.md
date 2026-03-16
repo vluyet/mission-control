@@ -533,3 +533,10 @@
 - Added `scripts/bootstrap-public.sh` for fresh-machine installs via `curl | bash`.
 - Bumped the release version to `v0.1.1`.
 - Updated `README.md`, `CHANGELOG.md`, and release notes for the public install flow.
+
+### Install-flow reliability
+
+- Updated `scripts/bootstrap-public.sh` and `scripts/install.sh` to handle occupied host ports more safely.
+- If `MC_APP_PORT` is not set and port `3000` is already taken, install now picks the next free port automatically.
+- If `MC_APP_PORT` is explicitly set and already in use, install fails early with a clear error instead of waiting for Docker to fail at startup.
+- Bumped the release version to `v0.1.2`.

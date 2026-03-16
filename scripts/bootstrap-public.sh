@@ -27,6 +27,33 @@ require_command() {
   fi
 }
 
+port_in_use() {
+  local port="$1"
+
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn "sport = :${port}" | awk 'NR>1 {print}' | grep -q .
+    return
+  fi
+
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
+    return
+  fi
+
+  return 1
+}
+
+pick_available_port() {
+  local start_port="$1"
+  local port="$start_port"
+
+  while port_in_use "$port"; do
+    port=$((port + 1))
+  done
+
+  printf '%s\n' "$port"
+}
+
 generate_secret() {
   if command -v openssl >/dev/null 2>&1; then
     openssl rand -hex 24
@@ -127,6 +154,17 @@ owner_password="${MC_OWNER_PASSWORD:-$(generate_secret)}"
 auth_secret="${MC_AUTH_SECRET:-$(generate_secret)}"
 postgres_password="${MC_POSTGRES_PASSWORD:-$(generate_secret)}"
 app_port="${MC_APP_PORT:-3000}"
+
+if [ -n "${MC_APP_PORT:-}" ]; then
+  if port_in_use "$app_port"; then
+    echo "Requested APP_PORT ${app_port} is already in use. Set MC_APP_PORT to a free port and rerun." >&2
+    exit 1
+  fi
+elif port_in_use "$app_port"; then
+  next_port="$(pick_available_port "$((app_port + 1))")"
+  echo "Port ${app_port} is already in use. Using ${next_port} instead."
+  app_port="$next_port"
+fi
 
 if [ ! -f .env ]; then
   cat > .env <<EOF
