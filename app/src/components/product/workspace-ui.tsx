@@ -32,6 +32,7 @@ import {
 import type { ResolvedTaskContext } from "@/lib/context-resolver";
 import { AgentEnabledToggle } from "@/components/product/agent-enabled-toggle";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
+import { TaskOpenClawDispatchButton } from "@/components/product/task-openclaw-dispatch-button";
 import { AgentPermissionsEditor } from "@/components/product/agent-permissions-editor";
 import { TaskWatchersManager } from "@/components/product/task-watchers-manager";
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
@@ -741,16 +742,28 @@ export function TaskWorkspace({
           </Panel>
 
           {task.assigneeType === "Agent" ? (
-            <Panel tone="subtle" className="p-4">
-              <TaskStatusActions
-                taskId={task.id}
-                currentStatus={task.status}
-                blockedReason={task.blockedReason}
-                actorType="agent"
-                title="Agent workflow"
-                options={task.transitionOptions ?? []}
-              />
-            </Panel>
+            <>
+              <Panel tone="subtle" className="p-4">
+                <p className="section-eyebrow">OpenClaw</p>
+                <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+                  Dispatch this task to the assigned OpenClaw agent. The run will use Mission Control's API contract for context, execution logs, comments, and status updates.
+                </p>
+                <div className="mt-4">
+                  <TaskOpenClawDispatchButton taskId={task.id} />
+                </div>
+              </Panel>
+
+              <Panel tone="subtle" className="p-4">
+                <TaskStatusActions
+                  taskId={task.id}
+                  currentStatus={task.status}
+                  blockedReason={task.blockedReason}
+                  actorType="agent"
+                  title="Agent workflow"
+                  options={task.transitionOptions ?? []}
+                />
+              </Panel>
+            </>
           ) : null}
 
           <Panel tone="subtle" className="p-4">

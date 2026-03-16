@@ -154,6 +154,11 @@ export function getAgentDocsPayload() {
         purpose: "Read the deterministic context resolution payload for a task."
       },
       {
+        method: "POST",
+        path: "/api/tasks/:taskId/openclaw/dispatch",
+        purpose: "Dispatch a task assigned to an OpenClaw-backed agent through the linked OpenClaw gateway."
+      },
+      {
         method: "GET",
         path: "/api/tasks/:taskId/comments",
         purpose: "Read human-facing discussion."
@@ -411,6 +416,16 @@ export function getAgentContractPayload() {
         path: "/api/attachments/:attachmentId",
         response_shape: ["binary file response"]
       },
+      openclaw_task_dispatch: {
+        method: "POST",
+        path: "/api/tasks/:taskId/openclaw/dispatch",
+        response_shape: ["dispatch.taskId", "dispatch.openclawAgentId", "dispatch.responseId?"],
+        notes: [
+          "Owner-authenticated only.",
+          "Dispatch uses the linked OpenClaw gateway /v1/responses endpoint with model=agent:<openclawAgentId>.",
+          "The generated run prompt instructs the agent to use Mission Control task/context/execution/comment endpoints instead of scraping the UI."
+        ]
+      },
       task_comments: {
         method: "GET",
         path: "/api/tasks/:taskId/comments"
@@ -443,6 +458,15 @@ export function getAgentContractPayload() {
         path: "/api/tasks/:taskId/execution",
         request_shape: ["line"],
         notes: ["Appending execution logs requires the log_execution permission."]
+      },
+      openclaw_reporting_conventions: {
+        notes: [
+          "OpenClaw runs should read /api/tasks/:taskId and /api/tasks/:taskId/context first.",
+          "Machine progress belongs in /api/tasks/:taskId/execution.",
+          "Human-facing summaries belong in /api/tasks/:taskId/comments.",
+          "Status updates should use PATCH /api/tasks/:taskId with actorType=agent.",
+          "Use blockedReason when setting blocked, and prefer review over done when human approval is still needed."
+        ]
       }
     },
     examples: getAgentDocsPayload()

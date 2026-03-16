@@ -23,7 +23,7 @@ import type {
   WorkspaceSummary
 } from "@/lib/demo-data";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
-import { fetchOpenClawAgents } from "@/lib/openclaw";
+import { dispatchOpenClawTaskRun, fetchOpenClawAgents } from "@/lib/openclaw";
 
 function formatStatus(status: string): TaskRecord["status"] {
   return status === "in_progress"
@@ -3044,6 +3044,172 @@ export async function updateAgentCredentialInDb(credentialId: string, enabled: b
   });
 
   return mapAgentCredential(updated);
+}
+
+
+const OPENCLAW_RUNTIME_SCOPES: AgentScope[] = [
+  "tasks.read",
+  "tasks.write",
+  "comments.read",
+  "comments.write",
+  "activity.read",
+  "execution.read",
+  "execution.write",
+  "attachments.read",
+  "attachments.write",
+  "projects.read",
+  "workspaces.read"
+];
+
+async function createOpenClawRuntimeCredential(membershipId: string, taskId: string) {
+  const token = await createAgentAccessToken();
+  const tokenHash = await hashAgentAccessToken(token);
+  const created = await db.agentCredential.create({
+    data: {
+      membershipId,
+      name: `OpenClaw runtime ${taskId}`,
+      tokenHash,
+      scopes: OPENCLAW_RUNTIME_SCOPES
+    }
+  });
+
+  return { credentialId: created.id, token, scopes: created.scopes };
+}
+
+function buildMissionControlAgentPrompt(input: {
+  missionControlBaseUrl: string;
+  agentToken: string;
+  taskId: string;
+  projectSlug: string;
+  taskTitle: string;
+  taskDescription: string;
+  currentStatus: string;
+  workspaceName: string;
+  workspaceContextTitle: string;
+  workspaceContextSummary: string;
+  taskContextHint: string;
+}) {
+  return [
+    `You are handling Mission Control task ${input.taskId} in project ${input.projectSlug}.`,
+    `Task title: ${input.taskTitle}`,
+    `Current task status: ${input.currentStatus}`,
+    input.taskDescription ? `Task description: ${input.taskDescription}` : "Task description: (none provided)",
+    input.taskContextHint ? `Task context hint: ${input.taskContextHint}` : "Task context hint: (none provided)",
+    `Workspace: ${input.workspaceName}`,
+    input.workspaceContextSummary ? `Workspace context: ${input.workspaceContextTitle} — ${input.workspaceContextSummary}` : `Workspace context: ${input.workspaceContextTitle}`,
+    "",
+    "Use Mission Control's API instead of scraping the UI.",
+    `Mission Control base URL: ${input.missionControlBaseUrl}`,
+    `Authorization header: Bearer ${input.agentToken}`,
+    "",
+    "Preferred execution loop:",
+    `1. GET ${input.missionControlBaseUrl}/api/tasks/${input.taskId}`,
+    `2. GET ${input.missionControlBaseUrl}/api/tasks/${input.taskId}/context`,
+    `3. POST ${input.missionControlBaseUrl}/api/tasks/${input.taskId}/execution with short machine-facing progress lines`,
+    `4. When you need to update workflow state, PATCH ${input.missionControlBaseUrl}/api/tasks/${input.taskId} with actorType=agent`,
+    `5. Use POST ${input.missionControlBaseUrl}/api/tasks/${input.taskId}/comments only for concise human-facing updates or completion handoff`,
+    "",
+    "Reporting conventions:",
+    "- execution feed = machine progress, terse and chronological",
+    "- comments = human-facing summaries only",
+    "- if blocked, PATCH the task to status=blocked with blockedReason and explain the blocker in a comment if useful",
+    "- when finished, prefer status=review if human review is needed, otherwise status=done",
+    "- include actorType=agent in task status updates",
+    "",
+    "Start by reading the task and context, then append one execution log line that you started work."
+  ].join("\n");
+}
+
+export async function dispatchTaskToOpenClawInDb(taskId: string, missionControlBaseUrl: string) {
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    include: {
+      project: {
+        include: {
+          workspace: true
+        }
+      },
+      assignee: true
+    }
+  });
+
+  if (!task) {
+    return null;
+  }
+
+  if (!task.assignee || task.assignee.kind !== "agent" || task.assignee.sourceSystem !== "openclaw" || !task.assignee.sourceKey) {
+    return { error: "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" } as const;
+  }
+
+  const integration = await db.workspaceOpenClawIntegration.findUnique({
+    where: { workspaceId: task.project.workspaceId }
+  });
+
+  if (!integration || !integration.enabled) {
+    return { error: "OPENCLAW_NOT_CONFIGURED" } as const;
+  }
+
+  const runtimeCredential = await createOpenClawRuntimeCredential(task.assignee.id, task.id);
+
+  const prompt = buildMissionControlAgentPrompt({
+    missionControlBaseUrl: missionControlBaseUrl.replace(/\/+$/, ""),
+    agentToken: runtimeCredential.token,
+    taskId: task.id,
+    projectSlug: task.project.slug,
+    taskTitle: task.title,
+    taskDescription: task.description ?? "",
+    currentStatus: task.status,
+    workspaceName: task.project.workspace.name,
+    workspaceContextTitle: typeof task.project.workspace.context === "object" && task.project.workspace.context && !Array.isArray(task.project.workspace.context) ? String((task.project.workspace.context as Record<string, unknown>).title ?? "Workspace context") : "Workspace context",
+    workspaceContextSummary: typeof task.project.workspace.context === "object" && task.project.workspace.context && !Array.isArray(task.project.workspace.context) ? String((task.project.workspace.context as Record<string, unknown>).summary ?? "") : "",
+    taskContextHint: task.contextHint ?? ""
+  });
+
+  try {
+    const dispatch = await dispatchOpenClawTaskRun({
+      baseUrl: integration.baseUrl,
+      gatewayToken: integration.gatewayToken,
+      agentId: task.assignee.sourceKey,
+      taskId: task.id,
+      prompt
+    });
+
+    await appendExecutionLogInDb(task.id, `Dispatched to OpenClaw agent ${task.assignee.name}.`, {
+      membershipId: task.assignee.id,
+      label: task.assignee.name
+    });
+
+    await db.authEvent.create({
+      data: {
+        workspaceId: task.project.workspaceId,
+        membershipId: task.assignee.id,
+        actorType: "owner",
+        actorLabel: getOwnerAuthConfig().email,
+        eventType: "openclaw.task_dispatched",
+        detail: `Dispatched task ${task.id} to ${task.assignee.name}`
+      }
+    });
+
+    return {
+      taskId: task.id,
+      agentId: task.assignee.id,
+      openclawAgentId: task.assignee.sourceKey,
+      responseId: dispatch.responseId
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "OpenClaw task dispatch failed.";
+    await db.authEvent.create({
+      data: {
+        workspaceId: task.project.workspaceId,
+        membershipId: task.assignee.id,
+        actorType: "owner",
+        actorLabel: getOwnerAuthConfig().email,
+        eventType: "openclaw.task_dispatch_failed",
+        detail: message
+      }
+    });
+    return { error: "OPENCLAW_DISPATCH_FAILED", message } as const;
+  }
 }
 
 export async function updateCommentInDb(taskId: string, commentId: string, body: string) {

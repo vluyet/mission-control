@@ -103,3 +103,43 @@ export async function fetchOpenClawAgents(input: { baseUrl: string; gatewayToken
 
   return list.map(normalizeAgent).filter((agent): agent is OpenClawAgentDescriptor => Boolean(agent));
 }
+
+
+export async function dispatchOpenClawTaskRun(input: {
+  baseUrl: string;
+  gatewayToken: string;
+  agentId: string;
+  taskId: string;
+  prompt: string;
+}) {
+  const baseUrl = normalizeBaseUrl(input.baseUrl);
+  const response = await fetch(`${baseUrl}/v1/responses`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${input.gatewayToken}`
+    },
+    body: JSON.stringify({
+      model: `agent:${input.agentId}`,
+      user: `mission-control-task:${input.taskId}`,
+      input: input.prompt
+    }),
+    cache: "no-store"
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        id?: string;
+        error?: { message?: string };
+      }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || `OpenClaw dispatch failed with status ${response.status}.`);
+  }
+
+  return {
+    responseId: payload?.id ?? null,
+    raw: payload
+  };
+}
