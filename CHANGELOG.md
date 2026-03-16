@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.9 - 2026-03-16
+
+Production update flow hardening.
+
+- Hardened `scripts/update.sh` so it resolves the target release, restarts the production stack, and verifies `/api/health`
+- Exposed deployed version, commit, and timestamp from `/api/health` for easier verification after upgrades
+- Updated deployment documentation for the new update flow and current OpenClaw-enabled MVP state
+
 ## v0.1.8 - 2026-03-16
 
 Reintroduced OpenClaw integration for MVP task execution.

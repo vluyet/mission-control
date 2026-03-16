@@ -4,7 +4,7 @@ Mission Control is a task operations app for human teammates and AI agents worki
 
 ## Release status
 
-Current version: `v0.1.7`
+Current version: `v0.1.8`
 
 This release is launch-ready with:
 
@@ -36,7 +36,7 @@ docker compose exec app npm run db:reset
 Fresh machine install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.7/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.8/scripts/bootstrap-public.sh | bash
 ```
 
 Optional overrides:
@@ -46,7 +46,7 @@ MC_INSTALL_DIR=/opt/mission-control \
 MC_OWNER_EMAIL=owner@example.com \
 MC_OWNER_PASSWORD='change-me-now' \
 MC_APP_PORT=3000 \
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.7/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.8/scripts/bootstrap-public.sh | bash
 ```
 
 ## Production install
@@ -56,7 +56,7 @@ Use the production compose file plus the install script.
 From a cloned repo:
 
 ```bash
-./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.7
+./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.8
 ```
 
 Optional environment overrides:
@@ -80,14 +80,22 @@ The install script will:
 Run this from the installed repo directory:
 
 ```bash
-./scripts/update.sh --version latest
+./scripts/update.sh
 ```
 
 Or pin to a specific release:
 
 ```bash
-./scripts/update.sh --version v0.1.7
+./scripts/update.sh --version v0.1.8
 ```
+
+The update script will:
+
+- fetch tags and resolve the target version
+- check out the requested release (or latest tag)
+- rebuild and restart the production Docker stack
+- rely on the app container startup to run Prisma migrations and bootstrap safely
+- wait for `/api/health` and fail loudly with recent logs if the app does not come back
 
 ## Deployment model
 
@@ -99,13 +107,11 @@ Production uses:
 
 Health endpoint:
 
-- `/api/health`
+- `/api/health` (returns status, deployed version, commit, and timestamp)
 
 ## External agent integration
 
-Mission Control does not currently ship a live external agent registry binding.
-
-The previous OpenClaw-specific discovery path was removed before launch because it exposed configuration and linkage logic too directly inside the product. A replacement integration will be rebuilt later from a new specification with stricter security and operational boundaries.
+Mission Control now ships an MVP OpenClaw integration for workspace linking, agent sync, and task dispatch through the OpenClaw gateway API.
 
 ## API docs
 
