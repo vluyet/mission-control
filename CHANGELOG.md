@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.8 - 2026-03-16
+
+Reintroduced OpenClaw integration for MVP task execution.
+
+- Added workspace-level OpenClaw gateway linking with owner-only configuration and stored sync state
+- Added authenticated OpenClaw agent discovery via the gateway API and synced discovered agents into workspace members
+- Added task dispatch to OpenClaw through the linked gateway plus a task-level dispatch control in the UI
+- Documented Mission Control reporting conventions for OpenClaw runs using task, context, execution, comments, and status APIs
+- Added regression coverage for OpenClaw linking, sync, and dispatch flows
+
 ## v0.1.7 - 2026-03-16
 
 Removed the OpenClaw-specific integration before launch.
