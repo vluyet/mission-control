@@ -94,11 +94,45 @@ export async function fetchOpenClawAgents(input: { baseUrl: string; gatewayToken
   }
 
   const raw = payload?.result;
-  const list = Array.isArray(raw)
-    ? raw
-    : raw && typeof raw === "object" && Array.isArray((raw as { agents?: unknown[] }).agents)
-      ? (raw as { agents: unknown[] }).agents
-      : [];
+
+  function extractAgentList(value: unknown): unknown[] {
+    if (Array.isArray(value)) {
+      return value;
+    }
+
+    if (!value || typeof value !== "object") {
+      return [];
+    }
+
+    const record = value as Record<string, unknown>;
+
+    if (Array.isArray(record.agents)) {
+      return record.agents;
+    }
+
+    if (record.details && typeof record.details === "object" && Array.isArray((record.details as { agents?: unknown[] }).agents)) {
+      return (record.details as { agents: unknown[] }).agents;
+    }
+
+    if (Array.isArray(record.content)) {
+      for (const entry of record.content) {
+        if (entry && typeof entry === "object" && typeof (entry as { text?: unknown }).text === "string") {
+          try {
+            const parsed = JSON.parse((entry as { text: string }).text) as { agents?: unknown[] };
+            if (Array.isArray(parsed.agents)) {
+              return parsed.agents;
+            }
+          } catch {
+            // ignore text blocks that are not JSON
+          }
+        }
+      }
+    }
+
+    return [];
+  }
+
+  const list = extractAgentList(raw);
 
   return list.map(normalizeAgent).filter((agent): agent is OpenClawAgentDescriptor => Boolean(agent));
 }
