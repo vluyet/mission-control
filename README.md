@@ -115,7 +115,7 @@ Mission Control now ships an MVP OpenClaw integration for workspace linking, age
 
 For Docker production installs, the bundled `openclaw-connector` service exposes a stable in-stack endpoint for the app. Configure Mission Control OpenClaw linkage with:
 
-- Base URL: `http://openclaw-connector:18790`
+- Base URL: `http://host.docker.internal:18790`
 - Token: the OpenClaw `gateway.auth.token`
 
 
