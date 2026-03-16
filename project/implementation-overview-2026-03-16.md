@@ -10,7 +10,7 @@ The product is a Docker-run Next.js + Prisma + Postgres task-management SaaS ske
 
 - owner authentication
 - scoped agent bearer credentials
-- workspace-level OpenClaw instance registration and agent sync
+- no live external agent registry binding at launch
 - multiple workspaces
 - projects inside workspaces
 - tasks inside projects
@@ -68,9 +68,6 @@ It is no longer a pure mock. It has real DB-backed reads and writes for the core
 - `GET /api/workspaces/active`
 - `GET /api/workspaces/current`
 - `PATCH /api/workspaces/current`
-- `GET /api/workspaces/current/openclaw`
-- `PATCH /api/workspaces/current/openclaw`
-- `POST /api/workspaces/current/openclaw/sync`
 - `GET /api/workspaces/default/context`
 
 ### Projects
@@ -122,7 +119,6 @@ Prisma schema currently includes:
 - `User`
 - `Workspace`
 - `Membership`
-- `WorkspaceOpenClawIntegration`
 - `Project`
 - `ProjectMembership`
 - `Task`
@@ -137,7 +133,6 @@ The schema supports:
 
 - workspace visibility
 - member kind and workspace role
-- externally sourced agent mappings for OpenClaw-discovered members
 - agent capability labels and permission arrays
 - project visibility, status, and membership roles
 - parent/child task hierarchy
@@ -153,7 +148,6 @@ The schema supports:
 - task activity logging for core writes
 - task-level attachments on local Docker storage
 - workspace-level shared files on local Docker storage
-- OpenClaw agent discovery through registered config-file or CLI integrations
 - agent workflow status transitions
 - project membership assignment rules
 - owner auth and protected routes
@@ -167,7 +161,7 @@ The schema supports:
 - preview support is basic
 - board drag-and-drop is optimistic and simple
 - workspace switching is preference-based, not URL-scoped
-- OpenClaw discovery is launch-safe and explicit, not yet a full native Gateway client
+- external registry binding was removed before launch due to security concerns and will be replaced by a new specification
 
 ## Where the mapping is incomplete today
 
@@ -184,7 +178,7 @@ Missing:
 - richer workspace asset management beyond basic upload/list/preview/download
 - workspace-level file lifecycle controls
 - stronger workspace-level access rules for shared assets
-- scheduled OpenClaw sync and full Gateway device-auth support
+- secure external registry binding, once new specifications are defined
 
 Workspace context is now backed by shared workspace documents, but the library is still lightweight rather than fully governed.
 

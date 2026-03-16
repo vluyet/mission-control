@@ -7,7 +7,6 @@ import type { AttachmentRecord } from "@/lib/demo-data";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 import { WorkspaceAssetsPanel } from "@/components/product/workspace-assets-panel";
 import { WorkspaceAgentCredentialsPanel } from "@/components/product/workspace-agent-credentials-panel";
-import { WorkspaceOpenClawPanel } from "@/components/product/workspace-openclaw-panel";
 
 type WorkspaceManageValues = {
   name: string;
@@ -23,19 +22,6 @@ type WorkspaceManageValues = {
   workspaceAssetCount: number;
   assets: AttachmentRecord[];
   agents: { id: string; name: string; enabled: boolean; capabilities?: string[]; sourceSystem?: string }[];
-  openclawIntegration: {
-    id: string;
-    label: string;
-    dashboardUrl: string;
-    enabled: boolean;
-    discoveryMode: "cli" | "config_file";
-    executable: string;
-    arguments: string[];
-    configPath: string;
-    lastSyncedAt: string;
-    lastSyncStatus: string;
-    lastSyncMessage: string;
-  } | null;
   agentCredentials: {
     id: string;
     name: string;
@@ -161,7 +147,6 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
         </Panel>
 
         <WorkspaceAssetsPanel assets={workspace.assets} />
-        <WorkspaceOpenClawPanel integration={workspace.openclawIntegration} agents={workspace.agents} />
       </div>
 
       <div className="space-y-5">

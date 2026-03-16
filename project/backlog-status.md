@@ -131,7 +131,6 @@ This file reflects the current codebase, not just previous delivery notes.
 - `Authenticated shell navigation cleanup`
 - `Workspace asset library and workspace-level files`
 - `Actor-attributed agent mutations`
-- `OpenClaw instance registration and agent discovery`
 
 ### Partially implemented
 
@@ -145,10 +144,9 @@ This file reflects the current codebase, not just previous delivery notes.
 - `Actor-scoped project visibility enforcement`
 - `Collapsed subtask groups in list and board views`
 - `Saved view sharing and default workspace views`
-- `Full OpenClaw Gateway device-auth integration`
-- `Scheduled OpenClaw sync and drift alerts`
+- `Secure external agent registry integration replacement`
 
 ## Known mapping gaps
 
-- OpenClaw launch-safe discovery is implemented, but direct Gateway device-auth integration is still a follow-up.
+- External agent registry binding is intentionally not implemented at launch. The previous OpenClaw-specific integration was removed and replaced with a spec-pending follow-up.
 - The product exposes many features, but some original backlog items remain partial around actor-scoped visibility, UI permission hiding, and component test depth.

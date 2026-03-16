@@ -4,7 +4,7 @@ Mission Control is a task operations app for human teammates and AI agents worki
 
 ## Release status
 
-Current version: `v0.1.6`
+Current version: `v0.1.7`
 
 This release is launch-ready with:
 
@@ -13,7 +13,6 @@ This release is launch-ready with:
 - projects, tasks, comments, activity, watchers, attachments, and execution logs
 - workspace administration and shared workspace files
 - scoped agent API credentials
-- OpenClaw instance registration and launch-safe agent discovery
 
 ## Local development
 
@@ -37,7 +36,7 @@ docker compose exec app npm run db:reset
 Fresh machine install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.6/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.7/scripts/bootstrap-public.sh | bash
 ```
 
 Optional overrides:
@@ -47,7 +46,7 @@ MC_INSTALL_DIR=/opt/mission-control \
 MC_OWNER_EMAIL=owner@example.com \
 MC_OWNER_PASSWORD='change-me-now' \
 MC_APP_PORT=3000 \
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.6/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.7/scripts/bootstrap-public.sh | bash
 ```
 
 ## Production install
@@ -57,7 +56,7 @@ Use the production compose file plus the install script.
 From a cloned repo:
 
 ```bash
-./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.6
+./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.7
 ```
 
 Optional environment overrides:
@@ -87,7 +86,7 @@ Run this from the installed repo directory:
 Or pin to a specific release:
 
 ```bash
-./scripts/update.sh --version v0.1.6
+./scripts/update.sh --version v0.1.7
 ```
 
 ## Deployment model
@@ -102,20 +101,11 @@ Health endpoint:
 
 - `/api/health`
 
-## OpenClaw integration
+## External agent integration
 
-Mission Control can register an OpenClaw instance in `Manage Workspace` and discover agents into workspace members.
+Mission Control does not currently ship a live external agent registry binding.
 
-The current launch-safe discovery modes are:
-
-- CLI execution, typically `openclaw agents list --json`
-- mounted `openclaw.json` parsing through `agents.list`
-
-This intentionally avoids shipping a partial Gateway device-auth client in the first release.
-
-Operational binding notes:
-
-- [project/openclaw-agent-binding.md](/Users/vluyet/Sites/mission-control/project/openclaw-agent-binding.md)
+The previous OpenClaw-specific discovery path was removed before launch because it exposed configuration and linkage logic too directly inside the product. A replacement integration will be rebuilt later from a new specification with stricter security and operational boundaries.
 
 ## API docs
 
@@ -128,3 +118,4 @@ Operational binding notes:
 - [CHANGELOG.md](/Users/vluyet/Sites/mission-control/CHANGELOG.md)
 - [project/release-v0.1.5.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.5.md)
 - [project/release-v0.1.6.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.6.md)
+- [project/release-v0.1.7.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.7.md)

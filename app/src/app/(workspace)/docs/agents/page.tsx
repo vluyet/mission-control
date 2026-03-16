@@ -8,7 +8,7 @@ export default function AgentDocsPage() {
       <PageHeader
         eyebrow="Agent docs"
         title="Documentation for future autonomous agent usage."
-        description="Tasks inherit workspace and project context, autonomous clients authenticate through scoped bearer credentials, and OpenClaw-discovered agents can be synced into the workspace."
+        description="Tasks inherit workspace and project context, and autonomous clients authenticate through scoped bearer credentials."
         actions={
           <>
             <AppButton tone="secondary" href="/api/docs/agents">
@@ -67,14 +67,6 @@ export default function AgentDocsPage() {
             {
               title: "PATCH /api/agent-credentials/:credentialId",
               body: "Enables or revokes an existing agent credential without changing the underlying member record."
-            },
-            {
-              title: "PATCH /api/workspaces/current/openclaw",
-              body: "Registers OpenClaw discovery settings using either CLI discovery or a mounted openclaw.json source. The dashboard URL is stored as operator metadata only."
-            },
-            {
-              title: "POST /api/workspaces/current/openclaw/sync",
-              body: "Discovers OpenClaw agents and syncs them into workspace agent members with source attribution."
             },
             {
               title: "GET /api/search?q=:query",
@@ -192,14 +184,6 @@ export default function AgentDocsPage() {
             {
               title: "Create agent credential",
               code: `POST /api/workspaces/current/agent-credentials\n{\n  "membershipId": "member_builder",\n  "name": "Builder runner",\n  "scopes": ["tasks.read", "tasks.write", "comments.write"]\n}`
-            },
-            {
-              title: "Register OpenClaw integration",
-              code: `PATCH /api/workspaces/current/openclaw\n{\n  "label": "Primary OpenClaw",\n  "dashboardUrl": "https://control.openclaw.local",\n  "enabled": true,\n  "discoveryMode": "config_file",\n  "configPath": "/workspace/openclaw/openclaw.json"\n}`
-            },
-            {
-              title: "Sync OpenClaw agents",
-              code: `POST /api/workspaces/current/openclaw/sync`
             },
             {
               title: "Update agent permissions",

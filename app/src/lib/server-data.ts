@@ -1,6 +1,5 @@
 import { db } from "@/lib/db";
 import { resolveTaskContext } from "@/lib/context-resolver";
-import { discoverOpenClawAgents } from "@/lib/openclaw-integration";
 import {
   readAttachmentFile,
   readWorkspaceAssetFile,
@@ -254,8 +253,6 @@ function isAllowedAgentTransition(from: string, to: string) {
 function isAllowedHumanTransition(from: string, to: string) {
   return getHumanTransitionOptions(from).some((option) => option.value === to);
 }
-
-const DEFAULT_AGENT_PERMISSIONS = ["comment", "change_status", "log_execution"];
 
 function agentHasPermission(member: { kind: string; agentPermissions: string[] } | null | undefined, permission: string) {
   return member?.kind === "agent" ? member.agentPermissions.includes(permission) : true;
@@ -612,34 +609,6 @@ function mapAuthEvent(event: {
     eventType: event.eventType,
     detail: event.detail,
     time: formatRelativeTime(event.createdAt)
-  };
-}
-
-function mapOpenClawIntegration(integration: {
-  id: string;
-  label: string | null;
-  dashboardUrl: string | null;
-  enabled: boolean;
-  discoveryMode: "cli" | "config_file";
-  executable: string | null;
-  arguments: string[];
-  configPath: string | null;
-  lastSyncedAt: Date | null;
-  lastSyncStatus: string | null;
-  lastSyncMessage: string | null;
-}) {
-  return {
-    id: integration.id,
-    label: integration.label ?? "",
-    dashboardUrl: integration.dashboardUrl ?? "",
-    enabled: integration.enabled,
-    discoveryMode: integration.discoveryMode,
-    executable: integration.executable ?? "",
-    arguments: integration.arguments,
-    configPath: integration.configPath ?? "",
-    lastSyncedAt: integration.lastSyncedAt ? formatRelativeTime(integration.lastSyncedAt) : "Never",
-    lastSyncStatus: integration.lastSyncStatus ?? "idle",
-    lastSyncMessage: integration.lastSyncMessage ?? ""
   };
 }
 
@@ -1575,8 +1544,7 @@ export async function getWorkspaceManagementDataForUi() {
               }
             }
           }
-        },
-        openclawIntegration: true
+        }
       }
     }),
     db.attachment.count({
@@ -1663,7 +1631,6 @@ export async function getWorkspaceManagementDataForUi() {
           capabilities: member.capabilities,
           sourceSystem: member.sourceSystem ?? undefined
         })),
-      openclawIntegration: workspace.openclawIntegration ? mapOpenClawIntegration(workspace.openclawIntegration) : null,
       agentCredentials: credentials.map(mapAgentCredential),
       authEvents: authEvents.map(mapAuthEvent)
     }
@@ -2028,226 +1995,6 @@ export async function updateActiveWorkspaceInDb(payload: {
     visibility: workspace.visibility,
     context: workspace.context
   };
-}
-
-export async function updateWorkspaceOpenClawIntegrationInDb(payload: {
-  label?: string;
-  dashboardUrl?: string;
-  enabled?: boolean;
-  discoveryMode?: "cli" | "config_file";
-  executable?: string;
-  arguments?: string[];
-  configPath?: string;
-}) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
-
-  if (!activeWorkspace) {
-    return null;
-  }
-
-  const integration = await db.workspaceOpenClawIntegration.upsert({
-    where: {
-      workspaceId: activeWorkspace.id
-    },
-    update: {
-      label: payload.label?.trim() || null,
-      dashboardUrl: payload.dashboardUrl?.trim() || null,
-      enabled: payload.enabled ?? false,
-      discoveryMode: payload.discoveryMode ?? "cli",
-      executable: payload.executable?.trim() || null,
-      arguments: (payload.arguments ?? []).map((value) => value.trim()).filter(Boolean),
-      configPath: payload.configPath?.trim() || null
-    },
-    create: {
-      workspaceId: activeWorkspace.id,
-      label: payload.label?.trim() || null,
-      dashboardUrl: payload.dashboardUrl?.trim() || null,
-      enabled: payload.enabled ?? false,
-      discoveryMode: payload.discoveryMode ?? "cli",
-      executable: payload.executable?.trim() || null,
-      arguments: (payload.arguments ?? []).map((value) => value.trim()).filter(Boolean),
-      configPath: payload.configPath?.trim() || null
-    }
-  });
-
-  await db.authEvent.create({
-    data: {
-      workspaceId: activeWorkspace.id,
-      actorType: "owner",
-      actorLabel: getOwnerAuthConfig().email,
-      eventType: "openclaw.integration_updated",
-      detail: `Updated OpenClaw integration settings for ${activeWorkspace.name}.`
-    }
-  });
-
-  return mapOpenClawIntegration(integration);
-}
-
-export async function syncWorkspaceOpenClawAgentsInDb() {
-  const activeWorkspace = await getActiveWorkspaceRecord();
-
-  if (!activeWorkspace) {
-    return null;
-  }
-
-  const integration = await db.workspaceOpenClawIntegration.findUnique({
-    where: {
-      workspaceId: activeWorkspace.id
-    }
-  });
-
-  if (!integration) {
-    return {
-      error: "OPENCLAW_NOT_CONFIGURED"
-    } as const;
-  }
-
-  if (!integration.enabled) {
-    return {
-      error: "OPENCLAW_DISABLED"
-    } as const;
-  }
-
-  try {
-    const discovered = await discoverOpenClawAgents({
-      enabled: integration.enabled,
-      label: integration.label,
-      dashboardUrl: integration.dashboardUrl,
-      discoveryMode: integration.discoveryMode,
-      executable: integration.executable,
-      arguments: integration.arguments,
-      configPath: integration.configPath
-    });
-
-    const existing = await db.membership.findMany({
-      where: {
-        workspaceId: activeWorkspace.id,
-        kind: "agent",
-        sourceSystem: "openclaw"
-      }
-    });
-
-    const existingBySourceKey = new Map(existing.map((member) => [member.sourceKey ?? "", member]));
-    const seenKeys = new Set<string>();
-    let created = 0;
-    let updated = 0;
-    let disabled = 0;
-
-    for (const agent of discovered) {
-      seenKeys.add(agent.sourceKey);
-      const current = existingBySourceKey.get(agent.sourceKey);
-
-      if (current) {
-        await db.membership.update({
-          where: { id: current.id },
-          data: {
-            name: agent.name,
-            roleLabel: "OpenClaw agent",
-            capabilities: agent.capabilities,
-            enabled: true,
-            sourceSystem: "openclaw",
-            sourceKey: agent.sourceKey
-          }
-        });
-        updated += 1;
-        continue;
-      }
-
-      await db.membership.create({
-        data: {
-          workspaceId: activeWorkspace.id,
-          name: agent.name,
-          kind: "agent",
-          roleLabel: "OpenClaw agent",
-          capabilities: agent.capabilities,
-          agentPermissions: DEFAULT_AGENT_PERMISSIONS,
-          enabled: true,
-          sourceSystem: "openclaw",
-          sourceKey: agent.sourceKey
-        }
-      });
-      created += 1;
-    }
-
-    const stale = existing.filter((member) => member.sourceKey && !seenKeys.has(member.sourceKey));
-
-    if (stale.length) {
-      await db.membership.updateMany({
-        where: {
-          id: {
-            in: stale.map((member) => member.id)
-          }
-        },
-        data: {
-          enabled: false
-        }
-      });
-      disabled = stale.length;
-    }
-
-    const lastSyncMessage =
-      discovered.length > 0
-        ? `Discovered ${discovered.length} OpenClaw agent${discovered.length === 1 ? "" : "s"}.`
-        : "No OpenClaw agents were discovered.";
-
-    const updatedIntegration = await db.workspaceOpenClawIntegration.update({
-      where: {
-        workspaceId: activeWorkspace.id
-      },
-      data: {
-        lastSyncedAt: new Date(),
-        lastSyncStatus: "success",
-        lastSyncMessage
-      }
-    });
-
-    await db.authEvent.create({
-      data: {
-        workspaceId: activeWorkspace.id,
-        actorType: "owner",
-        actorLabel: getOwnerAuthConfig().email,
-        eventType: "openclaw.sync_succeeded",
-        detail: `${lastSyncMessage} Created ${created}, updated ${updated}, disabled ${disabled}.`
-      }
-    });
-
-    return {
-      integration: mapOpenClawIntegration(updatedIntegration),
-      discoveredAgents: discovered,
-      created,
-      updated,
-      disabled
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "OpenClaw sync failed.";
-
-    const updatedIntegration = await db.workspaceOpenClawIntegration.update({
-      where: {
-        workspaceId: activeWorkspace.id
-      },
-      data: {
-        lastSyncedAt: new Date(),
-        lastSyncStatus: "failed",
-        lastSyncMessage: message
-      }
-    });
-
-    await db.authEvent.create({
-      data: {
-        workspaceId: activeWorkspace.id,
-        actorType: "owner",
-        actorLabel: getOwnerAuthConfig().email,
-        eventType: "openclaw.sync_failed",
-        detail: message
-      }
-    });
-
-    return {
-      error: "OPENCLAW_SYNC_FAILED",
-      integration: mapOpenClawIntegration(updatedIntegration),
-      message
-    } as const;
-  }
 }
 
 export async function setProjectMembersInDb(

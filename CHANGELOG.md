@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.7 - 2026-03-16
+
+Removed the OpenClaw-specific integration before launch.
+
+- Removed the workspace OpenClaw configuration panel and sync endpoints
+- Removed stored OpenClaw integration data from the schema
+- Replaced the old integration trail with a new spec-pending external agent registry follow-up
+
 ## v0.1.6 - 2026-03-16
 
 OpenClaw binding documentation and operator UX follow-up.
@@ -58,5 +66,4 @@ Initial launch-ready release.
 - Owner authentication and scoped agent API credentials
 - Agent-ready API contracts and documentation
 - Workspace asset library and workspace administration
-- OpenClaw instance registration and launch-safe agent discovery
 - Docker production compose, versioned install script, and update script

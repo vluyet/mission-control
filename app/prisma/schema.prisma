@@ -12,11 +12,6 @@ enum WorkspaceVisibility {
   shared
 }
 
-enum OpenClawDiscoveryMode {
-  cli
-  config_file
-}
-
 enum MemberKind {
   human
   agent
@@ -93,7 +88,6 @@ model Workspace {
   memberships Membership[]
   projects    Project[]
   assets      WorkspaceAsset[]
-  openclawIntegration WorkspaceOpenClawIntegration?
   authEvents  AuthEvent[]
 }
 
@@ -249,26 +243,6 @@ model AgentCredential {
   membership   Membership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
   @@index([membershipId, createdAt])
-}
-
-model WorkspaceOpenClawIntegration {
-  id             String                @id @default(cuid())
-  workspaceId    String                @unique
-  label          String?
-  dashboardUrl   String?
-  enabled        Boolean               @default(false)
-  discoveryMode  OpenClawDiscoveryMode @default(cli)
-  executable     String?
-  arguments      String[]
-  configPath     String?
-  lastSyncedAt   DateTime?
-  lastSyncStatus String?
-  lastSyncMessage String?
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  workspace      Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, updatedAt])
 }
 
 model AuthEvent {

@@ -80,21 +80,6 @@ export function getAgentDocsPayload() {
       },
       {
         method: "GET",
-        path: "/api/workspaces/current/openclaw",
-        purpose: "Read the registered OpenClaw instance configuration and the currently synced OpenClaw agents."
-      },
-      {
-        method: "PATCH",
-        path: "/api/workspaces/current/openclaw",
-        purpose: "Register or update the OpenClaw discovery settings for the active workspace."
-      },
-      {
-        method: "POST",
-        path: "/api/workspaces/current/openclaw/sync",
-        purpose: "Run OpenClaw agent discovery and sync the discovered agents into workspace members."
-      },
-      {
-        method: "GET",
         path: "/api/search?q=:query",
         purpose: "Search tasks and projects inside the active workspace."
       },
@@ -281,25 +266,6 @@ export function getAgentContractPayload() {
           "Workspace roles can be updated for any member.",
           "Only agent members can be enabled, disabled, or permission-scoped through this endpoint.",
           "Supported permissions are comment, change_status, and log_execution."
-        ]
-      },
-      openclaw_integration: {
-        method: "PATCH",
-        path: "/api/workspaces/current/openclaw",
-        request_shape: ["label?", "dashboardUrl?", "enabled", "discoveryMode", "executable?", "arguments[]?", "configPath?"],
-        notes: [
-          "Launch-safe discovery currently supports either argv-based CLI execution or parsing a mounted openclaw.json file.",
-          "The underlying OpenClaw source of truth is agents.list.",
-          "This avoids depending on Gateway device-auth in the first launch integration."
-        ]
-      },
-      openclaw_sync: {
-        method: "POST",
-        path: "/api/workspaces/current/openclaw/sync",
-        response_shape: ["discoveredAgents[]", "created", "updated", "disabled", "integration.lastSyncedAt"],
-        notes: [
-          "Discovered agents are synced into workspace members with sourceSystem=openclaw.",
-          "Missing OpenClaw-sourced agents are disabled instead of deleted."
         ]
       },
       agent_credentials: {

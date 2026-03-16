@@ -2,6 +2,12 @@
 
 ## 2026-03-16
 
+### Remove OpenClaw-specific integration before launch
+
+- Removed the OpenClaw-specific workspace integration, sync APIs, UI panel, runtime logic, and dedicated test coverage.
+- Removed schema support for stored OpenClaw linkage and added a cleanup migration.
+- Replaced the old OpenClaw backlog trail with a single spec-pending item for a future secure external agent registry integration.
+
 ### Release batch: install hardening follow-up
 
 - Added a production-safe database bootstrap script so first launch always creates the owner-linked empty workspace after migrations.

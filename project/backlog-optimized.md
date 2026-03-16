@@ -30,16 +30,16 @@ Priority: P2
 Size: S
 Status: `done`
 
-4. `OpenClaw instance registration and agent discovery`
+4. `Secure external agent registry integration replacement`
 Priority: P1
 Size: M
-Status: `done`
+Status: `queued`
 
 Outcome:
 - `Manage Workspace` becomes a real admin hub
 - workspace context is backed by shared files, not just text
 - workspace-level operational documents become visible to both humans and future agents
-- OpenClaw-managed agents can be discovered into workspace members without depending on Gateway device-auth for launch
+- external agent integration remains explicitly out of scope until a new secure specification is defined
 
 ## Batch 2 — Real actor identity and access
 

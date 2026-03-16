@@ -237,46 +237,13 @@ Notes:
 - workspace files are still only represented indirectly through task attachments
 - future work should add upload, listing, and access rules for workspace-scoped assets
 
-23. `Full OpenClaw Gateway device-auth integration`
+23. `Secure external agent registry integration replacement`
 Priority: P1
 Size: L
 
-As a workspace owner, I want Mission Control to connect directly to a remote OpenClaw Gateway so agent discovery does not rely on mounted config files or CLI wrappers.
+As a workspace owner, I want Mission Control to connect to an external agent system through a new security-reviewed integration spec so discovery does not rely on exposed config files, mounted secrets, or product-level linkage shortcuts.
 
 Notes:
-- launch-safe discovery is currently implemented through `openclaw.json` parsing or argv-based CLI execution
-- official Gateway protocol requires device identity plus signed challenge handling
-- future work should implement the protocol cleanly rather than approximating browser behavior
-
-24. `Scheduled OpenClaw sync and drift alerts`
-Priority: P2
-Size: M
-
-As a workspace owner, I want OpenClaw agent sync to run on a schedule and surface drift warnings so discovered agents stay aligned without relying on manual refreshes.
-
-Notes:
-- current sync is owner-triggered from `Manage Workspace`
-- future work should report stale syncs and failed discovery clearly
-- should stay compatible with both config-file and CLI discovery modes
-
-25. `JSON5-safe OpenClaw config parsing`
-Priority: P2
-Size: S
-
-As a workspace owner, I want Mission Control to safely parse real-world `openclaw.json` config files even when they use JSON5-style comments or trailing commas so config-file discovery matches OpenClaw behavior more closely.
-
-Notes:
-- current Mission Control config-file discovery uses standard JSON parsing
-- OpenClaw operators may keep comments or trailing commas in local config files
-- future work should avoid forcing operators to maintain a second sanitized copy unless they want to
-
-26. `OpenClaw integration diagnostics and mount validation`
-Priority: P2
-Size: S
-
-As a workspace owner, I want the OpenClaw panel to validate executable presence, config-path readability, and discovery-mode prerequisites before sync so setup errors are actionable instead of surfacing as raw process failures.
-
-Notes:
-- should detect cases like `spawn openclaw ENOENT` before a full sync attempt
-- should verify that config paths exist inside the app container, not just on the host
-- should stay lightweight and operator-oriented rather than becoming a full infrastructure console
+- replaces the removed OpenClaw-specific integration
+- should start from a fresh specification, not a reintroduction of the old approach
+- must define trust boundaries, credential model, sync model, and operator UX explicitly
