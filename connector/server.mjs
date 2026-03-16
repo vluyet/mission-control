@@ -1,6 +1,6 @@
 import http from 'node:http';
 
-const port = Number(process.env.PORT || 18790);
+const port = Number(process.env.PORT || 18890);
 const upstreamBaseUrl = String(process.env.OPENCLAW_BASE_URL || 'http://host.docker.internal:18789').replace(/\/+$/, '');
 const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || '';
 

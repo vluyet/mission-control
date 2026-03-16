@@ -5,7 +5,7 @@
 Docker-native OpenClaw proxying for Mission Control.
 
 - Added an `openclaw-connector` service to the production compose stack using host networking so it can reach a loopback-bound OpenClaw gateway so Mission Control can target OpenClaw through an in-stack hostname
-- Updated OpenClaw workspace configuration guidance to prefer `http://host.docker.internal:18790` in Docker deployments
+- Updated OpenClaw workspace configuration guidance to prefer `http://host.docker.internal:18890` in Docker deployments
 - Documented the Docker/OpenClaw integration path in the README
 
 ## v0.1.9 - 2026-03-16
