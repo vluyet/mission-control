@@ -89,6 +89,25 @@ model Workspace {
   projects    Project[]
   assets      WorkspaceAsset[]
   authEvents  AuthEvent[]
+  openclawIntegration WorkspaceOpenClawIntegration?
+}
+
+
+model WorkspaceOpenClawIntegration {
+  id             String    @id @default(cuid())
+  workspaceId     String    @unique
+  label          String?
+  baseUrl        String
+  gatewayToken   String
+  enabled        Boolean   @default(true)
+  lastSyncAt     DateTime?
+  lastSyncStatus String?
+  lastSyncError  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, updatedAt])
 }
 
 model Membership {

@@ -65,6 +65,21 @@ export function getAgentDocsPayload() {
       },
       {
         method: "GET",
+        path: "/api/workspaces/current/openclaw",
+        purpose: "Read the active workspace OpenClaw gateway link and sync state."
+      },
+      {
+        method: "PATCH",
+        path: "/api/workspaces/current/openclaw",
+        purpose: "Create or update the OpenClaw gateway link for the active workspace."
+      },
+      {
+        method: "POST",
+        path: "/api/workspaces/current/openclaw/sync",
+        purpose: "Discover OpenClaw agents over the gateway API and sync them into workspace members."
+      },
+      {
+        method: "GET",
         path: "/api/workspaces/current/agent-credentials",
         purpose: "Owner-only listing of issued agent credentials and available scopes."
       },
@@ -202,7 +217,8 @@ export function getAgentContractPayload() {
         agent: "Scoped API access uses Authorization: Bearer <token>.",
         notes: [
           "Owner-only admin endpoints do not accept agent credentials.",
-          "Agent tokens are scope-limited and revocable."
+          "Agent tokens are scope-limited and revocable.",
+          "Workspace OpenClaw linking is owner-only and stores the gateway token server-side."
         ]
       },
       context_resolution: {
@@ -256,6 +272,24 @@ export function getAgentContractPayload() {
         notes: [
           "Project roles are lead, member, and observer.",
           "Observer project members can follow work but cannot own tasks."
+        ]
+      },
+      openclaw_link: {
+        method: "PATCH",
+        path: "/api/workspaces/current/openclaw",
+        request_shape: ["label?", "baseUrl", "gatewayToken?", "enabled?"],
+        notes: [
+          "The gateway token is only written by owner-authenticated clients and is never returned in full.",
+          "Leave gatewayToken blank on update to keep the existing saved token."
+        ]
+      },
+      openclaw_sync: {
+        method: "POST",
+        path: "/api/workspaces/current/openclaw/sync",
+        response_shape: ["integration", "agents[]"],
+        notes: [
+          "Mission Control calls the OpenClaw gateway tools invoke API with agents_list.",
+          "Synced agents are created or updated as workspace agent members with sourceSystem=openclaw."
         ]
       },
       member_update: {

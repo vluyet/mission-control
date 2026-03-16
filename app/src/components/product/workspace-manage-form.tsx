@@ -7,6 +7,7 @@ import type { AttachmentRecord } from "@/lib/demo-data";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 import { WorkspaceAssetsPanel } from "@/components/product/workspace-assets-panel";
 import { WorkspaceAgentCredentialsPanel } from "@/components/product/workspace-agent-credentials-panel";
+import { WorkspaceOpenClawPanel } from "@/components/product/workspace-openclaw-panel";
 
 type WorkspaceManageValues = {
   name: string;
@@ -39,6 +40,16 @@ type WorkspaceManageValues = {
     detail: string;
     time: string;
   }[];
+  openclaw: {
+    id: string;
+    label: string;
+    baseUrl: string;
+    enabled: boolean;
+    tokenConfigured: boolean;
+    lastSyncAt: string | null;
+    lastSyncStatus: string | null;
+    lastSyncError: string | null;
+  } | null;
 };
 
 export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageValues }) {
@@ -193,6 +204,8 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
             </Link>
           </div>
         </Panel>
+
+        <WorkspaceOpenClawPanel integration={workspace.openclaw} />
 
         <WorkspaceAgentCredentialsPanel
           agents={workspace.agents}

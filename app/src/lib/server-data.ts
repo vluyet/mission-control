@@ -23,6 +23,7 @@ import type {
   WorkspaceSummary
 } from "@/lib/demo-data";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
+import { fetchOpenClawAgents } from "@/lib/openclaw";
 
 function formatStatus(status: string): TaskRecord["status"] {
   return status === "in_progress"
@@ -1524,7 +1525,7 @@ export async function getWorkspaceManagementDataForUi() {
     return null;
   }
 
-  const [workspace, taskAttachmentsCount, workspaceAssetsCount, humanCount, agentCount, credentials, authEvents] = await Promise.all([
+  const [workspace, openclawIntegration, taskAttachmentsCount, workspaceAssetsCount, humanCount, agentCount, credentials, authEvents] = await Promise.all([
     db.workspace.findFirst({
       where: { id: activeWorkspace.id },
       include: {
@@ -1546,6 +1547,9 @@ export async function getWorkspaceManagementDataForUi() {
           }
         }
       }
+    }),
+    db.workspaceOpenClawIntegration.findUnique({
+      where: { workspaceId: activeWorkspace.id }
     }),
     db.attachment.count({
       where: {
@@ -1631,6 +1635,18 @@ export async function getWorkspaceManagementDataForUi() {
           capabilities: member.capabilities,
           sourceSystem: member.sourceSystem ?? undefined
         })),
+      openclaw: openclawIntegration
+        ? {
+            id: openclawIntegration.id,
+            label: openclawIntegration.label ?? "",
+            baseUrl: openclawIntegration.baseUrl,
+            enabled: openclawIntegration.enabled,
+            tokenConfigured: Boolean(openclawIntegration.gatewayToken),
+            lastSyncAt: openclawIntegration.lastSyncAt ? openclawIntegration.lastSyncAt.toISOString() : null,
+            lastSyncStatus: openclawIntegration.lastSyncStatus ?? null,
+            lastSyncError: openclawIntegration.lastSyncError ?? null
+          }
+        : null,
       agentCredentials: credentials.map(mapAgentCredential),
       authEvents: authEvents.map(mapAuthEvent)
     }
@@ -1995,6 +2011,216 @@ export async function updateActiveWorkspaceInDb(payload: {
     visibility: workspace.visibility,
     context: workspace.context
   };
+}
+
+
+export async function getActiveWorkspaceOpenClawIntegration() {
+  const activeWorkspace = await getActiveWorkspaceRecord();
+
+  if (!activeWorkspace) {
+    return null;
+  }
+
+  const integration = await db.workspaceOpenClawIntegration.findUnique({
+    where: { workspaceId: activeWorkspace.id }
+  });
+
+  if (!integration) {
+    return null;
+  }
+
+  return {
+    id: integration.id,
+    label: integration.label ?? "",
+    baseUrl: integration.baseUrl,
+    enabled: integration.enabled,
+    tokenConfigured: Boolean(integration.gatewayToken),
+    lastSyncAt: integration.lastSyncAt ? integration.lastSyncAt.toISOString() : null,
+    lastSyncStatus: integration.lastSyncStatus ?? null,
+    lastSyncError: integration.lastSyncError ?? null
+  };
+}
+
+export async function upsertActiveWorkspaceOpenClawIntegrationInDb(payload: {
+  label?: string;
+  baseUrl: string;
+  gatewayToken?: string;
+  enabled?: boolean;
+}) {
+  const activeWorkspace = await getActiveWorkspaceRecord();
+
+  if (!activeWorkspace) {
+    return null;
+  }
+
+  const existing = await db.workspaceOpenClawIntegration.findUnique({
+    where: { workspaceId: activeWorkspace.id }
+  });
+
+  const nextToken = payload.gatewayToken?.trim() || existing?.gatewayToken;
+
+  if (!nextToken) {
+    return { error: "GATEWAY_TOKEN_REQUIRED" } as const;
+  }
+
+  const integration = existing
+    ? await db.workspaceOpenClawIntegration.update({
+        where: { workspaceId: activeWorkspace.id },
+        data: {
+          label: payload.label?.trim() || null,
+          baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
+          gatewayToken: nextToken,
+          enabled: payload.enabled ?? existing.enabled,
+          lastSyncError: existing.lastSyncError
+        }
+      })
+    : await db.workspaceOpenClawIntegration.create({
+        data: {
+          workspaceId: activeWorkspace.id,
+          label: payload.label?.trim() || null,
+          baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
+          gatewayToken: nextToken,
+          enabled: payload.enabled ?? true
+        }
+      });
+
+  return {
+    id: integration.id,
+    label: integration.label ?? "",
+    baseUrl: integration.baseUrl,
+    enabled: integration.enabled,
+    tokenConfigured: Boolean(integration.gatewayToken),
+    lastSyncAt: integration.lastSyncAt ? integration.lastSyncAt.toISOString() : null,
+    lastSyncStatus: integration.lastSyncStatus ?? null,
+    lastSyncError: integration.lastSyncError ?? null
+  };
+}
+
+export async function syncActiveWorkspaceOpenClawAgentsInDb() {
+  const activeWorkspace = await getActiveWorkspaceRecord();
+
+  if (!activeWorkspace) {
+    return null;
+  }
+
+  const integration = await db.workspaceOpenClawIntegration.findUnique({
+    where: { workspaceId: activeWorkspace.id }
+  });
+
+  if (!integration || !integration.enabled) {
+    return { error: "OPENCLAW_NOT_CONFIGURED" } as const;
+  }
+
+  try {
+    const agents = await fetchOpenClawAgents({
+      baseUrl: integration.baseUrl,
+      gatewayToken: integration.gatewayToken
+    });
+
+    const existing = await db.membership.findMany({
+      where: {
+        workspaceId: activeWorkspace.id,
+        sourceSystem: "openclaw"
+      }
+    });
+
+    const seen = new Set<string>();
+
+    for (const agent of agents) {
+      seen.add(agent.id);
+      const matched = existing.find((member) => member.sourceKey === agent.id);
+
+      if (matched) {
+        await db.membership.update({
+          where: { id: matched.id },
+          data: {
+            name: agent.name,
+            capabilities: agent.capabilities,
+            enabled: true
+          }
+        });
+      } else {
+        await db.membership.create({
+          data: {
+            workspaceId: activeWorkspace.id,
+            name: agent.name,
+            kind: "agent",
+            sourceSystem: "openclaw",
+            sourceKey: agent.id,
+            capabilities: agent.capabilities,
+            enabled: true
+          }
+        });
+      }
+    }
+
+    for (const member of existing.filter((item) => item.sourceKey && !seen.has(item.sourceKey))) {
+      await db.membership.update({
+        where: { id: member.id },
+        data: { enabled: false }
+      });
+    }
+
+    const updatedIntegration = await db.workspaceOpenClawIntegration.update({
+      where: { workspaceId: activeWorkspace.id },
+      data: {
+        lastSyncAt: new Date(),
+        lastSyncStatus: "success",
+        lastSyncError: null
+      }
+    });
+
+    await db.authEvent.create({
+      data: {
+        workspaceId: activeWorkspace.id,
+        actorType: "owner",
+        actorLabel: getOwnerAuthConfig().email,
+        eventType: "openclaw.sync_succeeded",
+        detail: `Synced ${agents.length} OpenClaw agent${agents.length === 1 ? "" : "s"}`
+      }
+    });
+
+    return {
+      integration: {
+        id: updatedIntegration.id,
+        label: updatedIntegration.label ?? "",
+        baseUrl: updatedIntegration.baseUrl,
+        enabled: updatedIntegration.enabled,
+        tokenConfigured: true,
+        lastSyncAt: updatedIntegration.lastSyncAt ? updatedIntegration.lastSyncAt.toISOString() : null,
+        lastSyncStatus: updatedIntegration.lastSyncStatus ?? null,
+        lastSyncError: updatedIntegration.lastSyncError ?? null
+      },
+      agents
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "OpenClaw sync failed.";
+
+    const updatedIntegration = await db.workspaceOpenClawIntegration.update({
+      where: { workspaceId: activeWorkspace.id },
+      data: {
+        lastSyncAt: new Date(),
+        lastSyncStatus: "error",
+        lastSyncError: message
+      }
+    });
+
+    await db.authEvent.create({
+      data: {
+        workspaceId: activeWorkspace.id,
+        actorType: "owner",
+        actorLabel: getOwnerAuthConfig().email,
+        eventType: "openclaw.sync_failed",
+        detail: message
+      }
+    });
+
+    return {
+      error: "OPENCLAW_SYNC_FAILED",
+      message,
+      integration: updatedIntegration
+    } as const;
+  }
 }
 
 export async function setProjectMembersInDb(
