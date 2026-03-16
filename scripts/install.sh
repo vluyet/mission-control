@@ -27,6 +27,21 @@ require_command() {
   fi
 }
 
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local tmp_file
+
+  tmp_file="$(mktemp)"
+  awk -v key="$key" -v value="$value" '
+    BEGIN { updated = 0 }
+    index($0, key "=") == 1 { print key "=" value; updated = 1; next }
+    { print }
+    END { if (!updated) print key "=" value }
+  ' .env > "$tmp_file"
+  mv "$tmp_file" .env
+}
+
 port_in_use() {
   local port="$1"
 
@@ -52,6 +67,43 @@ pick_available_port() {
   done
 
   printf '%s\n' "$port"
+}
+
+start_stack() {
+  local port="$1"
+  local attempts=0
+  local output=""
+
+  while true; do
+    set_env_value APP_PORT "$port"
+
+    if output="$(docker compose -f docker-compose.prod.yml up -d --build 2>&1)"; then
+      printf '%s\n' "$output"
+      app_port="$port"
+      return 0
+    fi
+
+    if [[ "$output" != *"port is already allocated"* ]] && [[ "$output" != *"Bind for 0.0.0.0:${port} failed"* ]]; then
+      printf '%s\n' "$output" >&2
+      return 1
+    fi
+
+    if [ -n "${MC_APP_PORT:-}" ]; then
+      printf '%s\n' "$output" >&2
+      echo "Requested APP_PORT ${port} is already in use. Set MC_APP_PORT to a free port and rerun." >&2
+      return 1
+    fi
+
+    attempts=$((attempts + 1))
+    if [ "$attempts" -ge 10 ]; then
+      printf '%s\n' "$output" >&2
+      echo "Could not find a free app port after ${attempts} attempts." >&2
+      return 1
+    fi
+
+    port="$(pick_available_port "$((port + 1))")"
+    echo "Port conflict detected. Retrying with ${port}."
+  done
 }
 
 generate_secret() {
@@ -125,12 +177,7 @@ auth_secret="${MC_AUTH_SECRET:-$(generate_secret)}"
 postgres_password="${MC_POSTGRES_PASSWORD:-$(generate_secret)}"
 app_port="${MC_APP_PORT:-3000}"
 
-if [ -n "${MC_APP_PORT:-}" ]; then
-  if port_in_use "$app_port"; then
-    echo "Requested APP_PORT ${app_port} is already in use. Set MC_APP_PORT to a free port and rerun." >&2
-    exit 1
-  fi
-elif port_in_use "$app_port"; then
+if [ -z "${MC_APP_PORT:-}" ] && port_in_use "$app_port"; then
   next_port="$(pick_available_port "$((app_port + 1))")"
   echo "Port ${app_port} is already in use. Using ${next_port} instead."
   app_port="$next_port"
@@ -150,7 +197,7 @@ AUTH_SECRET=${auth_secret}
 EOF
 fi
 
-docker compose -f docker-compose.prod.yml up -d --build
+start_stack "$app_port"
 
 cat <<EOF
 

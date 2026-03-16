@@ -540,3 +540,9 @@
 - If `MC_APP_PORT` is not set and port `3000` is already taken, install now picks the next free port automatically.
 - If `MC_APP_PORT` is explicitly set and already in use, install fails early with a clear error instead of waiting for Docker to fail at startup.
 - Bumped the release version to `v0.1.2`.
+
+### Install-flow retry fix
+
+- Fixed the public and local installers so they no longer rely only on pre-checking host ports.
+- If Docker still reports `port is already allocated`, the installer now rewrites `APP_PORT` in `.env`, picks the next free port, and retries automatically.
+- This follow-up is released as `v0.1.3`.

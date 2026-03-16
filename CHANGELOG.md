@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.3 - 2026-03-16
+
+Installer retry follow-up.
+
+- Public and local installers now retry automatically if Docker reports a port bind conflict
+- `.env` is updated with the new chosen `APP_PORT` before the retry
+- Explicit `MC_APP_PORT` values still fail fast when occupied, with a clear message
+
 ## v0.1.2 - 2026-03-16
 
 Install-flow reliability follow-up.
