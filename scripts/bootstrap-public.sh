@@ -12,6 +12,7 @@ Environment overrides:
   MC_REPO_URL
   MC_INSTALL_DIR
   MC_VERSION
+  MC_COMPOSE_PROJECT_NAME
   MC_OWNER_EMAIL
   MC_OWNER_PASSWORD
   MC_AUTH_SECRET
@@ -205,6 +206,7 @@ owner_email="${MC_OWNER_EMAIL:-owner@example.com}"
 owner_password="${MC_OWNER_PASSWORD:-$(generate_secret)}"
 auth_secret="${MC_AUTH_SECRET:-$(generate_secret)}"
 postgres_password="${MC_POSTGRES_PASSWORD:-$(generate_secret)}"
+compose_project_name="${MC_COMPOSE_PROJECT_NAME:-missioncontrol}"
 app_port="${MC_APP_PORT:-3000}"
 
 if [ -z "${MC_APP_PORT:-}" ] && port_in_use "$app_port"; then
@@ -215,6 +217,7 @@ fi
 
 if [ ! -f .env ]; then
   cat > .env <<EOF
+COMPOSE_PROJECT_NAME=${compose_project_name}
 DATABASE_URL=postgresql://mission_control:${postgres_password}@db:5432/mission_control?schema=public
 POSTGRES_DB=mission_control
 POSTGRES_USER=mission_control

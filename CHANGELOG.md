@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.4 - 2026-03-16
+
+Production install hardening follow-up.
+
+- Fresh installs now write `COMPOSE_PROJECT_NAME=missioncontrol` into `.env` so they do not inherit stale `mission-control` Docker containers and volumes
+- Release startup now runs an idempotent database bootstrap after migrations so the owner and empty workspace exist on first launch
+- Updated install and release docs for the new public bootstrap version
+
 ## v0.1.3 - 2026-03-16
 
 Installer retry follow-up.

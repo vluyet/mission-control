@@ -2,6 +2,12 @@
 
 ## 2026-03-16
 
+### Release batch: install hardening follow-up
+
+- Added a production-safe database bootstrap script so first launch always creates the owner-linked empty workspace after migrations.
+- Hardened fresh install generation so production `.env` files now set `COMPOSE_PROJECT_NAME=missioncontrol`, preventing collisions with stale `mission-control` containers and volumes on host machines.
+- Published release notes and docs updates for `v0.1.4`.
+
 ### Launch cleanup batch: empty workspace seed
 
 - Removed seeded operational demo data from the database reset flow.
