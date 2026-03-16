@@ -526,3 +526,10 @@
   - `scripts/install.sh`
   - `scripts/update.sh`
 - Updated `.env.example`, `.gitignore`, and `README.md` for private-repo deployment and versioned updates.
+
+### Public install follow-up
+
+- Switched the default install repo URL to public HTTPS.
+- Added `scripts/bootstrap-public.sh` for fresh-machine installs via `curl | bash`.
+- Bumped the release version to `v0.1.1`.
+- Updated `README.md`, `CHANGELOG.md`, and release notes for the public install flow.

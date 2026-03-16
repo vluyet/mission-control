@@ -1,10 +1,10 @@
 # Mission Control
 
-Mission Control is a private task operations app for human teammates and AI agents working inside the same system.
+Mission Control is a task operations app for human teammates and AI agents working inside the same system.
 
 ## Release status
 
-Current version: `v0.1.0`
+Current version: `v0.1.1`
 
 This release is launch-ready with:
 
@@ -32,6 +32,24 @@ docker compose exec app npm run test
 docker compose exec app npm run db:reset
 ```
 
+## One-line install
+
+Fresh machine install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.1/scripts/bootstrap-public.sh | bash
+```
+
+Optional overrides:
+
+```bash
+MC_INSTALL_DIR=/opt/mission-control \
+MC_OWNER_EMAIL=owner@example.com \
+MC_OWNER_PASSWORD='change-me-now' \
+MC_APP_PORT=3000 \
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.1/scripts/bootstrap-public.sh | bash
+```
+
 ## Production install
 
 Use the production compose file plus the install script.
@@ -39,7 +57,7 @@ Use the production compose file plus the install script.
 From a cloned repo:
 
 ```bash
-./scripts/install.sh --repo git@github.com:vluyet/mission-control.git --dir mission-control --version v0.1.0
+./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.1
 ```
 
 Optional environment overrides:
@@ -68,7 +86,7 @@ Run this from the installed repo directory:
 Or pin to a specific release:
 
 ```bash
-./scripts/update.sh --version v0.1.0
+./scripts/update.sh --version v0.1.1
 ```
 
 ## Deployment model
@@ -103,4 +121,4 @@ This intentionally avoids shipping a partial Gateway device-auth client in the f
 ## Release notes
 
 - [CHANGELOG.md](/Users/vluyet/Sites/mission-control/CHANGELOG.md)
-- [project/release-v0.1.0.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.0.md)
+- [project/release-v0.1.1.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.1.md)

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.1 - 2026-03-16
+
+Public install follow-up release.
+
+- Public HTTPS clone is now the default install flow
+- Added `scripts/bootstrap-public.sh` for one-line installs on fresh machines
+- Updated release docs and install examples for public GitHub distribution
+
 ## v0.1.0 - 2026-03-16
 
 Initial launch-ready release.
