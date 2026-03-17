@@ -118,6 +118,14 @@ For Docker production installs, the bundled `openclaw-connector` service exposes
 - Base URL: `http://host.docker.internal:18890`
 - Token: the OpenClaw `gateway.auth.token`
 
+Minimal agent exposure endpoints:
+
+- `GET /agents` → list available agents for linking
+- `POST /identity/validate` with `{ "token": "..." }` → validate OpenClaw identity token
+- `POST /workspace-links` with `{ "workspaceId": "...", "agentId": "..." }` → link agent to workspace
+- `GET /workspace-links` → inspect current links (MVP in-memory)
+- `POST /workspace-dispatch` with `{ "workspaceId": "...", "taskId": "...", "prompt": "..." }` → run work through linked agent
+
 
 ## API docs
 
