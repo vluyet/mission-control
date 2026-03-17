@@ -1,43 +1,4 @@
 services:
-  app:
-    build:
-      context: ./app
-      target: release
-    depends_on:
-      db:
-        condition: service_healthy
-      openclaw-connector:
-        condition: service_started
-    env_file:
-      - ./.env
-    environment:
-      NODE_ENV: production
-      NEXT_DIST_DIR: .next-build
-      MISSION_CONTROL_COMMIT: ${MISSION_CONTROL_COMMIT:-unknown}
-    ports:
-      - "${APP_PORT:-3000}:3000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - app_storage:/app/storage
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-
-  openclaw-connector:
-    build:
-      context: ./connector
-    network_mode: host
-    environment:
-      PORT: ${OPENCLAW_CONNECTOR_PORT:-18890}
-      OPENCLAW_BASE_URL: ${OPENCLAW_BASE_URL:-http://127.0.0.1:18789}
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
-    restart: unless-stopped
-
   db:
     image: postgres:16-alpine
     environment:
@@ -50,6 +11,8 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

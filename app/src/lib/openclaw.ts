@@ -68,7 +68,7 @@ function normalizeAgent(value: unknown): OpenClawAgentDescriptor | null {
 
 export async function fetchOpenClawAgents(input: { baseUrl: string; gatewayToken: string }) {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const useConnector = baseUrl.includes("openclaw-connector") || /127\.0\.0\.1:18890$/.test(baseUrl) || /localhost:18890$/.test(baseUrl) || /host\.docker\.internal:18890$/.test(baseUrl);
+  const useConnector = baseUrl.includes("openclaw-connector") || /127\.0\.0\.1:18890$/.test(baseUrl) || /localhost:18890$/.test(baseUrl) || /host\.docker\.internal:18890$/.test(baseUrl) || /127\.0\.0\.1:18891$/.test(baseUrl) || /localhost:18891$/.test(baseUrl) || /192\.168\.90\.90:18891$/.test(baseUrl);
   const agentsUrl = useConnector ? `${baseUrl}/agents` : `${baseUrl}/tools/invoke`;
   const response = await fetch(agentsUrl, {
     method: useConnector ? "GET" : "POST",
@@ -146,7 +146,7 @@ export async function dispatchOpenClawTaskRun(input: {
   prompt: string;
 }) {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const useConnector = baseUrl.includes("openclaw-connector") || /127\.0\.0\.1:18890$/.test(baseUrl) || /localhost:18890$/.test(baseUrl) || /host\.docker\.internal:18890$/.test(baseUrl);
+  const useConnector = baseUrl.includes("openclaw-connector") || /127\.0\.0\.1:18890$/.test(baseUrl) || /localhost:18890$/.test(baseUrl) || /host\.docker\.internal:18890$/.test(baseUrl) || /127\.0\.0\.1:18891$/.test(baseUrl) || /localhost:18891$/.test(baseUrl) || /192\.168\.90\.90:18891$/.test(baseUrl);
   const dispatchUrl = useConnector ? `${baseUrl}/dispatch` : `${baseUrl}/v1/responses`;
   const response = await fetch(dispatchUrl, {
     method: "POST",

@@ -35,6 +35,23 @@ async function invokeTool(tool, args = {}, token = gatewayToken) {
   return payload?.result;
 }
 
+
+function extractAgentIds(agentsListResult) {
+  if (Array.isArray(agentsListResult)) return agentsListResult;
+  const detailsAgents = agentsListResult?.details?.agents;
+  if (Array.isArray(detailsAgents)) return detailsAgents.map((agent) => agent?.id).filter(Boolean);
+
+  const textPayload = agentsListResult?.content?.find((item) => item?.type === 'text')?.text;
+  if (typeof textPayload === 'string') {
+    try {
+      const parsed = JSON.parse(textPayload);
+      if (Array.isArray(parsed?.agents)) return parsed.agents.map((agent) => agent?.id).filter(Boolean);
+    } catch {}
+  }
+
+  return [];
+}
+
 async function dispatchTask({ agentId, taskId, prompt }, token = gatewayToken) {
   const response = await fetch(`${upstreamBaseUrl}/v1/responses`, {
     method: 'POST',
@@ -101,7 +118,8 @@ const server = http.createServer(async (req, res) => {
       }
 
       const availableAgents = await invokeTool('agents_list', {});
-      if (!Array.isArray(availableAgents) || !availableAgents.includes(agentId)) {
+      const availableAgentIds = extractAgentIds(availableAgents);
+      if (!availableAgentIds.includes(agentId)) {
         return json(res, 404, { ok: false, error: { message: `Agent not found: ${agentId}` } });
       }
 

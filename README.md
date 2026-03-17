@@ -49,6 +49,21 @@ MC_APP_PORT=3000 \
 curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.8/scripts/bootstrap-public.sh | bash
 ```
 
+## Production runtime (current working model)
+
+The current working OpenClaw integration model on `piclaw` is:
+
+- Mission Control app runs on the host via `systemctl --user` (`mission-control-app.service`)
+- PostgreSQL stays in Docker via `docker-compose.prod.yml`
+- OpenClaw runs on the host
+- A small host bridge exposes OpenClaw integration endpoints on `http://127.0.0.1:18891` via `mc-openclaw-host-bridge.service`
+
+Use this OpenClaw integration base URL inside Mission Control:
+
+- `http://127.0.0.1:18891`
+
+This avoids unreliable container-to-host networking for the host-installed OpenClaw instance.
+
 ## Production install
 
 Use the production compose file plus the install script.
