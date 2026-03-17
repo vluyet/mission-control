@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.11 - 2026-03-17
+
+Stabilized OpenClaw integration by moving the Mission Control app to the host runtime on `piclaw` while keeping PostgreSQL in Docker.
+
+- Switched the working production topology to host-run Mission Control app + host-run OpenClaw + Dockerized PostgreSQL
+- Added a host bridge service (`mc-openclaw-host-bridge.service`) exposing OpenClaw integration endpoints on port `18891`
+- Updated OpenClaw connector detection so Mission Control recognizes the host bridge on port `18891`
+- Simplified `docker-compose.prod.yml` to the database service for this deployment model
+- Documented the current working production runtime model in the README
+
 ## v0.1.10 - 2026-03-16
 
 Docker-native OpenClaw proxying for Mission Control.
