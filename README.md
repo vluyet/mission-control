@@ -4,7 +4,7 @@ Mission Control is a task operations app for human teammates and AI agents worki
 
 ## Release status
 
-Current version: `v0.1.8`
+Current version: `v0.1.11`
 
 This release is launch-ready with:
 
@@ -36,7 +36,7 @@ docker compose exec app npm run db:reset
 Fresh machine install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.8/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.11/scripts/bootstrap-public.sh | bash
 ```
 
 Optional overrides:
@@ -46,8 +46,23 @@ MC_INSTALL_DIR=/opt/mission-control \
 MC_OWNER_EMAIL=owner@example.com \
 MC_OWNER_PASSWORD='change-me-now' \
 MC_APP_PORT=3000 \
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.8/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.11/scripts/bootstrap-public.sh | bash
 ```
+
+## Production runtime (current working model)
+
+The current working OpenClaw integration model on `piclaw` is:
+
+- Mission Control app runs on the host via `systemctl --user` (`mission-control-app.service`)
+- PostgreSQL stays in Docker via `docker-compose.prod.yml`
+- OpenClaw runs on the host
+- A small host bridge exposes OpenClaw integration endpoints on `http://127.0.0.1:18891` via `mc-openclaw-host-bridge.service`
+
+Use this OpenClaw integration base URL inside Mission Control:
+
+- `http://127.0.0.1:18891`
+
+This avoids unreliable container-to-host networking for the host-installed OpenClaw instance.
 
 ## Production install
 
@@ -56,7 +71,7 @@ Use the production compose file plus the install script.
 From a cloned repo:
 
 ```bash
-./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.8
+./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.11
 ```
 
 Optional environment overrides:
@@ -86,7 +101,7 @@ Run this from the installed repo directory:
 Or pin to a specific release:
 
 ```bash
-./scripts/update.sh --version v0.1.8
+./scripts/update.sh --version v0.1.11
 ```
 
 The update script will:
@@ -113,10 +128,18 @@ Health endpoint:
 
 Mission Control now ships an MVP OpenClaw integration for workspace linking, agent sync, and task dispatch through the OpenClaw gateway API.
 
-For Docker production installs, the bundled `openclaw-proxy` service exposes a stable in-stack endpoint for the app. Configure Mission Control OpenClaw linkage with:
+For Docker production installs, the bundled `openclaw-connector` service exposes a stable in-stack endpoint for the app. Configure Mission Control OpenClaw linkage with:
 
-- Base URL: `http://openclaw-proxy:18790`
+- Base URL: `http://127.0.0.1:18891`
 - Token: the OpenClaw `gateway.auth.token`
+
+Minimal agent exposure endpoints:
+
+- `GET /agents` → list available agents for linking
+- `POST /identity/validate` with `{ "token": "..." }` → validate OpenClaw identity token
+- `POST /workspace-links` with `{ "workspaceId": "...", "agentId": "..." }` → link agent to workspace
+- `GET /workspace-links` → inspect current links (MVP in-memory)
+- `POST /workspace-dispatch` with `{ "workspaceId": "...", "taskId": "...", "prompt": "..." }` → run work through linked agent
 
 
 ## API docs
@@ -131,3 +154,4 @@ For Docker production installs, the bundled `openclaw-proxy` service exposes a s
 - [project/release-v0.1.5.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.5.md)
 - [project/release-v0.1.6.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.6.md)
 - [project/release-v0.1.7.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.7.md)
+- [project/release-v0.1.11.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.11.md)
