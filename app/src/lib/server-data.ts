@@ -3182,6 +3182,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { web
     const dispatch = await dispatchOpenClawTaskRun({
       baseUrl: integration.baseUrl,
       gatewayToken: integration.gatewayToken,
+      hookToken: process.env.OPENCLAW_HOOKS_TOKEN?.trim() || integration.gatewayToken,
       agentId: task.assignee.sourceKey,
       taskId: task.id,
       workspaceId: task.project.workspaceId,

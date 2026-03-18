@@ -199,6 +199,7 @@ function extractTextFromPayload(value: unknown): string | null {
 export async function dispatchOpenClawTaskRun(input: {
   baseUrl: string;
   gatewayToken: string;
+  hookToken?: string;
   agentId: string;
   taskId: string;
   workspaceId: string;
@@ -209,7 +210,7 @@ export async function dispatchOpenClawTaskRun(input: {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
   const headers = {
     "content-type": "application/json",
-    authorization: `Bearer ${input.gatewayToken}`
+    authorization: `Bearer ${input.hookToken ?? input.gatewayToken}`
   };
 
   const response = await fetch(`${baseUrl}/hooks/agent`, {
