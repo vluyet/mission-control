@@ -2086,26 +2086,23 @@ export async function upsertActiveWorkspaceOpenClawIntegrationInDb(payload: {
     return { error: "GATEWAY_TOKEN_REQUIRED" } as const;
   }
 
-  const integration = existing
-    ? await db.workspaceOpenClawIntegration.update({
-        where: { workspaceId: activeWorkspace.id },
-        data: {
-          label: payload.label?.trim() || null,
-          baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
-          gatewayToken: nextToken,
-          enabled: payload.enabled ?? existing.enabled,
-          lastSyncError: existing.lastSyncError
-        }
-      })
-    : await db.workspaceOpenClawIntegration.create({
-        data: {
-          workspaceId: activeWorkspace.id,
-          label: payload.label?.trim() || null,
-          baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
-          gatewayToken: nextToken,
-          enabled: payload.enabled ?? true
-        }
-      });
+  const integration = await db.workspaceOpenClawIntegration.upsert({
+    where: { workspaceId: activeWorkspace.id },
+    update: {
+      label: payload.label?.trim() || null,
+      baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
+      gatewayToken: nextToken,
+      enabled: payload.enabled ?? existing?.enabled ?? true,
+      lastSyncError: existing?.lastSyncError ?? null
+    },
+    create: {
+      workspaceId: activeWorkspace.id,
+      label: payload.label?.trim() || null,
+      baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
+      gatewayToken: nextToken,
+      enabled: payload.enabled ?? true
+    }
+  });
 
   return {
     id: integration.id,
@@ -2151,32 +2148,31 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
 
     for (const agent of agents) {
       seen.add(agent.id);
-      const matched = existing.find((member) => member.sourceKey === agent.id);
-
-      if (matched) {
-        await db.membership.update({
-          where: { id: matched.id },
-          data: {
-            name: agent.name,
-            capabilities: agent.capabilities,
-            enabled: true,
-            agentPermissions: ["task.transitions", "task.comments", "task.execution"]
-          }
-        });
-      } else {
-        await db.membership.create({
-          data: {
+      await db.membership.upsert({
+        where: {
+          workspaceId_sourceSystem_sourceKey: {
             workspaceId: activeWorkspace.id,
-            name: agent.name,
-            kind: "agent",
             sourceSystem: "openclaw",
-            sourceKey: agent.id,
-            capabilities: agent.capabilities,
-            enabled: true,
-            agentPermissions: ["task.transitions", "task.comments", "task.execution"]
+            sourceKey: agent.id
           }
-        });
-      }
+        },
+        update: {
+          name: agent.name,
+          capabilities: agent.capabilities,
+          enabled: true,
+          agentPermissions: ["task.transitions", "task.comments", "task.execution"]
+        },
+        create: {
+          workspaceId: activeWorkspace.id,
+          name: agent.name,
+          kind: "agent",
+          sourceSystem: "openclaw",
+          sourceKey: agent.id,
+          capabilities: agent.capabilities,
+          enabled: true,
+          agentPermissions: ["task.transitions", "task.comments", "task.execution"]
+        }
+      });
     }
 
     for (const member of existing.filter((item) => item.sourceKey && !seen.has(item.sourceKey))) {
