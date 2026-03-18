@@ -3183,6 +3183,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string) {
       baseUrl: integration.baseUrl,
       gatewayToken: integration.gatewayToken,
       agentId: task.assignee.sourceKey,
+      taskId: task.id,
       message
     });
 

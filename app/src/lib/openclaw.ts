@@ -199,16 +199,60 @@ export async function dispatchOpenClawTaskRun(input: {
   baseUrl: string;
   gatewayToken: string;
   agentId: string;
+  taskId: string;
   message: string;
 }): Promise<OpenClawDispatchResult> {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const dispatchUrl = `${baseUrl}/hooks/agent`;
-  const response = await fetch(dispatchUrl, {
+  const headers = {
+    "content-type": "application/json",
+    authorization: `Bearer ${input.gatewayToken}`
+  };
+
+  async function parseDispatchResponse(response: Response, mode: "hook" | "bridge") {
+    const payload = (await response.json().catch(() => null)) as
+      | {
+          id?: string;
+          runId?: string;
+          result?: unknown;
+          error?: { message?: string };
+          ok?: boolean;
+        }
+      | null;
+
+    if (!response.ok || payload?.ok === false) {
+      return {
+        ok: false as const,
+        status: response.status,
+        message: payload?.error?.message || `OpenClaw dispatch failed with status ${response.status}.`,
+        payload
+      };
+    }
+
+    const resultPayload = mode === "bridge" && payload && typeof payload === "object" && "result" in payload ? payload.result : payload;
+    const finalText = extractTextFromPayload(resultPayload);
+
+    if (!finalText) {
+      return {
+        ok: false as const,
+        status: response.status,
+        message: "OpenClaw dispatch did not return a final response.",
+        payload
+      };
+    }
+
+    return {
+      ok: true as const,
+      result: {
+        responseId: payload?.id ?? payload?.runId ?? ((payload?.result as { id?: string } | undefined)?.id ?? null),
+        finalText,
+        raw: payload
+      }
+    };
+  }
+
+  const hookResponse = await fetch(`${baseUrl}/hooks/agent`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${input.gatewayToken}`
-    },
+    headers,
     body: JSON.stringify({
       agentId: input.agentId,
       message: input.message,
@@ -220,29 +264,30 @@ export async function dispatchOpenClawTaskRun(input: {
     cache: "no-store"
   });
 
-  const payload = (await response.json().catch(() => null)) as
-    | {
-        id?: string;
-        runId?: string;
-        result?: { id?: string };
-        error?: { message?: string };
-        ok?: boolean;
-      }
-    | null;
-
-  if (!response.ok || payload?.ok === false) {
-    throw new Error(payload?.error?.message || `OpenClaw dispatch failed with status ${response.status}.`);
+  const hookResult = await parseDispatchResponse(hookResponse, "hook");
+  if (hookResult.ok) {
+    return hookResult.result;
   }
 
-  const finalText = extractTextFromPayload(payload);
-
-  if (!finalText) {
-    throw new Error("OpenClaw dispatch did not return a final response.");
+  if (hookResult.status !== 401 && hookResult.status !== 404) {
+    throw new Error(hookResult.message);
   }
 
-  return {
-    responseId: payload?.id ?? payload?.runId ?? payload?.result?.id ?? null,
-    finalText,
-    raw: payload
-  };
+  const bridgeResponse = await fetch(`${baseUrl}/dispatch`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      agentId: input.agentId,
+      taskId: input.taskId,
+      prompt: input.message
+    }),
+    cache: "no-store"
+  });
+
+  const bridgeResult = await parseDispatchResponse(bridgeResponse, "bridge");
+  if (bridgeResult.ok) {
+    return bridgeResult.result;
+  }
+
+  throw new Error(bridgeResult.message || hookResult.message);
 }
