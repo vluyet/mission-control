@@ -3184,6 +3184,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string) {
       gatewayToken: integration.gatewayToken,
       agentId: task.assignee.sourceKey,
       taskId: task.id,
+      workspaceId: task.project.workspaceId,
       message
     });
 

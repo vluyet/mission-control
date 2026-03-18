@@ -200,6 +200,7 @@ export async function dispatchOpenClawTaskRun(input: {
   gatewayToken: string;
   agentId: string;
   taskId: string;
+  workspaceId: string;
   message: string;
 }): Promise<OpenClawDispatchResult> {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
@@ -243,7 +244,14 @@ export async function dispatchOpenClawTaskRun(input: {
     return {
       ok: true as const,
       result: {
-        responseId: payload?.id ?? payload?.runId ?? ((payload?.result as { id?: string } | undefined)?.id ?? null),
+        responseId:
+          payload?.id ??
+          payload?.runId ??
+          ((payload?.result as { id?: string } | undefined)?.id ?? null) ??
+          (resultPayload && typeof resultPayload === "object"
+            ? (((resultPayload as Record<string, unknown>).id as string | undefined) ??
+              (((resultPayload as Record<string, unknown>).response as { id?: string } | undefined)?.id ?? null))
+            : null),
         finalText,
         raw: payload
       }
@@ -293,6 +301,26 @@ export async function dispatchOpenClawTaskRun(input: {
     throw new Error(bridgeResult.message || hookResult.message);
   }
 
+  const workspaceDispatchResponse = await fetch(`${baseUrl}/workspace-dispatch`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      workspaceId: input.workspaceId,
+      taskId: input.taskId,
+      prompt: input.message
+    }),
+    cache: "no-store"
+  });
+
+  const workspaceDispatchResult = await parseDispatchResponse(workspaceDispatchResponse, "bridge");
+  if (workspaceDispatchResult.ok) {
+    return workspaceDispatchResult.result;
+  }
+
+  if (workspaceDispatchResult.status !== 401 && workspaceDispatchResult.status !== 404) {
+    throw new Error(workspaceDispatchResult.message || bridgeResult.message || hookResult.message);
+  }
+
   const legacyResponse = await fetch(`${baseUrl}/v1/responses`, {
     method: "POST",
     headers,
@@ -309,5 +337,5 @@ export async function dispatchOpenClawTaskRun(input: {
     return legacyResult.result;
   }
 
-  throw new Error(legacyResult.message || bridgeResult.message || hookResult.message);
+  throw new Error(legacyResult.message || workspaceDispatchResult.message || bridgeResult.message || hookResult.message);
 }
