@@ -238,7 +238,8 @@ export async function dispatchOpenClawTaskRun(input: {
     | null;
 
   if (!response.ok || payload?.ok === false) {
-    throw new Error(payload?.error?.message || `OpenClaw dispatch failed with status ${response.status}.`);
+    const payloadPreview = payload ? JSON.stringify(payload).slice(0, 800) : "null";
+    throw new Error((payload?.error?.message || `OpenClaw dispatch failed with status ${response.status}.`) + ` [status=${response.status} payload=${payloadPreview}]`);
   }
 
   const responseId = payload?.id ?? payload?.runId ?? ((payload?.result as { id?: string } | undefined)?.id ?? null);

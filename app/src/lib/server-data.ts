@@ -3199,6 +3199,15 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { web
       label: task.assignee.name
     });
 
+    await appendExecutionLogInDb(
+      task.id,
+      `OpenClaw dispatch response: responseId=${dispatch.responseId ?? "none"}; payload=${JSON.stringify(dispatch.raw).slice(0, 800)}`,
+      {
+        membershipId: task.assignee.id,
+        label: task.assignee.name
+      }
+    );
+
     let commentId: string | null = null;
     if (dispatch.finalText) {
       const comment = await createCommentInDb(task.id, {
