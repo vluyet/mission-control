@@ -50,6 +50,25 @@ json_escape() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+load_dotenv_exports() {
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|\#*)
+        continue
+        ;;
+    esac
+
+    if [[ "$line" != *=* ]]; then
+      continue
+    fi
+
+    local key="${line%%=*}"
+    local value="${line#*=}"
+
+    export "$key=$value"
+  done < .env
+}
+
 resolve_target_ref() {
   local requested="$1"
 
@@ -148,9 +167,7 @@ EOF
 update_host_app() {
   echo "Installing app dependencies and building host app..."
   (
-    set -a
-    . ./.env
-    set +a
+    load_dotenv_exports
     cd app
     npm ci
     if [ "$no_build" != "1" ]; then
