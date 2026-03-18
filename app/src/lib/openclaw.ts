@@ -289,5 +289,25 @@ export async function dispatchOpenClawTaskRun(input: {
     return bridgeResult.result;
   }
 
-  throw new Error(bridgeResult.message || hookResult.message);
+  if (bridgeResult.status !== 401 && bridgeResult.status !== 404) {
+    throw new Error(bridgeResult.message || hookResult.message);
+  }
+
+  const legacyResponse = await fetch(`${baseUrl}/v1/responses`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model: `agent:${input.agentId}`,
+      user: `mission-control-task:${input.taskId}`,
+      input: input.message
+    }),
+    cache: "no-store"
+  });
+
+  const legacyResult = await parseDispatchResponse(legacyResponse, "hook");
+  if (legacyResult.ok) {
+    return legacyResult.result;
+  }
+
+  throw new Error(legacyResult.message || bridgeResult.message || hookResult.message);
 }
