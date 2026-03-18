@@ -7,7 +7,7 @@ function isPublicPath(pathname: string) {
 }
 
 function isPublicApi(pathname: string) {
-  return pathname === "/api/auth/sign-in" || pathname === "/api/auth/sign-out";
+  return pathname === "/api/auth/sign-in" || pathname === "/api/auth/sign-out" || pathname === "/api/health";
 }
 
 function isStaticAsset(pathname: string) {
