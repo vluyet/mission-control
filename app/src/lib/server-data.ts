@@ -3178,11 +3178,6 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { web
     taskContextHint: task.contextHint ?? ""
   });
 
-  const webhookToken = process.env.OPENCLAW_WEBHOOK_TOKEN?.trim() || integration.gatewayToken;
-  const webhookUrl = options?.webhookBaseUrl
-    ? `${options.webhookBaseUrl.replace(/\/+$/, "")}/api/integrations/openclaw/webhook/${task.id}`
-    : null;
-
   try {
     const dispatch = await dispatchOpenClawTaskRun({
       baseUrl: integration.baseUrl,
@@ -3190,9 +3185,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { web
       agentId: task.assignee.sourceKey,
       taskId: task.id,
       workspaceId: task.project.workspaceId,
-      message,
-      webhookUrl: webhookUrl ?? undefined,
-      webhookToken
+      message
     });
 
     await appendExecutionLogInDb(task.id, `Dispatched to OpenClaw agent ${task.assignee.name}.`, {
@@ -3200,33 +3193,10 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { web
       label: task.assignee.name
     });
 
-    let comment: Awaited<ReturnType<typeof createCommentInDb>> | null = null;
-
-    if (dispatch.finalText) {
-      comment = await createCommentInDb(task.id, {
-        author: task.assignee.name,
-        role: "Agent",
-        tone: "agent",
-        body: dispatch.finalText,
-        membershipId: task.assignee.id
-      });
-
-      if (comment && !("error" in comment)) {
-        await appendExecutionLogInDb(task.id, `OpenClaw returned a final response for ${task.assignee.name}.`, {
-          membershipId: task.assignee.id,
-          label: task.assignee.name
-        });
-      }
-
-      if (comment && "error" in comment) {
-        return { error: "OPENCLAW_COMMENT_WRITE_FAILED", message: "OpenClaw returned a response, but Mission Control could not post it as an agent comment." } as const;
-      }
-    } else {
-      await appendExecutionLogInDb(task.id, `OpenClaw accepted dispatch for ${task.assignee.name}; awaiting webhook callback.`, {
-        membershipId: task.assignee.id,
-        label: task.assignee.name
-      });
-    }
+    await appendExecutionLogInDb(task.id, `OpenClaw accepted dispatch for ${task.assignee.name}.`, {
+      membershipId: task.assignee.id,
+      label: task.assignee.name
+    });
 
     await db.authEvent.create({
       data: {
@@ -3245,8 +3215,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { web
       openclawAgentId: task.assignee.sourceKey,
       responseId: dispatch.responseId,
       accepted: dispatch.accepted,
-      webhookExpected: !dispatch.finalText,
-      commentId: comment && !("error" in comment) ? comment.id : null
+      commentId: null
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "OpenClaw task dispatch failed.";

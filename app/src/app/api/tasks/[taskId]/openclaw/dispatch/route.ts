@@ -13,8 +13,7 @@ export async function POST(request: Request, { params }: { params: { taskId: str
     return error("Owner access required.", 403, { code: "OWNER_ACCESS_REQUIRED" });
   }
 
-  const requestUrl = new URL(request.url);
-  const result = await dispatchTaskToOpenClawInDb(params.taskId, { webhookBaseUrl: requestUrl.origin });
+  const result = await dispatchTaskToOpenClawInDb(params.taskId);
 
   if (!result) {
     return error("Task not found", 404, { taskId: params.taskId });

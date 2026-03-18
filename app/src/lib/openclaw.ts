@@ -212,78 +212,7 @@ export async function dispatchOpenClawTaskRun(input: {
     authorization: `Bearer ${input.gatewayToken}`
   };
 
-  function tryExtractResponseId(payload: unknown) {
-    if (!payload || typeof payload !== "object") {
-      return null;
-    }
-
-    const record = payload as Record<string, unknown>;
-    const direct = [record.id, record.runId, record.responseId].find((value) => typeof value === "string" && value.trim());
-    if (typeof direct === "string") {
-      return direct;
-    }
-
-    const result = record.result;
-    if (result && typeof result === "object") {
-      const nested = result as Record<string, unknown>;
-      const nestedId = [nested.id, nested.runId, nested.responseId].find((value) => typeof value === "string" && value.trim());
-      if (typeof nestedId === "string") {
-        return nestedId;
-      }
-
-      if (nested.response && typeof nested.response === "object") {
-        const responseId = (nested.response as { id?: unknown }).id;
-        if (typeof responseId === "string" && responseId.trim()) {
-          return responseId;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  async function parseDispatchResponse(response: Response, mode: "hook" | "bridge") {
-    const payload = (await response.json().catch(() => null)) as
-      | {
-          id?: string;
-          runId?: string;
-          result?: unknown;
-          error?: { message?: string };
-          ok?: boolean;
-        }
-      | null;
-
-    if (!response.ok || payload?.ok === false) {
-      return {
-        ok: false as const,
-        status: response.status,
-        message: payload?.error?.message || `OpenClaw dispatch failed with status ${response.status}.`,
-        payload
-      };
-    }
-
-    const resultPayload = mode === "bridge" && payload && typeof payload === "object" && "result" in payload ? payload.result : payload;
-    const finalText = extractTextFromPayload(resultPayload);
-    const responseId = tryExtractResponseId(payload) ?? (resultPayload ? tryExtractResponseId(resultPayload) : null);
-
-    return {
-      ok: true as const,
-      result: {
-        responseId,
-        finalText,
-        accepted: Boolean(responseId || finalText),
-        raw: payload
-      }
-    };
-  }
-
-  const webhookHeaders = input.webhookToken
-    ? {
-        authorization: `Bearer ${input.webhookToken}`
-      }
-    : undefined;
-
-  const hookResponse = await fetch(`${baseUrl}/hooks/agent`, {
+  const response = await fetch(`${baseUrl}/hooks/agent`, {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -292,94 +221,31 @@ export async function dispatchOpenClawTaskRun(input: {
       wakeMode: "now",
       deliver: false,
       thinking: "medium",
-      timeoutSeconds: 120,
-      metadata: {
-        taskId: input.taskId,
-        workspaceId: input.workspaceId,
-        source: "mission-control"
-      },
-      ...(input.webhookUrl
-        ? {
-            callbackUrl: input.webhookUrl,
-            webhookUrl: input.webhookUrl,
-            callback: {
-              url: input.webhookUrl,
-              headers: webhookHeaders
-            },
-            webhook: {
-              url: input.webhookUrl,
-              headers: webhookHeaders
-            }
-          }
-        : {})
+      timeoutSeconds: 120
     }),
     cache: "no-store"
   });
 
-  const hookResult = await parseDispatchResponse(hookResponse, "hook");
-  if (hookResult.ok) {
-    return hookResult.result;
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        id?: string;
+        runId?: string;
+        result?: unknown;
+        error?: { message?: string };
+        ok?: boolean;
+      }
+    | null;
+
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(payload?.error?.message || `OpenClaw dispatch failed with status ${response.status}.`);
   }
 
-  if (hookResult.status !== 401 && hookResult.status !== 404) {
-    throw new Error(hookResult.message);
-  }
+  const responseId = payload?.id ?? payload?.runId ?? ((payload?.result as { id?: string } | undefined)?.id ?? null);
 
-  const bridgeResponse = await fetch(`${baseUrl}/dispatch`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      agentId: input.agentId,
-      taskId: input.taskId,
-      prompt: input.message
-    }),
-    cache: "no-store"
-  });
-
-  const bridgeResult = await parseDispatchResponse(bridgeResponse, "bridge");
-  if (bridgeResult.ok) {
-    return bridgeResult.result;
-  }
-
-  if (bridgeResult.status !== 401 && bridgeResult.status !== 404) {
-    throw new Error(bridgeResult.message || hookResult.message);
-  }
-
-  const workspaceDispatchResponse = await fetch(`${baseUrl}/workspace-dispatch`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      workspaceId: input.workspaceId,
-      taskId: input.taskId,
-      prompt: input.message
-    }),
-    cache: "no-store"
-  });
-
-  const workspaceDispatchResult = await parseDispatchResponse(workspaceDispatchResponse, "bridge");
-  if (workspaceDispatchResult.ok) {
-    return workspaceDispatchResult.result;
-  }
-
-  if (workspaceDispatchResult.status !== 401 && workspaceDispatchResult.status !== 404) {
-    throw new Error(workspaceDispatchResult.message || bridgeResult.message || hookResult.message);
-  }
-
-  const legacyResponse = await fetch(`${baseUrl}/v1/responses`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model: `agent:${input.agentId}`,
-      user: `mission-control-task:${input.taskId}`,
-      input: input.message
-    }),
-    cache: "no-store"
-  });
-
-  const legacyResult = await parseDispatchResponse(legacyResponse, "hook");
-  if (legacyResult.ok) {
-    return legacyResult.result;
-  }
-
-  throw new Error(legacyResult.message || workspaceDispatchResult.message || bridgeResult.message || hookResult.message);
+  return {
+    responseId,
+    finalText: null,
+    accepted: true,
+    raw: payload
+  };
 }
