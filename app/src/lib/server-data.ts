@@ -1955,6 +1955,29 @@ export async function createProjectInDb(payload: {
     });
   }
 
+  const enabledOpenClawAgents = await db.membership.findMany({
+    where: {
+      workspaceId: workspace.id,
+      kind: "agent",
+      sourceSystem: "openclaw",
+      enabled: true
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (enabledOpenClawAgents.length) {
+    await db.projectMembership.createMany({
+      data: enabledOpenClawAgents.map((membership) => ({
+        projectId: project.id,
+        membershipId: membership.id,
+        role: "member" as const
+      })),
+      skipDuplicates: true
+    });
+  }
+
   return {
     id: project.id,
     slug: project.slug,
@@ -2136,7 +2159,8 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
           data: {
             name: agent.name,
             capabilities: agent.capabilities,
-            enabled: true
+            enabled: true,
+            agentPermissions: ["task.transitions", "task.comments", "task.execution"]
           }
         });
       } else {
@@ -2148,7 +2172,8 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
             sourceSystem: "openclaw",
             sourceKey: agent.id,
             capabilities: agent.capabilities,
-            enabled: true
+            enabled: true,
+            agentPermissions: ["task.transitions", "task.comments", "task.execution"]
           }
         });
       }
@@ -2159,6 +2184,49 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
         where: { id: member.id },
         data: { enabled: false }
       });
+    }
+
+    const activeOpenClawMemberships = await db.membership.findMany({
+      where: {
+        workspaceId: activeWorkspace.id,
+        kind: "agent",
+        sourceSystem: "openclaw",
+        enabled: true
+      },
+      select: {
+        id: true
+      }
+    });
+
+    const workspaceProjects = await db.project.findMany({
+      where: {
+        workspaceId: activeWorkspace.id
+      },
+      select: {
+        id: true
+      }
+    });
+
+    for (const project of workspaceProjects) {
+      const existingProjectMemberships = await db.projectMembership.findMany({
+        where: { projectId: project.id },
+        select: { membershipId: true }
+      });
+      const existingIds = new Set(existingProjectMemberships.map((entry) => entry.membershipId));
+      const missingAgentIds = activeOpenClawMemberships
+        .map((membership) => membership.id)
+        .filter((membershipId) => !existingIds.has(membershipId));
+
+      if (missingAgentIds.length) {
+        await db.projectMembership.createMany({
+          data: missingAgentIds.map((membershipId) => ({
+            projectId: project.id,
+            membershipId,
+            role: "member" as const
+          })),
+          skipDuplicates: true
+        });
+      }
     }
 
     const updatedIntegration = await db.workspaceOpenClawIntegration.update({

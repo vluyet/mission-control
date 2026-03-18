@@ -87,6 +87,27 @@ class Handler(BaseHTTPRequestHandler):
                     return response(self, 404, {'ok': False, 'error': {'message': f'Agent not found: {agent_id}'}})
                 workspace_links[workspace_id] = agent_id
                 return response(self, 200, {'ok': True, 'result': {'workspaceId': workspace_id, 'agentId': agent_id}})
+            if self.path == '/dispatch':
+                body = parse_json(self)
+                agent_id = str(body.get('agentId', '')).strip()
+                task_id = str(body.get('taskId', '')).strip()
+                prompt = str(body.get('prompt', '')).strip()
+                if not agent_id or not task_id or not prompt:
+                    return response(self, 422, {'ok': False, 'error': {'message': 'agentId, taskId, and prompt are required.'}})
+                dispatch = openclaw_request('/v1/responses', {'model': f'agent:{agent_id}', 'user': f'mission-control-task:{task_id}', 'input': prompt})
+                return response(self, 200, {'ok': True, 'result': dispatch})
+            if self.path == '/workspace-dispatch':
+                body = parse_json(self)
+                workspace_id = str(body.get('workspaceId', '')).strip()
+                task_id = str(body.get('taskId', '')).strip()
+                prompt = str(body.get('prompt', '')).strip()
+                if not workspace_id or not task_id or not prompt:
+                    return response(self, 422, {'ok': False, 'error': {'message': 'workspaceId, taskId, and prompt are required.'}})
+                agent_id = workspace_links.get(workspace_id)
+                if not agent_id:
+                    return response(self, 404, {'ok': False, 'error': {'message': f'No linked agent for workspace: {workspace_id}'}})
+                dispatch = openclaw_request('/v1/responses', {'model': f'agent:{agent_id}', 'user': f'mission-control-task:{task_id}', 'input': prompt})
+                return response(self, 200, {'ok': True, 'result': {'workspaceId': workspace_id, 'agentId': agent_id, 'response': dispatch}})
             return response(self, 404, {'ok': False, 'error': {'message': 'Not found'}})
         except HTTPError as e:
             try:
