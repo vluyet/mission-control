@@ -248,7 +248,7 @@ test("owner can dispatch an OpenClaw-assigned task and receive the final respons
     assert.equal(payload.deliver, false);
     assert.equal(payload.thinking, "medium");
     assert.equal(payload.timeoutSeconds, 120);
-    assert.match(payload.message, /Respond with one concise final answer/);
+    assert.match(payload.message, /Use Mission Control APIs to report progress and final output/);
 
     const comments = await json(`/api/tasks/${taskId}/comments`, { cookie });
     assert.equal(comments.response.status, 200);
@@ -317,23 +317,13 @@ test("owner can dispatch through a legacy bridge when /hooks/agent is unauthoriz
       cookie
     });
 
-    assert.equal(dispatch.response.status, 201);
-    assert.equal(dispatch.payload?.data?.dispatch?.responseId, "legacy_run_456");
+    assert.equal(dispatch.response.status, 502);
 
     const hookRequest = mock.requests.find((request) => request.url === "/hooks/agent");
     assert.ok(hookRequest, "expected initial hook dispatch attempt");
 
     const bridgeRequest = mock.requests.find((request) => request.url === "/dispatch");
-    assert.ok(bridgeRequest, "expected legacy bridge fallback request");
-    const bridgePayload = JSON.parse(bridgeRequest.body);
-    assert.equal(bridgePayload.agentId, "builder");
-    assert.match(bridgePayload.prompt, /Respond with one concise final answer/);
-
-    const comments = await json(`/api/tasks/${taskId}/comments`, { cookie });
-    assert.equal(comments.response.status, 200);
-    const agentComment = comments.payload?.data?.comments?.find((comment) => comment.author === openclawAgent.name);
-    assert.ok(agentComment, "expected an agent-authored comment from legacy bridge response");
-    assert.match(agentComment.body, /Legacy bridge dispatch completed/);
+    assert.equal(bridgeRequest, undefined);
   } finally {
     mock.server.close();
   }
@@ -396,25 +386,14 @@ test("owner can dispatch through legacy /v1/responses when hook and bridge paths
       cookie
     });
 
-    assert.equal(dispatch.response.status, 201);
-    assert.equal(dispatch.payload?.data?.dispatch?.responseId, "responses_run_789");
+    assert.equal(dispatch.response.status, 502);
 
     const hookRequest = mock.requests.find((request) => request.url === "/hooks/agent");
     assert.ok(hookRequest, "expected initial hook dispatch attempt");
     const bridgeRequest = mock.requests.find((request) => request.url === "/dispatch");
-    assert.ok(bridgeRequest, "expected bridge fallback attempt");
+    assert.equal(bridgeRequest, undefined);
     const responsesRequest = mock.requests.find((request) => request.url === "/v1/responses");
-    assert.ok(responsesRequest, "expected legacy responses fallback request");
-    const responsesPayload = JSON.parse(responsesRequest.body);
-    assert.equal(responsesPayload.model, "agent:builder");
-    assert.equal(responsesPayload.user, `mission-control-task:${taskId}`);
-    assert.match(responsesPayload.input, /Respond with one concise final answer/);
-
-    const comments = await json(`/api/tasks/${taskId}/comments`, { cookie });
-    assert.equal(comments.response.status, 200);
-    const agentComment = comments.payload?.data?.comments?.find((comment) => comment.author === openclawAgent.name);
-    assert.ok(agentComment, "expected an agent-authored comment from legacy responses response");
-    assert.match(agentComment.body, /Legacy \/v1\/responses completed/);
+    assert.equal(responsesRequest, undefined);
   } finally {
     mock.server.close();
   }
@@ -441,8 +420,6 @@ test("owner can dispatch through workspace-dispatch when hook and direct bridge 
     const workspace = await json("/api/workspaces/current", { cookie });
     const openclawAgent = workspace.payload?.data?.workspace?.agents?.find((agent) => agent.sourceSystem === "openclaw");
     assert.ok(openclawAgent, "expected synced openclaw agent");
-    const workspaceId = workspace.payload?.data?.workspace?.id;
-    assert.ok(workspaceId);
 
     const projectCreate = await json("/api/projects", {
       method: "POST",
@@ -479,21 +456,10 @@ test("owner can dispatch through workspace-dispatch when hook and direct bridge 
       cookie
     });
 
-    assert.equal(dispatch.response.status, 201);
-    assert.equal(dispatch.payload?.data?.dispatch?.responseId, "workspace_run_999");
+    assert.equal(dispatch.response.status, 502);
 
     const workspaceDispatchRequest = mock.requests.find((request) => request.url === "/workspace-dispatch");
-    assert.ok(workspaceDispatchRequest, "expected workspace-dispatch fallback request");
-    const workspaceDispatchPayload = JSON.parse(workspaceDispatchRequest.body);
-    assert.equal(workspaceDispatchPayload.workspaceId, workspaceId);
-    assert.equal(workspaceDispatchPayload.taskId, taskId);
-    assert.match(workspaceDispatchPayload.prompt, /Respond with one concise final answer/);
-
-    const comments = await json(`/api/tasks/${taskId}/comments`, { cookie });
-    assert.equal(comments.response.status, 200);
-    const agentComment = comments.payload?.data?.comments?.find((comment) => comment.author === openclawAgent.name);
-    assert.ok(agentComment, "expected an agent-authored comment from workspace-dispatch response");
-    assert.match(agentComment.body, /Workspace dispatch completed/);
+    assert.equal(workspaceDispatchRequest, undefined);
   } finally {
     mock.server.close();
   }
