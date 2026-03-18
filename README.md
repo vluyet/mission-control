@@ -154,6 +154,8 @@ For Docker production installs, the bundled `openclaw-connector` service exposes
 - Base URL: `http://127.0.0.1:18891`
 - Token: the OpenClaw `gateway.auth.token`
 
+If your OpenClaw runtime accepts discovery with the gateway token but rejects `/hooks/agent` with `401`, configure the host bridge with a separate `OPENCLAW_HOOK_TOKEN` for dispatch while keeping `OPENCLAW_GATEWAY_TOKEN` for agent discovery.
+
 Minimal agent exposure endpoints:
 
 - `GET /agents` → list available agents for linking

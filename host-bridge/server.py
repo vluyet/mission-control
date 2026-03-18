@@ -8,6 +8,7 @@ from urllib.error import HTTPError, URLError
 PORT = int(os.environ.get('MC_OPENCLAW_BRIDGE_PORT', '18891'))
 OPENCLAW_BASE_URL = os.environ.get('OPENCLAW_BASE_URL', 'http://127.0.0.1:18789').rstrip('/')
 OPENCLAW_GATEWAY_TOKEN = os.environ.get('OPENCLAW_GATEWAY_TOKEN', '')
+OPENCLAW_HOOK_TOKEN = os.environ.get('OPENCLAW_HOOK_TOKEN', '').strip()
 workspace_links = {}
 
 def response(handler, status, payload):
@@ -70,19 +71,19 @@ def dispatch_openclaw(agent_id, task_id, prompt):
             'deliver': False,
             'thinking': 'medium',
             'timeoutSeconds': 120
-        }, 'hook'),
+        }, 'hook', OPENCLAW_HOOK_TOKEN or OPENCLAW_GATEWAY_TOKEN),
         ('/v1/responses', {
             'model': f'agent:{agent_id}',
             'user': f'mission-control-task:{task_id}',
             'input': prompt
-        }, 'legacy')
+        }, 'legacy', OPENCLAW_GATEWAY_TOKEN)
     ]
 
     last_error = 'OpenClaw dispatch failed.'
 
-    for path, payload, mode in attempts:
+    for path, payload, mode, token in attempts:
         try:
-            result = openclaw_request(path, payload)
+            result = openclaw_request(path, payload, token=token)
             result_payload = result.get('result') if mode == 'hook' and isinstance(result, dict) else result
             final_text = extract_text(result_payload)
             if not final_text:
@@ -209,5 +210,9 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     server = HTTPServer(('0.0.0.0', PORT), Handler)
-    print(f'mc-openclaw-host-bridge listening on :{PORT}, upstream={OPENCLAW_BASE_URL}', flush=True)
+    print(
+        f'mc-openclaw-host-bridge listening on :{PORT}, upstream={OPENCLAW_BASE_URL}, '
+        f'gatewayToken={bool(OPENCLAW_GATEWAY_TOKEN)}, hookToken={bool(OPENCLAW_HOOK_TOKEN)}',
+        flush=True
+    )
     server.serve_forever()

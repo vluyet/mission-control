@@ -3,6 +3,7 @@ import http from 'node:http';
 const port = Number(process.env.PORT || 18890);
 const upstreamBaseUrl = String(process.env.OPENCLAW_BASE_URL || 'http://host.docker.internal:18789').replace(/\/+$/, '');
 const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || '';
+const hookToken = process.env.OPENCLAW_HOOK_TOKEN || gatewayToken;
 
 // MVP in-memory link registry (workspaceId -> agentId)
 const workspaceLinks = new Map();
@@ -103,7 +104,10 @@ async function dispatchTask({ agentId, taskId, prompt }, token = gatewayToken) {
 
   const hookResponse = await fetch(`${upstreamBaseUrl}/hooks/agent`, {
     method: 'POST',
-    headers,
+    headers: {
+      'content-type': 'application/json',
+      ...(hookToken ? { authorization: `Bearer ${hookToken}` } : {})
+    },
     body: JSON.stringify({
       agentId,
       message: prompt,

@@ -9,6 +9,7 @@ WorkingDirectory=/opt/mission-control/host-bridge
 Environment=MC_OPENCLAW_BRIDGE_PORT=18891
 Environment=OPENCLAW_BASE_URL=http://127.0.0.1:18789
 Environment=OPENCLAW_GATEWAY_TOKEN=b63483ad182a72f02b33e02b786ab3fd4a78b1b4204e23d5
+Environment=OPENCLAW_HOOK_TOKEN=
 ExecStart=/usr/bin/python3 /opt/mission-control/host-bridge/server.py
 Restart=always
 RestartSec=2
