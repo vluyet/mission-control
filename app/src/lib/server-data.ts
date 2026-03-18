@@ -1638,7 +1638,7 @@ export async function getWorkspaceManagementDataForUi() {
       workspaceAssetCount: workspaceAssetsCount,
       assets: workspace.assets.map(mapWorkspaceAsset),
       agents: workspace.memberships
-        .filter((member) => member.kind === "agent")
+        .filter((member) => member.kind === "agent" && member.enabled)
         .map((member) => ({
           id: member.id,
           name: member.name,
