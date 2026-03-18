@@ -2,6 +2,19 @@
 
 ## 2026-03-18
 
+### OpenClaw comment-response first pass
+
+- Switched OpenClaw task dispatch from the prompt-based `/v1/responses` path to the documented `/hooks/agent` contract on the feature branch.
+- Reduced the first slice to one synchronous final response that Mission Control writes back into task comments as the assigned agent.
+- Added permission aliasing so synced OpenClaw agent permissions like `task.comments` and `task.execution` satisfy current server-side authorization checks.
+- Updated the OpenClaw dispatch regression to assert hook dispatch and agent-authored comment projection.
+
+### OpenClaw response-loop planning
+
+- Added a first-pass feature spec for OpenClaw task execution returning final agent output into Mission Control comments.
+- Split the work into backlog stories for hook-based dispatch, trusted inbound result capture, comment projection, and regression coverage.
+- Scoped the first slice to keep Mission Control as the source of truth while OpenClaw remains the execution runtime.
+
 ### Backlog reconciliation against main
 
 - Audited the planning documents against the real implementation on `main`.

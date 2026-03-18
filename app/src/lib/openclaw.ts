@@ -4,6 +4,12 @@ export type OpenClawAgentDescriptor = {
   capabilities: string[];
 };
 
+export type OpenClawDispatchResult = {
+  responseId: string | null;
+  finalText: string;
+  raw: unknown;
+};
+
 function normalizeBaseUrl(input: string) {
   return input.trim().replace(/\/+$/, "");
 }
@@ -138,15 +144,65 @@ export async function fetchOpenClawAgents(input: { baseUrl: string; gatewayToken
 }
 
 
+function extractTextFromPayload(value: unknown): string | null {
+  if (typeof value === "string") {
+    const text = value.trim();
+    return text || null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const text = extractTextFromPayload(entry);
+      if (text) {
+        return text;
+      }
+    }
+
+    return null;
+  }
+
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  for (const key of ["response", "message", "output", "output_text", "text", "finalText", "resultText", "summary"]) {
+    const text = extractTextFromPayload(record[key]);
+    if (text) {
+      return text;
+    }
+  }
+
+  for (const key of ["result", "data", "details"]) {
+    const text = extractTextFromPayload(record[key]);
+    if (text) {
+      return text;
+    }
+  }
+
+  if (Array.isArray(record.content)) {
+    for (const entry of record.content) {
+      if (entry && typeof entry === "object") {
+        const text = extractTextFromPayload((entry as Record<string, unknown>).text);
+        if (text) {
+          return text;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 export async function dispatchOpenClawTaskRun(input: {
   baseUrl: string;
   gatewayToken: string;
   agentId: string;
-  taskId: string;
-  prompt: string;
-}) {
+  message: string;
+}): Promise<OpenClawDispatchResult> {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const dispatchUrl = `${baseUrl}/v1/responses`;
+  const dispatchUrl = `${baseUrl}/hooks/agent`;
   const response = await fetch(dispatchUrl, {
     method: "POST",
     headers: {
@@ -154,8 +210,12 @@ export async function dispatchOpenClawTaskRun(input: {
       authorization: `Bearer ${input.gatewayToken}`
     },
     body: JSON.stringify({
-      model: `agent:${input.agentId}`,
-      input: input.prompt
+      agentId: input.agentId,
+      message: input.message,
+      wakeMode: "now",
+      deliver: false,
+      thinking: "medium",
+      timeoutSeconds: 120
     }),
     cache: "no-store"
   });
@@ -163,17 +223,26 @@ export async function dispatchOpenClawTaskRun(input: {
   const payload = (await response.json().catch(() => null)) as
     | {
         id?: string;
+        runId?: string;
         result?: { id?: string };
         error?: { message?: string };
+        ok?: boolean;
       }
     | null;
 
-  if (!response.ok) {
+  if (!response.ok || payload?.ok === false) {
     throw new Error(payload?.error?.message || `OpenClaw dispatch failed with status ${response.status}.`);
   }
 
+  const finalText = extractTextFromPayload(payload);
+
+  if (!finalText) {
+    throw new Error("OpenClaw dispatch did not return a final response.");
+  }
+
   return {
-    responseId: payload?.id ?? payload?.result?.id ?? null,
+    responseId: payload?.id ?? payload?.runId ?? payload?.result?.id ?? null,
+    finalText,
     raw: payload
   };
 }

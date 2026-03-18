@@ -273,8 +273,8 @@ As a workspace owner, I want a task assigned to an OpenClaw-backed agent to disp
 
 Notes:
 - implemented through `POST /api/tasks/:taskId/openclaw/dispatch`
-- dispatch now targets the OpenClaw `/v1/responses` API with `model=agent:<id>`
-- Mission Control includes task, context, execution, and reporting links in the prompt contract
+- initial implementation targeted the OpenClaw `/v1/responses` API with `model=agent:<id>`
+- the active feature branch is moving this to `/hooks/agent` with a direct comment-response contract
 
 26. `Assignable OpenClaw agents in project scope`
 Priority: P1
@@ -310,3 +310,51 @@ Notes:
 - current codebase now has a real OpenClaw implementation, so this is a follow-up, not a placeholder
 - should define provider boundaries, credential storage, sync semantics, and operator UX explicitly
 - should preserve the current owner-only safety posture while reducing provider-specific coupling
+
+29. `OpenClaw hook-based task dispatch contract`
+Priority: P1
+Size: M
+Status: `done`
+
+As a workspace owner, I want Mission Control to dispatch assigned OpenClaw tasks through the documented `/hooks/agent` contract so runtime execution uses the target agent's own workspace and configuration.
+
+Notes:
+- should map the assigned OpenClaw-backed membership to `agentId`
+- should send a structured Mission Control task instruction as `message`
+- first slice should default `wakeMode=now` and `deliver=false`
+
+30. `OpenClaw inbound result capture and comment projection`
+Priority: P1
+Size: L
+Status: `partial`
+
+As a workspace owner, I want a final OpenClaw agent response written back into the task comments so humans can see the result in the normal Mission Control workflow.
+
+Notes:
+- Mission Control remains the task system of record
+- final human-facing output should become a task comment authored by the assigned agent membership
+- machine-facing details should also be captured in execution/activity logs
+- first pass is synchronous only; trusted callback ingestion is still pending
+
+31. `Trusted OpenClaw callback correlation and status handling`
+Priority: P1
+Size: M
+Status: `queued`
+
+As a system, I want inbound OpenClaw results correlated to the correct task and validated against trusted runtime identity so comments and status changes cannot be spoofed or misapplied.
+
+Notes:
+- must define callback auth/signing or other trusted runtime boundary
+- should reject stale or mismatched task/agent correlations
+- first slice should move successful final responses to `review` by default
+
+32. `OpenClaw result loop regression coverage`
+Priority: P1
+Size: M
+Status: `partial`
+
+As a developer, I want end-to-end automated coverage for dispatch, result capture, and comment projection so the OpenClaw response loop is safe to evolve.
+
+Notes:
+- current branch covers outbound hook dispatch and synchronous comment projection
+- should still cover callback delivery, invalid agent/task correlation, and failed runtime paths

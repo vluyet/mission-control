@@ -16,6 +16,7 @@ Current batch:
 - OpenClaw integration is live on `main` for workspace linking, agent sync, assignable agents, and task dispatch.
 - Future backlog should treat generalized external runtime/provider abstraction as a follow-up to the existing OpenClaw MVP, not as a placeholder for missing integration.
 - CI is green again after 2026-03-18 concurrency hardening in the OpenClaw integration and tests.
+- OpenClaw first-pass comment response work is underway on `feat/openclaw-comment-response`: hook-based dispatch plus synchronous final-response projection into task comments.
 
 ## Current guidance
 

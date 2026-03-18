@@ -135,8 +135,17 @@ This file reflects the current codebase, not just previous delivery notes.
 - `OpenClaw task dispatch through linked runtime`
 - `Assignable OpenClaw agents in project scope`
 - `OpenClaw runtime reliability and CI stabilization`
+- `OpenClaw hook-based task dispatch contract`
 
 ### Partially implemented
+
+- `OpenClaw inbound result capture and comment projection`
+  Notes:
+  The first pass now projects a synchronous `/hooks/agent` final response into task comments and execution trace. Trusted callback ingestion, stale-result correlation, and status handling are still pending.
+
+- `OpenClaw result loop regression coverage`
+  Notes:
+  The dispatch regression now covers synchronous hook dispatch and comment projection. Callback-path and stale-correlation coverage do not exist yet.
 
 ### Not implemented
 
@@ -149,9 +158,12 @@ This file reflects the current codebase, not just previous delivery notes.
 - `Collapsed subtask groups in list and board views`
 - `Saved view sharing and default workspace views`
 - `Generalized external agent provider abstraction beyond OpenClaw`
+- `Trusted OpenClaw callback correlation and status handling`
 
 ## Known mapping gaps
 
 - OpenClaw integration is now implemented for owner-managed workspace linking, agent sync, and task dispatch, but it is still provider-specific rather than a generalized external runtime abstraction.
+- OpenClaw dispatch is no longer prompt-only. Mission Control now uses `/hooks/agent` for the first pass and can project one synchronous final response into task comments.
+- Mission Control still does not own a trusted inbound callback/result-ingest path for asynchronous OpenClaw completion.
 - The product exposes many features, but some original backlog items remain partial around actor-scoped visibility, UI permission hiding, and component test depth.
 - Some planning documents written on 2026-03-16 still reflect the brief period where OpenClaw had been removed; current implementation truth should be taken from main, the README, the API contract, and the active OpenClaw tests.

@@ -17,9 +17,9 @@ function startMockOpenClaw() {
       return;
     }
 
-    if (req.method === "POST" && req.url === "/v1/responses") {
+    if (req.method === "POST" && req.url === "/hooks/agent") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ id: "resp_mock_123", status: "queued" }));
+      res.end(JSON.stringify({ id: "hook_run_123", result: { response: "OpenClaw completed the task and is replying in comment." } }));
       return;
     }
 
@@ -39,7 +39,7 @@ function startMockOpenClaw() {
   });
 }
 
-test("owner can dispatch an OpenClaw-assigned task through the linked gateway", async () => {
+test("owner can dispatch an OpenClaw-assigned task and receive the final response as an agent comment", async () => {
   const cookie = await signIn();
   const mock = await startMockOpenClaw();
 
@@ -97,14 +97,23 @@ test("owner can dispatch an OpenClaw-assigned task through the linked gateway", 
     });
 
     assert.equal(dispatch.response.status, 201);
-    assert.equal(dispatch.payload?.data?.dispatch?.responseId, "resp_mock_123");
+    assert.equal(dispatch.payload?.data?.dispatch?.responseId, "hook_run_123");
 
-    const responseRequest = mock.requests.find((request) => request.url === "/v1/responses");
+    const responseRequest = mock.requests.find((request) => request.url === "/hooks/agent");
     assert.ok(responseRequest, "expected dispatch request");
     const payload = JSON.parse(responseRequest.body);
-    assert.equal(payload.model, "agent:builder");
-    assert.match(payload.input, /Mission Control base URL:/);
-    assert.match(payload.input, /\/api\/tasks\/.+\/execution/);
+    assert.equal(payload.agentId, "builder");
+    assert.equal(payload.wakeMode, "now");
+    assert.equal(payload.deliver, false);
+    assert.equal(payload.thinking, "medium");
+    assert.equal(payload.timeoutSeconds, 120);
+    assert.match(payload.message, /Respond with one concise final answer/);
+
+    const comments = await json(`/api/tasks/${taskId}/comments`, { cookie });
+    assert.equal(comments.response.status, 200);
+    const agentComment = comments.payload?.data?.comments?.find((comment) => comment.author === openclawAgent.name);
+    assert.ok(agentComment, "expected an agent-authored comment from OpenClaw response");
+    assert.match(agentComment.body, /replying in comment/);
   } finally {
     mock.server.close();
   }
