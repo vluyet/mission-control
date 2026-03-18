@@ -3199,6 +3199,29 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { web
       label: task.assignee.name
     });
 
+    let commentId: string | null = null;
+    if (dispatch.finalText) {
+      const comment = await createCommentInDb(task.id, {
+        author: task.assignee.name,
+        role: "Agent",
+        tone: "agent",
+        body: dispatch.finalText,
+        membershipId: task.assignee.id
+      });
+
+      if (comment && "error" in comment) {
+        return { error: "OPENCLAW_COMMENT_WRITE_FAILED", message: "OpenClaw returned a response, but Mission Control could not post it as an agent comment." } as const;
+      }
+
+      if (comment && !("error" in comment)) {
+        commentId = comment.id;
+        await appendExecutionLogInDb(task.id, `OpenClaw returned a final response for ${task.assignee.name}.`, {
+          membershipId: task.assignee.id,
+          label: task.assignee.name
+        });
+      }
+    }
+
     await db.authEvent.create({
       data: {
         workspaceId: task.project.workspaceId,
@@ -3216,7 +3239,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { web
       openclawAgentId: task.assignee.sourceKey,
       responseId: dispatch.responseId,
       accepted: dispatch.accepted,
-      commentId: null
+      commentId
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "OpenClaw task dispatch failed.";

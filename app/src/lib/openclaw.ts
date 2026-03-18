@@ -242,10 +242,11 @@ export async function dispatchOpenClawTaskRun(input: {
   }
 
   const responseId = payload?.id ?? payload?.runId ?? ((payload?.result as { id?: string } | undefined)?.id ?? null);
+  const finalText = extractTextFromPayload(payload?.result ?? payload);
 
   return {
     responseId,
-    finalText: null,
+    finalText,
     accepted: true,
     raw: payload
   };
