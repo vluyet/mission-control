@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.12 - 2026-03-18
+
+OpenClaw autonomous task-handling stabilization and production hardening.
+
+- Simplified task dispatch to a single OpenClaw `/hooks/agent` call and aligned dispatch auth with hooks token support.
+- Added scoped runtime agent bearer credential issuance per dispatch (`tasks.read`, `execution.write`, `comments.write`).
+- Injected Mission Control callback contract into dispatch prompt so agents can report progress and final answers via API.
+- Persisted synchronous hook response text into task comments when available.
+- Added richer dispatch payload/status execution logging for faster production debugging.
+- Updated deployment/readme documentation and release metadata for `v0.1.12`.
+
 ## v0.1.11 - 2026-03-17
 
 Stabilized OpenClaw integration by moving the Mission Control app to the host runtime on `piclaw` while keeping PostgreSQL in Docker.

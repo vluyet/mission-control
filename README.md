@@ -4,7 +4,7 @@ Mission Control is a task operations app for human teammates and AI agents worki
 
 ## Release status
 
-Current version: `v0.1.11`
+Current version: `v0.1.12`
 
 This release is launch-ready with:
 
@@ -38,7 +38,7 @@ The workspace shell top bar now surfaces the current deployed version and, when 
 Fresh machine install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.11/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.12/scripts/bootstrap-public.sh | bash
 ```
 
 Optional overrides:
@@ -48,7 +48,7 @@ MC_INSTALL_DIR=/opt/mission-control \
 MC_OWNER_EMAIL=owner@example.com \
 MC_OWNER_PASSWORD='change-me-now' \
 MC_APP_PORT=3000 \
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.11/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.12/scripts/bootstrap-public.sh | bash
 ```
 
 ## Production runtime (current working model)
@@ -73,7 +73,7 @@ Use the production compose file plus the install script.
 From a cloned repo:
 
 ```bash
-./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.11
+./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.12
 ```
 
 Optional environment overrides:
@@ -103,7 +103,7 @@ Run this from the installed repo directory:
 Or pin to a specific release:
 
 ```bash
-./scripts/update.sh --version v0.1.11
+./scripts/update.sh --version v0.1.12
 ```
 
 The update script will:
@@ -138,7 +138,7 @@ Notes:
 Production uses:
 
 - `docker-compose.prod.yml`
-- the `release` target in [app/Dockerfile](/Users/vluyet/Sites/mission-control/app/Dockerfile)
+- the `release` target in [app/Dockerfile](app/Dockerfile)
 - persistent Docker volumes for PostgreSQL data and app file storage
 
 Health endpoint:
@@ -173,8 +173,9 @@ Minimal agent exposure endpoints:
 
 ## Release notes
 
-- [CHANGELOG.md](/Users/vluyet/Sites/mission-control/CHANGELOG.md)
-- [project/release-v0.1.5.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.5.md)
-- [project/release-v0.1.6.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.6.md)
-- [project/release-v0.1.7.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.7.md)
-- [project/release-v0.1.11.md](/Users/vluyet/Sites/mission-control/project/release-v0.1.11.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- [project/release-v0.1.5.md](project/release-v0.1.5.md)
+- [project/release-v0.1.6.md](project/release-v0.1.6.md)
+- [project/release-v0.1.7.md](project/release-v0.1.7.md)
+- [project/release-v0.1.11.md](project/release-v0.1.11.md)
+- [project/release-v0.1.12.md](project/release-v0.1.12.md)
