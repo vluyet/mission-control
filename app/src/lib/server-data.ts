@@ -3122,12 +3122,33 @@ export async function updateAgentCredentialInDb(credentialId: string, enabled: b
 }
 
 
+async function createOpenClawRuntimeCredential(membershipId: string, taskId: string) {
+  const token = await createAgentAccessToken();
+  const tokenHash = await hashAgentAccessToken(token);
+  const credential = await db.agentCredential.create({
+    data: {
+      membershipId,
+      name: `runtime-${taskId}-${Date.now()}`,
+      tokenHash,
+      scopes: ["tasks.read", "comments.write", "execution.write"]
+    }
+  });
+
+  return {
+    id: credential.id,
+    token
+  };
+}
+
+
 function buildOpenClawTaskMessage(input: {
   taskId: string;
   projectSlug: string;
   taskTitle: string;
   taskDescription: string;
   taskContextHint: string;
+  missionControlBaseUrl: string;
+  agentToken: string;
 }) {
   return [
     `You are handling Mission Control task ${input.taskId} in project ${input.projectSlug}.`,
@@ -3135,13 +3156,21 @@ function buildOpenClawTaskMessage(input: {
     input.taskDescription ? `Task description: ${input.taskDescription}` : "Task description: (none provided)",
     input.taskContextHint ? `Task context hint: ${input.taskContextHint}` : "Task context hint: (none provided)",
     "",
-    "Respond with one concise final answer that can be posted directly as a human-facing task comment.",
-    "Do not mention internal tools, hidden reasoning, or implementation details unless the task explicitly asks for them.",
-    "If the task is unclear, respond with a short clarification request suitable for a task comment."
+    "Use Mission Control APIs to report progress and final output:",
+    `Mission Control base URL: ${input.missionControlBaseUrl}`,
+    `Bearer token: ${input.agentToken}`,
+    `Execution endpoint: ${input.missionControlBaseUrl}/api/tasks/${input.taskId}/execution`,
+    `Comments endpoint: ${input.missionControlBaseUrl}/api/tasks/${input.taskId}/comments`,
+    "",
+    "Required actions:",
+    "1) POST progress lines to /execution as you work.",
+    "2) POST your final user-facing answer to /comments.",
+    "",
+    "Never reveal the bearer token in comments or execution logs."
   ].join("\n");
 }
 
-export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { webhookBaseUrl?: string | null }) {
+export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { missionControlBaseUrl?: string | null }) {
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {
@@ -3170,12 +3199,17 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { web
     return { error: "OPENCLAW_NOT_CONFIGURED" } as const;
   }
 
+  const runtimeCredential = await createOpenClawRuntimeCredential(task.assignee.id, task.id);
+  const missionControlBaseUrl = options?.missionControlBaseUrl?.replace(/\/+$/, "") || "http://127.0.0.1:3001";
+
   const message = buildOpenClawTaskMessage({
     taskId: task.id,
     projectSlug: task.project.slug,
     taskTitle: task.title,
     taskDescription: task.description ?? "",
-    taskContextHint: task.contextHint ?? ""
+    taskContextHint: task.contextHint ?? "",
+    missionControlBaseUrl,
+    agentToken: runtimeCredential.token
   });
 
   try {
