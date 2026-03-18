@@ -2,24 +2,25 @@
 
 ## Active batch
 
-The original master backlog is complete.
+Source of truth: `project/BACKLOG.md`
 
-Active work now follows [backlog-optimized.md](/Users/vluyet/Sites/mission-control/project/backlog-optimized.md).
+In progress:
+1. Actor-scoped project visibility enforcement
+2. Workspace-scoped URLs and shareable workspace state
+3. Workspace switch consistency + hard-refresh safety
 
-Current batch:
-- `J6 follow-up — actor-scoped project visibility enforcement`
-- `Workspace-scoped URLs and shareable workspace state`
-- `Workspace switch consistency and hard refresh behavior` refinement
+## Delivery rules
 
-## Tracking notes
+- Keep Docker-first workflow.
+- Keep API-first contract for autonomous agents.
+- Ship small coherent batches that close product-truth gaps first.
+- Do not expand UI surface before runtime correctness and auditability.
 
-- OpenClaw integration is live on `main` for workspace linking, agent sync, assignable agents, and task dispatch.
-- Future backlog should treat generalized external runtime/provider abstraction as a follow-up to the existing OpenClaw MVP, not as a placeholder for missing integration.
-- CI is green again after 2026-03-18 concurrency hardening in the OpenClaw integration and tests.
-- OpenClaw first-pass comment response work is underway on `feat/openclaw-comment-response`: hook-based dispatch plus synchronous final-response projection into task comments.
+## Notes
 
-## Current guidance
+- OpenClaw autonomous loop is functional via scoped runtime bearer credentials.
+- Dispatch is hooks-based (`/hooks/agent`) with ack/runId semantics.
+- Agent progress/final output should flow via Mission Control APIs:
+  - `POST /api/tasks/:taskId/execution`
+  - `POST /api/tasks/:taskId/comments`
 
-- Keep following the Docker-only workflow.
-- Preserve the API-first direction so agent clients stay first-class.
-- Prefer batches that close product-truth gaps before adding more visual or workflow surface area.
