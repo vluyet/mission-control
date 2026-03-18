@@ -146,15 +146,20 @@ export async function dispatchOpenClawTaskRun(input: {
   prompt: string;
 }) {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const useConnector = baseUrl.includes("openclaw-connector") || /127\.0\.0\.1:18890$/.test(baseUrl) || /localhost:18890$/.test(baseUrl) || /host\.docker\.internal:18890$/.test(baseUrl) || /127\.0\.0\.1:18891$/.test(baseUrl) || /localhost:18891$/.test(baseUrl) || /192\.168\.90\.90:18891$/.test(baseUrl);
-  const dispatchUrl = useConnector ? `${baseUrl}/dispatch` : `${baseUrl}/v1/responses`;
+  const dispatchUrl = `${baseUrl}/hooks/agent`;
   const response = await fetch(dispatchUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${input.gatewayToken}`
     },
-    body: JSON.stringify(dispatchUrl.endsWith('/dispatch') ? { agentId: input.agentId, taskId: input.taskId, prompt: input.prompt } : { model: `agent:${input.agentId}`, user: `mission-control-task:${input.taskId}`, input: input.prompt }),
+    body: JSON.stringify({
+      message: input.prompt,
+      agentId: input.agentId,
+      name: "Mission Control",
+      wakeMode: "now",
+      deliver: false
+    }),
     cache: "no-store"
   });
 
