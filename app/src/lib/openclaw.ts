@@ -146,7 +146,7 @@ export async function dispatchOpenClawTaskRun(input: {
   prompt: string;
 }) {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const dispatchUrl = `${baseUrl}/hooks/agent`;
+  const dispatchUrl = `${baseUrl}/v1/responses`;
   const response = await fetch(dispatchUrl, {
     method: "POST",
     headers: {
@@ -154,11 +154,8 @@ export async function dispatchOpenClawTaskRun(input: {
       authorization: `Bearer ${input.gatewayToken}`
     },
     body: JSON.stringify({
-      message: input.prompt,
-      agentId: input.agentId,
-      name: "Mission Control",
-      wakeMode: "now",
-      deliver: false
+      model: `agent:${input.agentId}`,
+      input: input.prompt
     }),
     cache: "no-store"
   });
