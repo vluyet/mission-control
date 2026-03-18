@@ -6,7 +6,8 @@ export type OpenClawAgentDescriptor = {
 
 export type OpenClawDispatchResult = {
   responseId: string | null;
-  finalText: string;
+  finalText: string | null;
+  accepted: boolean;
   raw: unknown;
 };
 
@@ -202,12 +203,44 @@ export async function dispatchOpenClawTaskRun(input: {
   taskId: string;
   workspaceId: string;
   message: string;
+  webhookUrl?: string;
+  webhookToken?: string;
 }): Promise<OpenClawDispatchResult> {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
   const headers = {
     "content-type": "application/json",
     authorization: `Bearer ${input.gatewayToken}`
   };
+
+  function tryExtractResponseId(payload: unknown) {
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+
+    const record = payload as Record<string, unknown>;
+    const direct = [record.id, record.runId, record.responseId].find((value) => typeof value === "string" && value.trim());
+    if (typeof direct === "string") {
+      return direct;
+    }
+
+    const result = record.result;
+    if (result && typeof result === "object") {
+      const nested = result as Record<string, unknown>;
+      const nestedId = [nested.id, nested.runId, nested.responseId].find((value) => typeof value === "string" && value.trim());
+      if (typeof nestedId === "string") {
+        return nestedId;
+      }
+
+      if (nested.response && typeof nested.response === "object") {
+        const responseId = (nested.response as { id?: unknown }).id;
+        if (typeof responseId === "string" && responseId.trim()) {
+          return responseId;
+        }
+      }
+    }
+
+    return null;
+  }
 
   async function parseDispatchResponse(response: Response, mode: "hook" | "bridge") {
     const payload = (await response.json().catch(() => null)) as
@@ -231,32 +264,24 @@ export async function dispatchOpenClawTaskRun(input: {
 
     const resultPayload = mode === "bridge" && payload && typeof payload === "object" && "result" in payload ? payload.result : payload;
     const finalText = extractTextFromPayload(resultPayload);
-
-    if (!finalText) {
-      return {
-        ok: false as const,
-        status: response.status,
-        message: "OpenClaw dispatch did not return a final response.",
-        payload
-      };
-    }
+    const responseId = tryExtractResponseId(payload) ?? (resultPayload ? tryExtractResponseId(resultPayload) : null);
 
     return {
       ok: true as const,
       result: {
-        responseId:
-          payload?.id ??
-          payload?.runId ??
-          ((payload?.result as { id?: string } | undefined)?.id ?? null) ??
-          (resultPayload && typeof resultPayload === "object"
-            ? (((resultPayload as Record<string, unknown>).id as string | undefined) ??
-              (((resultPayload as Record<string, unknown>).response as { id?: string } | undefined)?.id ?? null))
-            : null),
+        responseId,
         finalText,
+        accepted: Boolean(responseId || finalText),
         raw: payload
       }
     };
   }
+
+  const webhookHeaders = input.webhookToken
+    ? {
+        authorization: `Bearer ${input.webhookToken}`
+      }
+    : undefined;
 
   const hookResponse = await fetch(`${baseUrl}/hooks/agent`, {
     method: "POST",
@@ -267,7 +292,26 @@ export async function dispatchOpenClawTaskRun(input: {
       wakeMode: "now",
       deliver: false,
       thinking: "medium",
-      timeoutSeconds: 120
+      timeoutSeconds: 120,
+      metadata: {
+        taskId: input.taskId,
+        workspaceId: input.workspaceId,
+        source: "mission-control"
+      },
+      ...(input.webhookUrl
+        ? {
+            callbackUrl: input.webhookUrl,
+            webhookUrl: input.webhookUrl,
+            callback: {
+              url: input.webhookUrl,
+              headers: webhookHeaders
+            },
+            webhook: {
+              url: input.webhookUrl,
+              headers: webhookHeaders
+            }
+          }
+        : {})
     }),
     cache: "no-store"
   });
