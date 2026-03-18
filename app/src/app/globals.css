@@ -351,6 +351,7 @@ a {
     display: flex;
     align-items: center;
     gap: 0.45rem;
+    flex-wrap: wrap;
     min-width: 0;
   }
 
@@ -379,6 +380,28 @@ a {
   .utilitybar-search {
     width: min(34rem, 100%);
     min-width: 16rem;
+  }
+
+  .utilitybar-deploy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .utilitybar-deploy-pill {
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.78);
+    padding: 0.18rem 0.48rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--text-dim);
+  }
+
+  .utilitybar-deploy-pill-strong {
+    color: var(--text-strong);
   }
 
   .utilitybar-link-button {

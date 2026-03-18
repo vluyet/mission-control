@@ -28,6 +28,10 @@ require_command() {
   fi
 }
 
+json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
 set_env_value() {
   local key="$1"
   local value="$2"
@@ -115,6 +119,98 @@ generate_secret() {
   fi
 }
 
+resolve_target_ref() {
+  local requested="$1"
+
+  if [ "$requested" = "latest" ]; then
+    local latest_tag
+    latest_tag="$(git tag --sort=-v:refname | head -n1 || true)"
+    if [ -n "$latest_tag" ]; then
+      printf '%s\n' "$latest_tag"
+    else
+      printf '%s\n' 'origin/main'
+    fi
+    return
+  fi
+
+  if git show-ref --verify --quiet "refs/tags/$requested"; then
+    printf '%s\n' "$requested"
+    return
+  fi
+
+  if git show-ref --verify --quiet "refs/remotes/origin/$requested"; then
+    printf '%s\n' "origin/$requested"
+    return
+  fi
+
+  if git show-ref --verify --quiet "refs/heads/$requested"; then
+    printf '%s\n' "$requested"
+    return
+  fi
+
+  if git rev-parse --verify --quiet "$requested^{commit}" >/dev/null; then
+    printf '%s\n' "$requested"
+    return
+  fi
+
+  echo "Unknown target ref: $requested" >&2
+  exit 1
+}
+
+resolve_branch_name() {
+  local requested="$1"
+  local candidate="${requested#origin/}"
+
+  if [ "$requested" = "latest" ]; then
+    return
+  fi
+
+  if git show-ref --verify --quiet "refs/remotes/origin/$candidate" || git show-ref --verify --quiet "refs/heads/$candidate"; then
+    printf '%s\n' "$candidate"
+  fi
+}
+
+resolve_deploy_ref_label() {
+  local requested="$1"
+
+  if [ "$requested" = "latest" ]; then
+    if git describe --tags --exact-match >/dev/null 2>&1; then
+      git describe --tags --exact-match
+    else
+      git rev-parse --short HEAD
+    fi
+    return
+  fi
+
+  printf '%s\n' "$requested"
+}
+
+write_deployment_metadata() {
+  local requested="$1"
+  local ref_label branch version commit updated_at
+
+  ref_label="$(resolve_deploy_ref_label "$requested")"
+  branch="$(resolve_branch_name "$requested")"
+  version="$(git describe --tags --always 2>/dev/null || git rev-parse --short HEAD)"
+  commit="$(git rev-parse HEAD)"
+  updated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  cat > app/DEPLOYMENT.json <<EOF
+{
+  "version": "$(json_escape "$version")",
+  "branch": $(if [ -n "$branch" ]; then printf '"%s"' "$(json_escape "$branch")"; else printf 'null'; fi),
+  "commit": "$(json_escape "$commit")",
+  "ref": "$(json_escape "$ref_label")",
+  "updatedAt": "$(json_escape "$updated_at")"
+}
+EOF
+
+  set_env_value MISSION_CONTROL_VERSION "$version"
+  set_env_value MISSION_CONTROL_BRANCH "$branch"
+  set_env_value MISSION_CONTROL_COMMIT "$commit"
+  set_env_value MISSION_CONTROL_DEPLOY_REF "$ref_label"
+}
+
 repo_url="${MC_REPO_URL:-https://github.com/vluyet/mission-control.git}"
 install_dir="${MC_INSTALL_DIR:-/opt/mission-control}"
 version="${MC_VERSION:-latest}"
@@ -193,14 +289,8 @@ cd "$install_dir"
 
 git fetch --tags --prune
 
-if [ "$version" = "latest" ]; then
-  latest_tag="$(git tag --sort=-v:refname | head -n1 || true)"
-  if [ -n "$latest_tag" ]; then
-    git checkout "$latest_tag"
-  fi
-else
-  git checkout "$version"
-fi
+target_ref="$(resolve_target_ref "$version")"
+git checkout -f "$target_ref"
 
 owner_email="${MC_OWNER_EMAIL:-owner@example.com}"
 owner_password="${MC_OWNER_PASSWORD:-$(generate_secret)}"
@@ -229,6 +319,8 @@ OWNER_PASSWORD=${owner_password}
 AUTH_SECRET=${auth_secret}
 EOF
 fi
+
+write_deployment_metadata "$version"
 
 start_stack "$app_port"
 

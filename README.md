@@ -31,6 +31,8 @@ docker compose exec app npm run test
 docker compose exec app npm run db:reset
 ```
 
+The workspace shell top bar now surfaces the current deployed version and, when available, the deployed branch and commit.
+
 ## One-line install
 
 Fresh machine install:
@@ -107,10 +109,29 @@ Or pin to a specific release:
 The update script will:
 
 - fetch tags and resolve the target version
-- check out the requested release (or latest tag)
-- rebuild and restart the production Docker stack
-- rely on the app container startup to run Prisma migrations and bootstrap safely
+- check out the requested tag, branch, or commit
+- stamp deployment metadata into `app/DEPLOYMENT.json` so the app and `/api/health` expose the deployed ref
+- rebuild the host app, apply Prisma deploy/bootstrap, and restart the documented host app service when available
+- restart the production PostgreSQL stack
 - wait for `/api/health` and fail loudly with recent logs if the app does not come back
+
+## Testing unreleased work on another machine
+
+To validate work from GitHub before tagging a release, publish the branch and update the test machine to that exact ref.
+
+Examples:
+
+```bash
+./scripts/update.sh --version main
+./scripts/update.sh --version feat/my-branch
+./scripts/update.sh --version 7951376
+```
+
+Notes:
+
+- If the test machine uses the documented `mission-control-app.service`, `scripts/update.sh` will restart it automatically.
+- If the host app is managed differently, set `MC_APP_RESTART_CMD` to the correct restart command before running the update script.
+- After the update, verify the top bar or call `/api/health` to confirm the deployed version, branch, and commit.
 
 ## Deployment model
 

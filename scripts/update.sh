@@ -11,6 +11,8 @@ Usage:
 Examples:
   ./scripts/update.sh
   ./scripts/update.sh --version v0.1.8
+  ./scripts/update.sh --version main
+  ./scripts/update.sh --version feat/my-branch
 
 Environment overrides:
   MC_VERSION
@@ -18,6 +20,7 @@ Environment overrides:
   MC_HEALTHCHECK_URL
   MC_HEALTHCHECK_RETRIES
   MC_HEALTHCHECK_DELAY
+  MC_APP_RESTART_CMD
 USAGE
 }
 
@@ -26,6 +29,25 @@ require_command() {
     echo "Missing required command: $1" >&2
     exit 1
   fi
+}
+
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local tmp_file
+
+  tmp_file="$(mktemp)"
+  awk -v key="$key" -v value="$value" '
+    BEGIN { updated = 0 }
+    index($0, key "=") == 1 { print key "=" value; updated = 1; next }
+    { print }
+    END { if (!updated) print key "=" value }
+  ' .env > "$tmp_file"
+  mv "$tmp_file" .env
+}
+
+json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
 resolve_target_ref() {
@@ -42,7 +64,117 @@ resolve_target_ref() {
     return
   fi
 
+  if git show-ref --verify --quiet "refs/tags/$requested"; then
+    printf '%s\n' "$requested"
+    return
+  fi
+
+  if git show-ref --verify --quiet "refs/remotes/origin/$requested"; then
+    printf '%s\n' "origin/$requested"
+    return
+  fi
+
+  if git show-ref --verify --quiet "refs/heads/$requested"; then
+    printf '%s\n' "$requested"
+    return
+  fi
+
+  if git rev-parse --verify --quiet "$requested^{commit}" >/dev/null; then
+    printf '%s\n' "$requested"
+    return
+  fi
+
+  echo "Unknown target ref: $requested" >&2
+  exit 1
+}
+
+resolve_branch_name() {
+  local requested="$1"
+  local candidate="${requested#origin/}"
+
+  if [ "$requested" = "latest" ]; then
+    return
+  fi
+
+  if git show-ref --verify --quiet "refs/remotes/origin/$candidate" || git show-ref --verify --quiet "refs/heads/$candidate"; then
+    printf '%s\n' "$candidate"
+  fi
+}
+
+resolve_deploy_ref_label() {
+  local requested="$1"
+
+  if [ "$requested" = "latest" ]; then
+    if git describe --tags --exact-match >/dev/null 2>&1; then
+      git describe --tags --exact-match
+    else
+      git rev-parse --short HEAD
+    fi
+    return
+  fi
+
   printf '%s\n' "$requested"
+}
+
+write_deployment_metadata() {
+  local requested="$1"
+  local ref_label branch version commit short_commit updated_at
+
+  ref_label="$(resolve_deploy_ref_label "$requested")"
+  branch="$(resolve_branch_name "$requested")"
+  version="$(git describe --tags --always 2>/dev/null || git rev-parse --short HEAD)"
+  commit="$(git rev-parse HEAD)"
+  short_commit="$(git rev-parse --short HEAD)"
+  updated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  cat > app/DEPLOYMENT.json <<EOF
+{
+  "version": "$(json_escape "$version")",
+  "branch": $(if [ -n "$branch" ]; then printf '"%s"' "$(json_escape "$branch")"; else printf 'null'; fi),
+  "commit": "$(json_escape "$commit")",
+  "ref": "$(json_escape "$ref_label")",
+  "updatedAt": "$(json_escape "$updated_at")"
+}
+EOF
+
+  set_env_value MISSION_CONTROL_VERSION "$version"
+  set_env_value MISSION_CONTROL_BRANCH "$branch"
+  set_env_value MISSION_CONTROL_COMMIT "$commit"
+  set_env_value MISSION_CONTROL_DEPLOY_REF "$ref_label"
+
+  echo "Deployment metadata stamped: ${version} (${branch:-detached}@${short_commit})"
+}
+
+update_host_app() {
+  echo "Installing app dependencies and building host app..."
+  (
+    set -a
+    . ./.env
+    set +a
+    cd app
+    npm ci
+    if [ "$no_build" != "1" ]; then
+      npm run build
+    fi
+    npm run db:deploy
+    npm run db:bootstrap
+  )
+}
+
+restart_host_app() {
+  local restart_cmd="${MC_APP_RESTART_CMD:-}"
+
+  if [ -z "$restart_cmd" ] && command -v systemctl >/dev/null 2>&1 && systemctl --user status mission-control-app.service >/dev/null 2>&1; then
+    restart_cmd="systemctl --user restart mission-control-app.service"
+  fi
+
+  if [ -z "$restart_cmd" ]; then
+    echo "No host app restart command configured. Set MC_APP_RESTART_CMD if your test machine does not use mission-control-app.service." >&2
+    return 0
+  fi
+
+  echo "Restarting host app..."
+  sh -lc "$restart_cmd"
 }
 
 wait_for_health() {
@@ -99,6 +231,7 @@ done
 require_command git
 require_command docker
 require_command curl
+require_command npm
 
 if ! docker compose version >/dev/null 2>&1; then
   echo "docker compose is required." >&2
@@ -131,6 +264,7 @@ target_ref="$(resolve_target_ref "$version")"
 echo "Target version: ${target_ref}"
 
 git checkout -f "$target_ref"
+write_deployment_metadata "$version"
 
 echo "Stopping existing containers..."
 docker compose -f docker-compose.prod.yml down
@@ -143,10 +277,13 @@ else
   docker compose -f docker-compose.prod.yml up -d --build
 fi
 
+update_host_app
+restart_host_app
+
 echo "Waiting for Mission Control health endpoint..."
 if ! wait_for_health "$healthcheck_url" "$healthcheck_retries" "$healthcheck_delay"; then
   echo "Mission Control failed health verification. Recent logs:" >&2
-  docker compose -f docker-compose.prod.yml logs --tail=200 app >&2 || true
+  docker compose -f docker-compose.prod.yml logs --tail=200 db >&2 || true
   exit 1
 fi
 

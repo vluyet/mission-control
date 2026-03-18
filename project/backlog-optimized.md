@@ -1,6 +1,6 @@
 # Optimized Backlog
 
-Snapshot date: 2026-03-16
+Snapshot date: 2026-03-18
 
 This backlog reorders work based on the current codebase audit. It merges the remaining partial master-backlog items with the follow-up items from [backlog-additions.md](/Users/vluyet/Sites/mission-control/project/backlog-additions.md).
 
@@ -13,7 +13,7 @@ This backlog reorders work based on the current codebase audit. It merges the re
 
 ## Batch 1 — Workspace administration truth
 
-Status: `active`
+Status: `done`
 
 1. `Workspace asset library and workspace-level files`
 Priority: P1
@@ -30,16 +30,16 @@ Priority: P2
 Size: S
 Status: `done`
 
-4. `Secure external agent registry integration replacement`
+4. `OpenClaw workspace runtime link and agent sync`
 Priority: P1
 Size: M
-Status: `queued`
+Status: `done`
 
 Outcome:
 - `Manage Workspace` becomes a real admin hub
 - workspace context is backed by shared files, not just text
 - workspace-level operational documents become visible to both humans and future agents
-- external agent integration remains explicitly out of scope until a new secure specification is defined
+- workspace administration now includes the current OpenClaw runtime link and sync controls
 
 ## Batch 2 — Real actor identity and access
 
@@ -88,6 +88,7 @@ Status: `queued`
 1. `K2 follow-up — real component tests`
 2. `Attachment retention and deletion controls`
 3. `Mention notifications and inbox hooks`
+4. `Generalized external agent provider abstraction beyond OpenClaw`
 
 Outcome:
-- product gets safer to evolve and cleaner in long-running use
+- product gets safer to evolve, less provider-coupled, and cleaner in long-running use

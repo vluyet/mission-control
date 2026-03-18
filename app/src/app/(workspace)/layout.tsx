@@ -1,5 +1,6 @@
 import { getWorkspaceShellDataForUi } from "@/lib/server-data";
 import { ProductShell } from "@/components/product/shell-layout";
+import { getDeploymentMetadata } from "@/lib/runtime-metadata";
 
 export default async function WorkspaceLayout({
   children
@@ -7,9 +8,10 @@ export default async function WorkspaceLayout({
   children: React.ReactNode;
 }>) {
   const shellData = await getWorkspaceShellDataForUi();
+  const deployment = getDeploymentMetadata();
 
   if (!shellData) {
-    return <ProductShell>{children}</ProductShell>;
+    return <ProductShell deployment={deployment}>{children}</ProductShell>;
   }
 
   return (
@@ -18,6 +20,7 @@ export default async function WorkspaceLayout({
       workspaces={shellData.workspaces}
       shellCounts={shellData.shellCounts}
       activeTaskHref={shellData.activeTaskHref}
+      deployment={deployment}
     >
       {children}
     </ProductShell>

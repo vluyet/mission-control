@@ -1,6 +1,6 @@
 # Backlog Status
 
-Snapshot date: 2026-03-16
+Snapshot date: 2026-03-18
 
 This file reflects the current codebase, not just previous delivery notes.
 
@@ -131,6 +131,10 @@ This file reflects the current codebase, not just previous delivery notes.
 - `Authenticated shell navigation cleanup`
 - `Workspace asset library and workspace-level files`
 - `Actor-attributed agent mutations`
+- `OpenClaw workspace runtime link and agent sync`
+- `OpenClaw task dispatch through linked runtime`
+- `Assignable OpenClaw agents in project scope`
+- `OpenClaw runtime reliability and CI stabilization`
 
 ### Partially implemented
 
@@ -144,9 +148,10 @@ This file reflects the current codebase, not just previous delivery notes.
 - `Actor-scoped project visibility enforcement`
 - `Collapsed subtask groups in list and board views`
 - `Saved view sharing and default workspace views`
-- `Secure external agent registry integration replacement`
+- `Generalized external agent provider abstraction beyond OpenClaw`
 
 ## Known mapping gaps
 
-- External agent registry binding is intentionally not implemented at launch. The previous OpenClaw-specific integration was removed and replaced with a spec-pending follow-up.
+- OpenClaw integration is now implemented for owner-managed workspace linking, agent sync, and task dispatch, but it is still provider-specific rather than a generalized external runtime abstraction.
 - The product exposes many features, but some original backlog items remain partial around actor-scoped visibility, UI permission hiding, and component test depth.
+- Some planning documents written on 2026-03-16 still reflect the brief period where OpenClaw had been removed; current implementation truth should be taken from main, the README, the API contract, and the active OpenClaw tests.

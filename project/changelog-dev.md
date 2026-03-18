@@ -1,5 +1,21 @@
 # Dev Changelog
 
+## 2026-03-18
+
+### Backlog reconciliation against main
+
+- Audited the planning documents against the real implementation on `main`.
+- Corrected backlog drift that still described OpenClaw integration as removed or spec-pending.
+- Updated backlog tracking so OpenClaw workspace linking, agent sync, dispatch, assignable agents, and CI stabilization are recorded as delivered work.
+- Reframed the remaining external-agent follow-up as `Generalized external agent provider abstraction beyond OpenClaw`.
+
+### OpenClaw CI stabilization
+
+- Reproduced the failing GitHub Actions run locally and traced it to concurrent OpenClaw tests mutating the same seeded workspace integration.
+- Hardened OpenClaw integration writes and synced membership writes with atomic Prisma upserts.
+- Serialized the OpenClaw test command to avoid shared-workspace races in CI.
+- Verified the full Docker-based CI flow locally and on GitHub Actions after the fix.
+
 ## 2026-03-16
 
 ### Remove OpenClaw-specific integration before launch

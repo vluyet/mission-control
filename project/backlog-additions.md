@@ -247,3 +247,66 @@ Notes:
 - replaces the removed OpenClaw-specific integration
 - should start from a fresh specification, not a reintroduction of the old approach
 - must define trust boundaries, credential model, sync model, and operator UX explicitly
+
+## 2026-03-18
+
+### Reconciled against main
+
+24. `OpenClaw workspace runtime link and agent sync`
+Priority: P1
+Size: M
+Status: `done`
+
+As a workspace owner, I want to link the active workspace to an OpenClaw runtime and sync discovered agents so that OpenClaw-backed members become assignable inside Mission Control.
+
+Notes:
+- implemented through owner-only workspace settings, stored integration state, and sync APIs
+- discovered agents are persisted as workspace members with `sourceSystem=openclaw`
+- current production guidance prefers the host bridge on port `18891`
+
+25. `OpenClaw task dispatch through linked runtime`
+Priority: P1
+Size: M
+Status: `done`
+
+As a workspace owner, I want a task assigned to an OpenClaw-backed agent to dispatch through the linked runtime so that work can leave Mission Control without UI scraping.
+
+Notes:
+- implemented through `POST /api/tasks/:taskId/openclaw/dispatch`
+- dispatch now targets the OpenClaw `/v1/responses` API with `model=agent:<id>`
+- Mission Control includes task, context, execution, and reporting links in the prompt contract
+
+26. `Assignable OpenClaw agents in project scope`
+Priority: P1
+Size: S
+Status: `done`
+
+As a workspace owner, I want synced OpenClaw agents to participate in project membership and task assignment so they behave like first-class teammates inside project scope.
+
+Notes:
+- synced OpenClaw members are added to project membership scope
+- OpenClaw-backed assignees can be selected, assigned, and dispatched from the task UI
+
+27. `OpenClaw runtime reliability and CI stabilization`
+Priority: P1
+Size: S
+Status: `done`
+
+As a developer, I want OpenClaw integration flows to be deterministic under test and safe under concurrent requests so CI remains trustworthy.
+
+Notes:
+- integration writes and synced membership writes now use atomic Prisma upserts
+- OpenClaw test execution is serialized to avoid shared-workspace race conditions
+- GitHub Actions now passes on the post-`/v1/responses` integration path
+
+28. `Generalized external agent provider abstraction beyond OpenClaw`
+Priority: P1
+Size: L
+Status: `queued`
+
+As a workspace owner, I want the current OpenClaw-specific runtime integration generalized behind a safer provider abstraction so Mission Control can support future external runtimes without treating OpenClaw as the permanent only model.
+
+Notes:
+- current codebase now has a real OpenClaw implementation, so this is a follow-up, not a placeholder
+- should define provider boundaries, credential storage, sync semantics, and operator UX explicitly
+- should preserve the current owner-only safety posture while reducing provider-specific coupling

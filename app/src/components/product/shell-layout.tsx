@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useTransition } from "react";
 import { primaryNav, secondaryNav, ShellCounts, workspaceSummary, WorkspaceOption, WorkspaceSummary } from "@/lib/demo-data";
+import type { DeploymentMetadata } from "@/lib/runtime-metadata";
 import {
   BellIcon,
   BoardIcon,
@@ -127,13 +128,15 @@ export function ProductShell({
     members: primaryNav.find((item) => item.href === "/members")?.count ?? "0",
     queues: secondaryNav.find((item) => item.href === "/queue")?.count ?? "0"
   },
-  activeTaskHref = "/projects"
+  activeTaskHref = "/projects",
+  deployment
 }: {
   children: ReactNode;
   currentWorkspace?: WorkspaceSummary;
   workspaces?: WorkspaceOption[];
   shellCounts?: ShellCounts;
   activeTaskHref?: string;
+  deployment?: DeploymentMetadata;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -292,6 +295,13 @@ export function ProductShell({
             <div className="product-utilitybar">
               <div className="utilitybar-location">
                 <span className="utilitybar-location-section">{sectionLabel}</span>
+                {deployment ? (
+                  <div className="utilitybar-deploy">
+                    <span className="utilitybar-deploy-pill utilitybar-deploy-pill-strong">{deployment.version}</span>
+                    {deployment.branch ? <span className="utilitybar-deploy-pill">{deployment.branch}</span> : null}
+                    {deployment.shortCommit ? <span className="utilitybar-deploy-pill">{deployment.shortCommit}</span> : null}
+                  </div>
+                ) : null}
               </div>
 
               <div className="utilitybar-controls">
