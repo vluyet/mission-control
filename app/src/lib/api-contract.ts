@@ -422,8 +422,8 @@ export function getAgentContractPayload() {
         response_shape: ["dispatch.taskId", "dispatch.openclawAgentId", "dispatch.responseId?"],
         notes: [
           "Owner-authenticated only.",
-          "Dispatch uses the linked OpenClaw gateway /v1/responses endpoint with model=agent:<openclawAgentId>.",
-          "The generated run prompt instructs the agent to use Mission Control task/context/execution/comment endpoints instead of scraping the UI."
+          "Dispatch uses the linked OpenClaw `/hooks/agent` endpoint with the assigned `agentId`.",
+          "The first-pass integration asks OpenClaw for a single final human-facing answer and Mission Control writes that response back into task comments as the assigned agent."
         ]
       },
       task_comments: {
@@ -461,11 +461,9 @@ export function getAgentContractPayload() {
       },
       openclaw_reporting_conventions: {
         notes: [
-          "OpenClaw runs should read /api/tasks/:taskId and /api/tasks/:taskId/context first.",
-          "Machine progress belongs in /api/tasks/:taskId/execution.",
-          "Human-facing summaries belong in /api/tasks/:taskId/comments.",
-          "Status updates should use PATCH /api/tasks/:taskId with actorType=agent.",
-          "Use blockedReason when setting blocked, and prefer review over done when human approval is still needed."
+          "The current first-pass OpenClaw flow is synchronous and comment-oriented.",
+          "Mission Control dispatches the task to the assigned OpenClaw agent and writes the returned final answer into task comments.",
+          "Execution and activity traces are still recorded in Mission Control."
         ]
       }
     },

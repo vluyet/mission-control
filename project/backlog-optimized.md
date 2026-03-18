@@ -92,3 +92,16 @@ Status: `queued`
 
 Outcome:
 - product gets safer to evolve, less provider-coupled, and cleaner in long-running use
+
+## Batch 6 — OpenClaw result loop
+
+Status: `active`
+
+1. `Trusted OpenClaw callback correlation and status handling`
+2. `OpenClaw inbound result capture and comment projection`
+3. `OpenClaw result loop regression coverage`
+
+Outcome:
+- an assigned OpenClaw agent can return a final result into Mission Control comments
+- Mission Control remains the source of truth for task state and audit trail
+- the current branch already covers the smallest synchronous request/response loop; the remaining work is trusted asynchronous completion handling

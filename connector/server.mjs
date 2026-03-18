@@ -3,6 +3,7 @@ import http from 'node:http';
 const port = Number(process.env.PORT || 18890);
 const upstreamBaseUrl = String(process.env.OPENCLAW_BASE_URL || 'http://host.docker.internal:18789').replace(/\/+$/, '');
 const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || '';
+const hookToken = process.env.OPENCLAW_HOOK_TOKEN || gatewayToken;
 
 // MVP in-memory link registry (workspaceId -> agentId)
 const workspaceLinks = new Map();
@@ -53,23 +54,87 @@ function extractAgentIds(agentsListResult) {
 }
 
 async function dispatchTask({ agentId, taskId, prompt }, token = gatewayToken) {
-  const response = await fetch(`${upstreamBaseUrl}/v1/responses`, {
+  const headers = {
+    'content-type': 'application/json',
+    ...(token ? { authorization: `Bearer ${token}` } : {})
+  };
+
+  const extractText = (value) => {
+    if (typeof value === 'string') {
+      const text = value.trim();
+      return text || null;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const text = extractText(item);
+        if (text) return text;
+      }
+      return null;
+    }
+    if (!value || typeof value !== 'object') return null;
+    for (const key of ['response', 'message', 'output', 'output_text', 'text', 'finalText', 'resultText', 'summary']) {
+      const text = extractText(value[key]);
+      if (text) return text;
+    }
+    for (const key of ['result', 'data', 'details']) {
+      const text = extractText(value[key]);
+      if (text) return text;
+    }
+    if (Array.isArray(value.content)) {
+      for (const item of value.content) {
+        const text = extractText(item?.text);
+        if (text) return text;
+      }
+    }
+    return null;
+  };
+
+  const parseDispatch = async (response, mode) => {
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || payload?.ok === false) {
+      return { ok: false, status: response.status, message: payload?.error?.message || `OpenClaw response dispatch failed (${response.status})` };
+    }
+    const resultPayload = mode === 'hook' ? (payload?.result ?? payload) : payload;
+    const finalText = extractText(resultPayload);
+    if (!finalText) {
+      return { ok: false, status: response.status, message: 'OpenClaw dispatch did not return a final response.' };
+    }
+    return { ok: true, result: payload };
+  };
+
+  const hookResponse = await fetch(`${upstreamBaseUrl}/hooks/agent`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      ...(token ? { authorization: `Bearer ${token}` } : {})
+      ...(hookToken ? { authorization: `Bearer ${hookToken}` } : {})
     },
+    body: JSON.stringify({
+      agentId,
+      message: prompt,
+      wakeMode: 'now',
+      deliver: false,
+      thinking: 'medium',
+      timeoutSeconds: 120
+    })
+  });
+  const hookResult = await parseDispatch(hookResponse, 'hook');
+  if (hookResult.ok) return hookResult.result;
+  if (hookResult.status !== 401 && hookResult.status !== 404) {
+    throw new Error(hookResult.message);
+  }
+
+  const legacyResponse = await fetch(`${upstreamBaseUrl}/v1/responses`, {
+    method: 'POST',
+    headers,
     body: JSON.stringify({
       model: `agent:${agentId}`,
       user: `mission-control-task:${taskId}`,
       input: prompt
     })
   });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(payload?.error?.message || `OpenClaw response dispatch failed (${response.status})`);
-  }
-  return payload;
+  const legacyResult = await parseDispatch(legacyResponse, 'legacy');
+  if (legacyResult.ok) return legacyResult.result;
+  throw new Error(legacyResult.message || hookResult.message);
 }
 
 const server = http.createServer(async (req, res) => {

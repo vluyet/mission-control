@@ -2,11 +2,6 @@ import { error, ok } from "@/lib/api-response";
 import { dispatchTaskToOpenClawInDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
 
-function getRequestBaseUrl(request: Request) {
-  const url = new URL(request.url);
-  return `${url.protocol}//${url.host}`;
-}
-
 export async function POST(request: Request, { params }: { params: { taskId: string } }) {
   const auth = await resolveApiActor(request);
 
@@ -18,7 +13,7 @@ export async function POST(request: Request, { params }: { params: { taskId: str
     return error("Owner access required.", 403, { code: "OWNER_ACCESS_REQUIRED" });
   }
 
-  const result = await dispatchTaskToOpenClawInDb(params.taskId, getRequestBaseUrl(request));
+  const result = await dispatchTaskToOpenClawInDb(params.taskId);
 
   if (!result) {
     return error("Task not found", 404, { taskId: params.taskId });
@@ -30,7 +25,8 @@ export async function POST(request: Request, { params }: { params: { taskId: str
     const messageMap: Record<string, string> = {
       TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT: "Task must be assigned to an OpenClaw-backed agent before dispatch.",
       OPENCLAW_NOT_CONFIGURED: "OpenClaw is not configured for this workspace.",
-      OPENCLAW_DISPATCH_FAILED: result.message ?? "OpenClaw dispatch failed."
+      OPENCLAW_DISPATCH_FAILED: result.message ?? "OpenClaw dispatch failed.",
+      OPENCLAW_COMMENT_WRITE_FAILED: result.message ?? "OpenClaw responded, but Mission Control could not write the task comment."
     };
     return error(messageMap[code] ?? "OpenClaw dispatch failed.", status, { code });
   }
