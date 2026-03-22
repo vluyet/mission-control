@@ -173,19 +173,13 @@ export const workspaceContext: ContextBlock = {
 };
 
 export const primaryNav: NavItem[] = [
-  { label: "Home", icon: "home", href: "/" },
-  { label: "My Tasks", icon: "stack", href: "/my-tasks", count: "0" },
   { label: "Projects", icon: "folder", href: "/projects", count: "0" },
-  { label: "Members", icon: "users", href: "/members", count: "0" }
+  { label: "My Tasks", icon: "stack", href: "/my-tasks", count: "0" },
+  { label: "Members", icon: "users", href: "/members", count: "0" },
+  { label: "Settings", icon: "settings", href: "/manage-workspace" }
 ];
 
-export const secondaryNav: NavItem[] = [
-  { label: "Activity", icon: "pulse", href: "/activity" },
-  { label: "Queues", icon: "spark", href: "/queue", count: "0" },
-  { label: "Manage Workspace", icon: "settings", href: "/manage-workspace" },
-  { label: "Agent Docs", icon: "book", href: "/docs/agents" },
-  { label: "Sign In", icon: "inbox", href: "/sign-in" }
-];
+export const secondaryNav: NavItem[] = [{ label: "Sign In", icon: "inbox", href: "/sign-in" }];
 
 export const signInHighlights = [
   "Workspace-aware task management",

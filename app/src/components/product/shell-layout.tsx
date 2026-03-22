@@ -5,22 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useTransition } from "react";
 import { primaryNav, secondaryNav, ShellCounts, workspaceSummary, WorkspaceOption, WorkspaceSummary } from "@/lib/demo-data";
 import type { DeploymentMetadata } from "@/lib/runtime-metadata";
-import {
-  BellIcon,
-  BoardIcon,
-  BookIcon,
-  ChevronDownIcon,
-  FolderIcon,
-  HomeIcon,
-  InboxIcon,
-  PulseIcon,
-  SettingsIcon,
-  SparkIcon,
-  StackIcon,
-  UsersIcon
-} from "@/components/ui/icons";
+import { ChevronDownIcon, FolderIcon, HomeIcon, InboxIcon, SettingsIcon, SparkIcon, StackIcon, UsersIcon } from "@/components/ui/icons";
 import { AppButton } from "@/components/ui/primitives";
-import { GlobalSearchBar } from "@/components/product/global-search-bar";
 
 function iconFor(name: string) {
   switch (name) {
@@ -32,16 +18,10 @@ function iconFor(name: string) {
       return <StackIcon className="h-4 w-4" />;
     case "folder":
       return <FolderIcon className="h-4 w-4" />;
-    case "board":
-      return <BoardIcon className="h-4 w-4" />;
     case "users":
       return <UsersIcon className="h-4 w-4" />;
-    case "pulse":
-      return <PulseIcon className="h-4 w-4" />;
     case "spark":
       return <SparkIcon className="h-4 w-4" />;
-    case "book":
-      return <BookIcon className="h-4 w-4" />;
     case "settings":
       return <SettingsIcon className="h-4 w-4" />;
     default:
@@ -58,11 +38,7 @@ function matchesPath(pathname: string, href: string) {
 }
 
 function getSectionLabel(pathname: string) {
-  if (pathname === "/") {
-    return "Home";
-  }
-
-  if (pathname.startsWith("/projects")) {
+  if (pathname === "/" || pathname.startsWith("/projects")) {
     return "Projects";
   }
 
@@ -78,40 +54,15 @@ function getSectionLabel(pathname: string) {
     return "Members";
   }
 
-  if (pathname === "/activity") {
-    return "Activity";
-  }
-
-  if (pathname === "/queue") {
-    return "Queues";
-  }
-
-  if (pathname.startsWith("/docs/agents")) {
-    return "Agent Docs";
-  }
-
   if (pathname === "/manage-workspace") {
-    return "Manage Workspace";
-  }
-
-  if (pathname === "/search") {
-    return "Search";
+    return "Settings";
   }
 
   return "Workspace";
 }
 
 function getWorkspaceDestination(pathname: string) {
-  if (
-    pathname === "/" ||
-    pathname === "/projects" ||
-    pathname === "/members" ||
-    pathname === "/activity" ||
-    pathname === "/queue" ||
-    pathname === "/my-tasks" ||
-    pathname === "/search" ||
-    pathname.startsWith("/docs/agents")
-  ) {
+  if (pathname === "/projects" || pathname === "/members" || pathname === "/my-tasks" || pathname === "/manage-workspace") {
     return pathname;
   }
 
@@ -160,12 +111,7 @@ export function ProductShell({
             ? shellCounts.members
             : item.count
   }));
-  const secondaryItems = secondaryNav
-    .filter((item) => item.href !== "/sign-in")
-    .map((item) => ({
-      ...item,
-      count: item.href === "/queue" ? shellCounts.queues : item.count
-    }));
+  const secondaryItems = secondaryNav.filter((item) => item.href !== "/sign-in");
 
   function handleSignOut() {
     startTransition(async () => {
@@ -244,7 +190,7 @@ export function ProductShell({
           </div>
 
           <div className="mt-6">
-            <p className="sidebar-section-label">Core navigation</p>
+            <p className="sidebar-section-label">Navigation</p>
             <nav className="mt-3 space-y-1">
               {primaryItems.map((item) => {
                 const active = matchesPath(pathname, item.href);
@@ -261,33 +207,25 @@ export function ProductShell({
             </nav>
           </div>
 
-          <div className="mt-6">
-            <p className="sidebar-section-label">Operations</p>
-            <nav className="mt-3 space-y-1">
-              {secondaryItems.map((item) => {
-                const active = matchesPath(pathname, item.href);
-                return (
-                  <Link key={item.href} href={item.href} className={`nav-item ${active ? "nav-item-active" : "nav-item-idle"}`}>
-                    <span className="inline-flex items-center gap-3">
-                      <span className="nav-icon">{iconFor(item.icon)}</span>
-                      <span>{item.label}</span>
-                    </span>
-                    {item.count ? <span className="nav-count">{item.count}</span> : null}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-
-          <div className="sidebar-footer">
-            <div className="sidebar-footer-badge">
-              <SparkIcon className="h-4 w-4" />
+          {secondaryItems.length ? (
+            <div className="mt-6">
+              <p className="sidebar-section-label">Secondary</p>
+              <nav className="mt-3 space-y-1">
+                {secondaryItems.map((item) => {
+                  const active = matchesPath(pathname, item.href);
+                  return (
+                    <Link key={item.href} href={item.href} className={`nav-item ${active ? "nav-item-active" : "nav-item-idle"}`}>
+                      <span className="inline-flex items-center gap-3">
+                        <span className="nav-icon">{iconFor(item.icon)}</span>
+                        <span>{item.label}</span>
+                      </span>
+                      {item.count ? <span className="nav-count">{item.count}</span> : null}
+                    </Link>
+                  );
+                })}
+              </nav>
             </div>
-            <div>
-              <p className="sidebar-footer-title">Automation ready</p>
-              <p className="sidebar-footer-text">{shellCounts.queues} queued items in the active workspace</p>
-            </div>
-          </div>
+          ) : null}
         </aside>
 
         <main className="product-main">
@@ -295,22 +233,10 @@ export function ProductShell({
             <div className="product-utilitybar">
               <div className="utilitybar-location">
                 <span className="utilitybar-location-section">{sectionLabel}</span>
-                {deployment ? (
-                  <div className="utilitybar-deploy">
-                    <span className="utilitybar-deploy-pill utilitybar-deploy-pill-strong">{deployment.version}</span>
-                    {deployment.branch ? <span className="utilitybar-deploy-pill">{deployment.branch}</span> : null}
-                    {deployment.shortCommit ? <span className="utilitybar-deploy-pill">{deployment.shortCommit}</span> : null}
-                  </div>
-                ) : null}
+                {deployment?.version ? <span className="utilitybar-location-section text-[var(--text-dim)]">{deployment.version}</span> : null}
               </div>
 
               <div className="utilitybar-controls">
-                <div className="utilitybar-search">
-                  <GlobalSearchBar />
-                </div>
-                <button type="button" className="chrome-button" aria-label="Notifications">
-                  <BellIcon className="h-4 w-4" />
-                </button>
                 <AppButton tone="ghost" className="utilitybar-link-button" disabled={isPending} onClick={handleSignOut}>
                   {isPending ? "Signing out..." : "Sign out"}
                 </AppButton>
