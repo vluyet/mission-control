@@ -8,20 +8,7 @@ import {
 } from "@/lib/attachment-storage";
 import { createAgentAccessToken, getOwnerAuthConfig, hashAgentAccessToken, type AgentScope } from "@/lib/auth";
 import { cookies } from "next/headers";
-import type {
-  ActivityFeedItem,
-  AttachmentRecord,
-  ContextBlock,
-  Member,
-  Metric,
-  ProjectSummary,
-  ShellCounts,
-  TaskRecord,
-  TimelineEvent,
-  WatcherRecord,
-  WorkspaceOption,
-  WorkspaceSummary
-} from "@/lib/demo-data";
+import type { ActivityFeedItem, AttachmentRecord, ContextBlock, Member, Metric, ProjectSummary, TaskRecord, WatcherRecord } from "@/lib/demo-data";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 export {
   dispatchTaskToOpenClawInDb,
@@ -201,44 +188,6 @@ function getAttachmentPreviewKind(mimeType: string): AttachmentRecord["previewKi
   }
 
   return null;
-}
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-}
-
-function taskPrefixForProject(slug: string) {
-  const parts = slug.split("-").filter(Boolean);
-  return parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("") || "TS";
-}
-
-async function generateTaskId(projectSlug: string) {
-  const prefix = taskPrefixForProject(projectSlug);
-  const existing = await db.task.findMany({
-    where: {
-      id: {
-        startsWith: `${prefix}-`
-      }
-    },
-    select: {
-      id: true
-    }
-  });
-
-  let next = existing.length + 1;
-  let candidate = `${prefix}-${String(next).padStart(3, "0")}`;
-
-  while (existing.some((task) => task.id === candidate)) {
-    next += 1;
-    candidate = `${prefix}-${String(next).padStart(3, "0")}`;
-  }
-
-  return candidate;
 }
 
 function mapContextBlock(value: unknown, fallbackTitle: string): ContextBlock {
@@ -423,38 +372,6 @@ function buildProjectVisibilityWhere(visibilityMembershipId?: string | null) {
         }
       }
     ]
-  };
-}
-
-function mapWorkspaceOption(workspace: {
-  slug: string;
-  name: string;
-  visibility: string;
-  memberships: { id: string }[];
-  projects: { id: string }[];
-}): WorkspaceOption {
-  return {
-    slug: workspace.slug,
-    name: workspace.name,
-    plan: workspace.visibility === "shared" ? "Shared workspace" : "Owner workspace",
-    progress: workspace.projects.length ? `${workspace.projects.length} active projects` : "No active projects",
-    memberCount: workspace.memberships.length,
-    projectCount: workspace.projects.length
-  };
-}
-
-function mapWorkspaceSummary(workspace: {
-  slug: string;
-  name: string;
-  visibility: string;
-  memberships: { id: string }[];
-  projects: { id: string }[];
-}): WorkspaceSummary {
-  return {
-    slug: workspace.slug,
-    name: workspace.name,
-    plan: workspace.visibility === "shared" ? "Shared workspace" : "Owner workspace",
-    progress: workspace.projects.length ? `${workspace.projects.length} active projects` : "No active projects"
   };
 }
 
