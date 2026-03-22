@@ -174,6 +174,14 @@ Minimal agent exposure endpoints:
 - JSON summary: `/api/docs/agents`
 - Machine-readable contract: `/api/docs/agents/contract`
 
+## Product cleanup plan
+
+For the next simplification pass, see:
+
+- [project/cleanup-plan-v0.2.md](project/cleanup-plan-v0.2.md)
+
+This plan narrows Mission Control back to a small core product before further expansion.
+
 ## Release notes
 
 - [CHANGELOG.md](CHANGELOG.md)
