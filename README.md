@@ -84,6 +84,8 @@ Optional environment overrides:
 - `MC_POSTGRES_PASSWORD`
 - `MC_COMPOSE_PROJECT_NAME`
 - `MC_APP_PORT`
+- `MC_DB_PORT`
+- `MC_INSTALL_SYSTEMD_USER`
 
 The install script will:
 
@@ -137,9 +139,10 @@ Notes:
 
 Production uses:
 
-- `docker-compose.prod.yml`
-- the `release` target in [app/Dockerfile](app/Dockerfile)
-- persistent Docker volumes for PostgreSQL data and app file storage
+- `docker-compose.prod.yml` for PostgreSQL only
+- host-run Next.js app from `app/`
+- configurable host PostgreSQL bind via `DB_PORT` (default `5432`)
+- persistent Docker volumes for PostgreSQL data
 
 Health endpoint:
 
