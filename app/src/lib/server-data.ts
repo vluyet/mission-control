@@ -41,6 +41,20 @@ export {
   updateActiveWorkspaceInDb,
   upsertActiveWorkspaceOpenClawIntegrationInDb
 } from "@/lib/server/workspace-server";
+import {
+  createProjectInDb,
+  getProjectContextBlockForUi,
+  getProjectMembersForUi,
+  getProjectsForUi,
+  setProjectMembersInDb
+} from "@/lib/server/projects-server";
+export {
+  createProjectInDb,
+  getProjectContextBlockForUi,
+  getProjectMembersForUi,
+  getProjectsForUi,
+  setProjectMembersInDb
+};
 
 function formatStatus(status: string): TaskRecord["status"] {
   return status === "in_progress"
@@ -1064,53 +1078,6 @@ export async function getTaskExecutionFromDb(taskId: string) {
   };
 }
 
-export async function getProjectsForUi(options?: {
-  includeArchived?: boolean;
-  visibilityMembershipId?: string | null;
-}) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
-  const projects = await db.project.findMany({
-    where: {
-      ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {}),
-      ...(!options?.includeArchived ? { status: "active" } : {}),
-      ...buildProjectVisibilityWhere(options?.visibilityMembershipId)
-    },
-    orderBy: { createdAt: "asc" },
-    include: {
-      tasks: true,
-      memberships: true
-    }
-  });
-
-  return projects.map((project): ProjectSummary => {
-    const memberIds = new Set(
-      project.tasks.flatMap((task) => [task.assigneeId, task.reviewerId].filter((value): value is string => Boolean(value)))
-    );
-
-    return {
-      slug: project.slug,
-      name: project.name,
-      description: project.description ?? "",
-      status:
-        project.tasks.some((task) => task.status === "blocked")
-          ? "At risk"
-          : project.tasks.some((task) => task.status === "review")
-            ? "Needs review"
-            : "On track",
-      lifecycle: formatProjectLifecycle(project.status),
-      visibility: formatProjectVisibility(project.visibility),
-      contextSummary: mapContextBlock(project.context, "Project context").summary,
-      due: formatShortDate(project.endDate ?? null),
-      members: project.memberships.length || memberIds.size,
-      open: project.tasks.filter((task) => task.status !== "done").length,
-      review: project.tasks.filter((task) => task.status === "review").length,
-      blocked: project.tasks.filter((task) => task.status === "blocked").length,
-      completed: project.tasks.filter((task) => task.status === "done").length,
-      completionRate: `${project.tasks.length ? Math.round((project.tasks.filter((task) => task.status === "done").length / project.tasks.length) * 100) : 0}%`
-    };
-  });
-}
-
 export async function searchWorkspaceForUi(query: string) {
   const activeWorkspace = await getActiveWorkspaceRecord();
   const trimmed = query.trim();
@@ -1202,69 +1169,6 @@ export async function getWorkspaceContextBlockForUi() {
   const workspace = await getActiveWorkspaceRecord();
 
   return workspace ? mapContextBlock(workspace.context, "Workspace context") : null;
-}
-
-export async function getProjectContextBlockForUi(slug: string) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
-  const project = await db.project.findFirst({
-    where: {
-      slug,
-      ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {})
-    }
-  });
-
-  return project ? mapContextBlock(project.context, "Project context") : null;
-}
-
-export async function getProjectMembersForUi(slug: string) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
-  const project = await db.project.findFirst({
-    where: {
-      slug,
-      ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {})
-    },
-    include: {
-      workspace: {
-        include: {
-          memberships: {
-            where: { enabled: true },
-            orderBy: { createdAt: "asc" }
-          }
-        }
-      },
-      memberships: {
-        include: {
-          membership: true
-        },
-        orderBy: { createdAt: "asc" }
-      }
-    }
-  });
-
-  if (!project) {
-    return null;
-  }
-
-  const selectedIds = new Set(project.memberships.map((item) => item.membershipId));
-
-  return {
-    project: {
-      slug: project.slug,
-      name: project.name,
-      status: project.status,
-      visibility: project.visibility
-    },
-    selectedMemberIds: Array.from(selectedIds),
-    selectedRoles: Object.fromEntries(project.memberships.map((item) => [item.membershipId, item.role])),
-    members: project.workspace.memberships.map((member) => ({
-      id: member.id,
-      name: member.name,
-      type: (member.kind === "agent" ? "Agent" : "Human") as "Agent" | "Human",
-      role: member.roleLabel ?? (member.kind === "agent" ? "Agent" : "Member"),
-      workspaceRole: formatWorkspaceRole(member.workspaceRole),
-      projectRole: formatProjectRole(project.memberships.find((item) => item.membershipId === member.id)?.role ?? "member")
-    }))
-  };
 }
 
 export async function getTasksForUi(filters?: {
@@ -1640,222 +1544,6 @@ export async function getTaskCreateFormData(slug: string) {
       id: task.id,
       label: `${task.id} · ${task.title}`
     }))
-  };
-}
-
-export async function createProjectInDb(payload: {
-  name: string;
-  description?: string;
-  startDate?: string;
-  endDate?: string;
-  visibility?: "workspace" | "project_members";
-}) {
-  const workspace = await getActiveWorkspaceRecord();
-
-  if (!workspace) {
-    return null;
-  }
-
-  const baseSlug = slugify(payload.name) || "project";
-  let slug = baseSlug;
-  let index = 2;
-
-  while (
-    await db.project.findFirst({
-      where: {
-        workspaceId: workspace.id,
-        slug
-      }
-    })
-  ) {
-    slug = `${baseSlug}-${index}`;
-    index += 1;
-  }
-
-  const description = payload.description?.trim() || null;
-  const project = await db.project.create({
-    data: {
-      workspaceId: workspace.id,
-      slug,
-      name: payload.name.trim(),
-      description,
-      status: "active",
-      visibility: payload.visibility ?? "workspace",
-      startDate: payload.startDate ? new Date(`${payload.startDate}T00:00:00Z`) : null,
-      endDate: payload.endDate ? new Date(`${payload.endDate}T00:00:00Z`) : null,
-      context: {
-        title: "Project context",
-        summary: description ?? `${payload.name.trim()} is a new project without a detailed context brief yet.`,
-        bullets: [
-          "Keep scope explicit and simple.",
-          "Let tasks inherit project context instead of rewriting it in every task."
-        ]
-      }
-    }
-  });
-
-  const ownerMembership = await getDefaultHumanMembership(workspace.id);
-
-  if (ownerMembership) {
-    await db.projectMembership.create({
-      data: {
-        projectId: project.id,
-        membershipId: ownerMembership.id,
-        role: "lead"
-      }
-    });
-  }
-
-  const enabledOpenClawAgents = await db.membership.findMany({
-    where: {
-      workspaceId: workspace.id,
-      kind: "agent",
-      sourceSystem: "openclaw",
-      enabled: true
-    },
-    select: {
-      id: true
-    }
-  });
-
-  if (enabledOpenClawAgents.length) {
-    await db.projectMembership.createMany({
-      data: enabledOpenClawAgents.map((membership) => ({
-        projectId: project.id,
-        membershipId: membership.id,
-        role: "member" as const
-      })),
-      skipDuplicates: true
-    });
-  }
-
-  return {
-    id: project.id,
-    slug: project.slug,
-    name: project.name
-  };
-}
-
-export async function setProjectMembersInDb(
-  slug: string,
-  entries: Array<{ membershipId: string; role?: "lead" | "member" | "observer" }> | string[]
-) {
-  const project = await db.project.findFirst({
-    where: { slug },
-    include: {
-      workspace: {
-        include: {
-          memberships: true
-        }
-      }
-    }
-  });
-
-  if (!project) {
-    return null;
-  }
-
-  const allowedIds = new Set(project.workspace.memberships.map((membership) => membership.id));
-  const normalizedEntries = entries.map((entry) =>
-    typeof entry === "string" ? { membershipId: entry, role: "member" as const } : { membershipId: entry.membershipId, role: entry.role ?? "member" }
-  );
-  const nextEntries = Array.from(
-    new Map(
-      normalizedEntries
-        .filter((entry) => allowedIds.has(entry.membershipId))
-        .map((entry) => [entry.membershipId, entry])
-    ).values()
-  );
-  const nextIds = nextEntries.map((entry) => entry.membershipId);
-  const blockedOwnerIds = new Set(nextEntries.filter((entry) => entry.role === "observer").map((entry) => entry.membershipId));
-
-  await db.projectMembership.deleteMany({
-    where: {
-      projectId: project.id
-    }
-  });
-
-  if (nextIds.length) {
-    await db.projectMembership.createMany({
-      data: nextEntries.map((entry) => ({
-        projectId: project.id,
-        membershipId: entry.membershipId,
-        role: entry.role
-      }))
-    });
-  }
-
-  await db.task.updateMany({
-    where: nextIds.length
-      ? {
-          projectId: project.id,
-          assigneeId: {
-            notIn: nextIds
-          }
-        }
-      : {
-          projectId: project.id,
-          assigneeId: {
-            not: null
-          }
-        },
-    data: {
-      assigneeId: null
-    }
-  });
-
-  if (blockedOwnerIds.size) {
-    await db.task.updateMany({
-      where: {
-        projectId: project.id,
-        assigneeId: {
-          in: Array.from(blockedOwnerIds)
-        }
-      },
-      data: {
-        assigneeId: null
-      }
-    });
-  }
-
-  await db.task.updateMany({
-    where: nextIds.length
-      ? {
-          projectId: project.id,
-          reviewerId: {
-            notIn: nextIds
-          }
-        }
-      : {
-          projectId: project.id,
-          reviewerId: {
-            not: null
-          }
-        },
-    data: {
-      reviewerId: null
-    }
-  });
-
-  if (blockedOwnerIds.size) {
-    await db.task.updateMany({
-      where: {
-        projectId: project.id,
-        reviewerId: {
-          in: Array.from(blockedOwnerIds)
-        }
-      },
-      data: {
-        reviewerId: null
-      }
-    });
-  }
-
-  return {
-    project: {
-      slug: project.slug,
-      memberCount: nextIds.length
-    }
   };
 }
 
