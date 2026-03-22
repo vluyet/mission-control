@@ -28,6 +28,12 @@ export {
   handleOpenClawTaskWebhookInDb,
   syncActiveWorkspaceOpenClawAgentsInDb
 } from "@/lib/server/openclaw-server";
+export {
+  getMembersForUi,
+  updateAgentPermissionsInDb,
+  updateMemberEnabledInDb,
+  updateWorkspaceRoleInDb
+} from "@/lib/server/members-server";
 
 function formatStatus(status: string): TaskRecord["status"] {
   return status === "in_progress"
@@ -1325,41 +1331,6 @@ export async function getMyTasksForUi() {
   return tasks.map(mapTaskRecord);
 }
 
-export async function getMembersForUi() {
-  const activeWorkspace = await getActiveWorkspaceRecord();
-  const memberships = await db.membership.findMany({
-    where: {
-      ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {})
-    },
-    orderBy: { createdAt: "asc" },
-    include: {
-      tasks: {
-        include: {
-          project: true
-        }
-      }
-    }
-  });
-
-  return memberships.map(
-    (member): Member => ({
-      id: member.id,
-      name: member.name,
-      type: member.kind === "agent" ? "Agent" : "Human",
-      role: member.roleLabel ?? (member.kind === "agent" ? "Agent" : "Member"),
-      workspaceRole: formatWorkspaceRole(member.workspaceRole),
-      email: member.email ?? undefined,
-      avatarUrl: member.avatarUrl ?? undefined,
-      capabilities: member.capabilities,
-      agentPermissions: member.kind === "agent" ? member.agentPermissions : [],
-      active: member.enabled,
-      load: member.enabled ? `${member.tasks.length} active tasks` : "Disabled",
-      projects: Array.from(new Set(member.tasks.map((task) => task.project.name))),
-      taskCount: member.tasks.length
-    })
-  );
-}
-
 export async function getActivityFeedForUi(limit = 8) {
   const activeWorkspace = await getActiveWorkspaceRecord();
   const activity = await db.taskActivity.findMany({
@@ -2588,78 +2559,6 @@ export async function updateTaskInDb(taskId: string, payload: {
   };
 }
 
-export async function updateWorkspaceRoleInDb(memberId: string, workspaceRole: "owner" | "admin" | "member" | "viewer") {
-  const member = await db.membership.findUnique({
-    where: { id: memberId },
-    include: {
-      tasks: {
-        select: {
-          id: true,
-          title: true
-        }
-      },
-      reviewingTasks: {
-        select: {
-          id: true,
-          title: true
-        }
-      }
-    }
-  });
-
-  if (!member) {
-    return null;
-  }
-
-  const updated = await db.membership.update({
-    where: { id: memberId },
-    data: {
-      workspaceRole
-    }
-  });
-
-  if (workspaceRole === "viewer") {
-    await db.task.updateMany({
-      where: { assigneeId: memberId },
-      data: { assigneeId: null }
-    });
-
-    await db.task.updateMany({
-      where: { reviewerId: memberId },
-      data: { reviewerId: null }
-    });
-
-    const activityRows = [
-      ...member.tasks.map((task) => ({
-        taskId: task.id,
-        actorId: memberId,
-        actorName: member.name,
-        label: "Workspace role changed",
-        detail: `${member.name} became a viewer and was removed from task ownership on ${task.title}.`
-      })),
-      ...member.reviewingTasks.map((task) => ({
-        taskId: task.id,
-        actorId: memberId,
-        actorName: member.name,
-        label: "Workspace role changed",
-        detail: `${member.name} became a viewer and was removed from review on ${task.title}.`
-      }))
-    ];
-
-    if (activityRows.length) {
-      await db.taskActivity.createMany({
-        data: activityRows
-      });
-    }
-  }
-
-  return {
-    id: updated.id,
-    workspaceRole: formatWorkspaceRole(updated.workspaceRole),
-    name: updated.name
-  };
-}
-
 export async function createCommentInDb(taskId: string, payload: {
   author: string;
   role: string;
@@ -3081,116 +2980,6 @@ export async function appendExecutionLogInDb(taskId: string, line: string, actor
     taskId,
     line: log.line,
     time: log.createdAt.toISOString()
-  };
-}
-
-export async function updateMemberEnabledInDb(memberId: string, enabled: boolean) {
-  const member = await db.membership.findUnique({
-    where: { id: memberId },
-    include: {
-      tasks: {
-        select: {
-          id: true,
-          title: true
-        }
-      },
-      reviewingTasks: {
-        select: {
-          id: true,
-          title: true
-        }
-      }
-    }
-  });
-
-  if (!member) {
-    return null;
-  }
-
-  if (member.kind !== "agent") {
-    return {
-      error: "ONLY_AGENTS_MUTABLE"
-    } as const;
-  }
-
-  const updated = await db.membership.update({
-    where: { id: memberId },
-    data: {
-      enabled
-    }
-  });
-
-  if (!enabled) {
-    await db.task.updateMany({
-      where: { assigneeId: memberId },
-      data: { assigneeId: null }
-    });
-
-    await db.task.updateMany({
-      where: { reviewerId: memberId },
-      data: { reviewerId: null }
-    });
-
-    const activityRows = [
-      ...member.tasks.map((task) => ({
-        taskId: task.id,
-        actorId: memberId,
-        actorName: member.name,
-        label: "Agent disabled",
-        detail: `${member.name} was disabled and removed from assignment on ${task.title}.`
-      })),
-      ...member.reviewingTasks.map((task) => ({
-        taskId: task.id,
-        actorId: memberId,
-        actorName: member.name,
-        label: "Agent disabled",
-        detail: `${member.name} was disabled and removed from review on ${task.title}.`
-      }))
-    ];
-
-    if (activityRows.length) {
-      await db.taskActivity.createMany({
-        data: activityRows
-      });
-    }
-  }
-
-  return {
-    id: updated.id,
-    enabled: updated.enabled,
-    name: updated.name
-  };
-}
-
-export async function updateAgentPermissionsInDb(memberId: string, agentPermissions: string[]) {
-  const member = await db.membership.findUnique({
-    where: { id: memberId }
-  });
-
-  if (!member) {
-    return null;
-  }
-
-  if (member.kind !== "agent") {
-    return {
-      error: "ONLY_AGENTS_MUTABLE"
-    } as const;
-  }
-
-  const allowed = ["comment", "change_status", "log_execution"];
-  const normalized = Array.from(new Set(agentPermissions.filter((permission) => allowed.includes(permission))));
-
-  const updated = await db.membership.update({
-    where: { id: memberId },
-    data: {
-      agentPermissions: normalized
-    }
-  });
-
-  return {
-    id: updated.id,
-    agentPermissions: updated.agentPermissions,
-    name: updated.name
   };
 }
 
