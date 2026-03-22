@@ -216,8 +216,11 @@ restart_host_app() {
     systemctl --user daemon-reload
     systemctl --user enable --now mission-control-app.service
   else
-    echo "systemctl --user not available or disabled; app service file not installed." >&2
-    echo "Start manually with: cd $(pwd)/app && NEXT_DIST_DIR=.next-build npm start -- -p ${app_port}" >&2
+    echo "systemctl --user not available or disabled; starting host app in background." >&2
+    (
+      cd app
+      nohup env NEXT_DIST_DIR=.next-build npm start -- -p "${app_port}" >/tmp/mission-control-install-app.log 2>&1 &
+    )
   fi
 }
 
