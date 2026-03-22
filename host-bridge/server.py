@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import subprocess
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -159,6 +160,22 @@ def extract_agent_ids(result):
                         pass
     return []
 
+def list_sessions_via_cli():
+    cmd = ['openclaw', 'gateway', 'call', 'sessions.list', '--params', '{}']
+    if OPENCLAW_GATEWAY_TOKEN:
+        cmd.extend(['--token', OPENCLAW_GATEWAY_TOKEN])
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=20, check=True)
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or '').strip()
+        stdout = (exc.stdout or '').strip()
+        raise RuntimeError(stderr or stdout or 'openclaw gateway call sessions.list failed')
+    raw = (result.stdout or '').strip()
+    start = raw.find('{')
+    if start < 0:
+        raise RuntimeError('openclaw gateway call sessions.list returned no JSON payload')
+    return json.loads(raw[start:])
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
@@ -169,9 +186,9 @@ class Handler(BaseHTTPRequestHandler):
                     result = openclaw_request('/tools/invoke', {'tool': 'agents_list', 'args': {}})
                     return response(self, 200, {'ok': True, 'result': result.get('result')})
                 except Exception:
-                    result = openclaw_request('/tools/invoke', {'tool': 'sessions_list', 'args': {}})
-                    agent_ids = sorted(set(extract_agent_ids(result.get('result'))))
-                    agents = [{'id': agent_id, 'name': agent_id, 'capabilities': ['derived:sessions_list']} for agent_id in agent_ids]
+                    result = list_sessions_via_cli()
+                    agent_ids = sorted(set(extract_agent_ids(result)))
+                    agents = [{'id': agent_id, 'name': agent_id, 'capabilities': ['derived:sessions.list']} for agent_id in agent_ids]
                     return response(self, 200, {'ok': True, 'result': agents})
             if self.path == '/workspace-links':
                 return response(self, 200, {'ok': True, 'result': [{'workspaceId': k, 'agentId': v} for k, v in workspace_links.items()]})
@@ -190,9 +207,12 @@ class Handler(BaseHTTPRequestHandler):
                     result = openclaw_request('/tools/invoke', {'tool': 'agents_list', 'args': {}}, token=token)
                     agents = result.get('result')
                 except Exception:
-                    result = openclaw_request('/tools/invoke', {'tool': 'sessions_list', 'args': {}}, token=token)
-                    agent_ids = sorted(set(extract_agent_ids(result.get('result'))))
-                    agents = [{'id': agent_id, 'name': agent_id, 'capabilities': ['derived:sessions_list']} for agent_id in agent_ids]
+                    current_token = OPENCLAW_GATEWAY_TOKEN
+                    if token != current_token:
+                        raise RuntimeError('Token validates only against the local gateway token path in this bridge mode')
+                    result = list_sessions_via_cli()
+                    agent_ids = sorted(set(extract_agent_ids(result)))
+                    agents = [{'id': agent_id, 'name': agent_id, 'capabilities': ['derived:sessions.list']} for agent_id in agent_ids]
                 return response(self, 200, {'ok': True, 'result': {'valid': True, 'tokenPreview': f'{token[:6]}...', 'agents': agents}})
             if self.path == '/workspace-links':
                 body = parse_json(self)
@@ -204,8 +224,8 @@ class Handler(BaseHTTPRequestHandler):
                     result = openclaw_request('/tools/invoke', {'tool': 'agents_list', 'args': {}})
                     known_agent_ids = extract_agent_ids(result.get('result'))
                 except Exception:
-                    result = openclaw_request('/tools/invoke', {'tool': 'sessions_list', 'args': {}})
-                    known_agent_ids = extract_agent_ids(result.get('result'))
+                    result = list_sessions_via_cli()
+                    known_agent_ids = extract_agent_ids(result)
                 if agent_id not in known_agent_ids:
                     return response(self, 404, {'ok': False, 'error': {'message': f'Agent not found: {agent_id}'}})
                 workspace_links[workspace_id] = agent_id
