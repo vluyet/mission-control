@@ -23,6 +23,20 @@ function guessNameFromId(id: string) {
     .join(" ");
 }
 
+function parseAgentIdFromSessionKey(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  const match = /^agent:([^:]+):/.exec(trimmed);
+  if (!match?.[1]) {
+    return null;
+  }
+
+  return match[1].trim() || null;
+}
+
 function toStringArray(values: unknown[]): string[] {
   return Array.from(
     new Set(
@@ -76,31 +90,6 @@ function normalizeAgent(value: unknown): OpenClawAgentDescriptor | null {
 export async function fetchOpenClawAgents(input: { baseUrl: string; gatewayToken: string }) {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
   const useConnector = baseUrl.includes("openclaw-connector") || /127\.0\.0\.1:18890$/.test(baseUrl) || /localhost:18890$/.test(baseUrl) || /host\.docker\.internal:18890$/.test(baseUrl) || /127\.0\.0\.1:18891$/.test(baseUrl) || /localhost:18891$/.test(baseUrl) || /192\.168\.90\.90:18891$/.test(baseUrl);
-  const agentsUrl = useConnector ? `${baseUrl}/agents` : `${baseUrl}/tools/invoke`;
-  const response = await fetch(agentsUrl, {
-    method: useConnector ? "GET" : "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${input.gatewayToken}`
-    },
-    ...(useConnector ? {} : { body: JSON.stringify({ tool: "agents_list", args: {} }) }),
-    cache: "no-store"
-  });
-
-  const payload = (await response.json().catch(() => null)) as
-    | {
-        ok?: boolean;
-        result?: unknown;
-        error?: { message?: string };
-      }
-    | null;
-
-  if (!response.ok || payload?.ok === false) {
-    const detail = payload?.error?.message || `OpenClaw request failed with status ${response.status}.`;
-    throw new Error(detail);
-  }
-
-  const raw = payload?.result;
 
   function extractAgentList(value: unknown): unknown[] {
     if (Array.isArray(value)) {
@@ -139,9 +128,82 @@ export async function fetchOpenClawAgents(input: { baseUrl: string; gatewayToken
     return [];
   }
 
-  const list = extractAgentList(raw);
+  async function fetchJson(path: string, init: RequestInit) {
+    const response = await fetch(path, { ...init, cache: "no-store" });
+    const payload = (await response.json().catch(() => null)) as
+      | {
+          ok?: boolean;
+          result?: unknown;
+          error?: { message?: string };
+        }
+      | null;
 
-  return list.map(normalizeAgent).filter((agent): agent is OpenClawAgentDescriptor => Boolean(agent));
+    return { response, payload };
+  }
+
+  if (useConnector) {
+    const { response, payload } = await fetchJson(`${baseUrl}/agents`, {
+      method: "GET",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${input.gatewayToken}`
+      }
+    });
+
+    if (!response.ok || payload?.ok === false) {
+      const detail = payload?.error?.message || `OpenClaw request failed with status ${response.status}.`;
+      throw new Error(detail);
+    }
+
+    return extractAgentList(payload?.result).map(normalizeAgent).filter((agent): agent is OpenClawAgentDescriptor => Boolean(agent));
+  }
+
+  const headers = {
+    "content-type": "application/json",
+    authorization: `Bearer ${input.gatewayToken}`
+  };
+
+  const agentsResult = await fetchJson(`${baseUrl}/tools/invoke`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ tool: "agents_list", args: {} })
+  });
+
+  if (agentsResult.response.ok && agentsResult.payload?.ok !== false) {
+    const directAgents = extractAgentList(agentsResult.payload?.result)
+      .map(normalizeAgent)
+      .filter((agent): agent is OpenClawAgentDescriptor => Boolean(agent));
+
+    if (directAgents.length > 0) {
+      return directAgents;
+    }
+  }
+
+  const sessionsResult = await fetchJson(`${baseUrl}/tools/invoke`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ tool: "sessions_list", args: {} })
+  });
+
+  if (!sessionsResult.response.ok || sessionsResult.payload?.ok === false) {
+    const detail = sessionsResult.payload?.error?.message || `OpenClaw request failed with status ${sessionsResult.response.status}.`;
+    throw new Error(detail);
+  }
+
+  const sessionRecord = sessionsResult.payload?.result;
+  const sessions = sessionRecord && typeof sessionRecord === "object" && Array.isArray((sessionRecord as { sessions?: unknown[] }).sessions)
+    ? (sessionRecord as { sessions: unknown[] }).sessions
+    : [];
+
+  const agentIds = Array.from(
+    new Set(
+      sessions
+        .map((entry) => (entry && typeof entry === "object" ? parseAgentIdFromSessionKey((entry as Record<string, unknown>).key) : null))
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+
+  return agentIds.map((id) => ({ id, name: guessNameFromId(id), capabilities: ["derived:sessions_list"] }));
 }
 
 

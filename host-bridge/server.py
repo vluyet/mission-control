@@ -119,20 +119,42 @@ def dispatch_openclaw(agent_id, task_id, prompt):
 
 def extract_agent_ids(result):
     if isinstance(result, list):
-        return [x for x in result if isinstance(x, str)]
+        ids = []
+        for item in result:
+            if isinstance(item, str) and item.strip():
+                ids.append(item.strip())
+            elif isinstance(item, dict):
+                raw_id = item.get('id') or item.get('agentId') or item.get('key') or item.get('name')
+                if isinstance(raw_id, str) and raw_id.strip():
+                    ids.append(raw_id.strip())
+        return ids
     if isinstance(result, dict):
+        if isinstance(result.get('agents'), list):
+            return extract_agent_ids(result.get('agents'))
         details = result.get('details')
         if isinstance(details, dict) and isinstance(details.get('agents'), list):
-            return [item.get('id') for item in details['agents'] if isinstance(item, dict) and item.get('id')]
+            return extract_agent_ids(details.get('agents'))
+        sessions = result.get('sessions')
+        if isinstance(sessions, list):
+            ids = []
+            for item in sessions:
+                if not isinstance(item, dict):
+                    continue
+                key = item.get('key')
+                if isinstance(key, str) and key.startswith('agent:'):
+                    parts = key.split(':', 2)
+                    if len(parts) >= 2 and parts[1].strip():
+                        ids.append(parts[1].strip())
+            return ids
         content = result.get('content')
         if isinstance(content, list):
             for item in content:
                 if isinstance(item, dict) and isinstance(item.get('text'), str):
                     try:
                         parsed = json.loads(item['text'])
-                        agents = parsed.get('agents')
-                        if isinstance(agents, list):
-                            return [entry.get('id') for entry in agents if isinstance(entry, dict) and entry.get('id')]
+                        ids = extract_agent_ids(parsed)
+                        if ids:
+                            return ids
                     except Exception:
                         pass
     return []
@@ -143,8 +165,14 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == '/health':
                 return response(self, 200, {'ok': True, 'upstreamBaseUrl': OPENCLAW_BASE_URL, 'hasToken': bool(OPENCLAW_GATEWAY_TOKEN), 'linkedWorkspaces': len(workspace_links)})
             if self.path == '/agents':
-                result = openclaw_request('/tools/invoke', {'tool': 'agents_list', 'args': {}})
-                return response(self, 200, {'ok': True, 'result': result.get('result')})
+                try:
+                    result = openclaw_request('/tools/invoke', {'tool': 'agents_list', 'args': {}})
+                    return response(self, 200, {'ok': True, 'result': result.get('result')})
+                except Exception:
+                    result = openclaw_request('/tools/invoke', {'tool': 'sessions_list', 'args': {}})
+                    agent_ids = sorted(set(extract_agent_ids(result.get('result'))))
+                    agents = [{'id': agent_id, 'name': agent_id, 'capabilities': ['derived:sessions_list']} for agent_id in agent_ids]
+                    return response(self, 200, {'ok': True, 'result': agents})
             if self.path == '/workspace-links':
                 return response(self, 200, {'ok': True, 'result': [{'workspaceId': k, 'agentId': v} for k, v in workspace_links.items()]})
             return response(self, 404, {'ok': False, 'error': {'message': 'Not found'}})
@@ -158,16 +186,27 @@ class Handler(BaseHTTPRequestHandler):
                 token = body.get('token')
                 if not token:
                     return response(self, 422, {'ok': False, 'error': {'message': 'token is required.'}})
-                result = openclaw_request('/tools/invoke', {'tool': 'agents_list', 'args': {}}, token=token)
-                return response(self, 200, {'ok': True, 'result': {'valid': True, 'tokenPreview': f'{token[:6]}...', 'agents': result.get('result')}})
+                try:
+                    result = openclaw_request('/tools/invoke', {'tool': 'agents_list', 'args': {}}, token=token)
+                    agents = result.get('result')
+                except Exception:
+                    result = openclaw_request('/tools/invoke', {'tool': 'sessions_list', 'args': {}}, token=token)
+                    agent_ids = sorted(set(extract_agent_ids(result.get('result'))))
+                    agents = [{'id': agent_id, 'name': agent_id, 'capabilities': ['derived:sessions_list']} for agent_id in agent_ids]
+                return response(self, 200, {'ok': True, 'result': {'valid': True, 'tokenPreview': f'{token[:6]}...', 'agents': agents}})
             if self.path == '/workspace-links':
                 body = parse_json(self)
                 workspace_id = str(body.get('workspaceId', '')).strip()
                 agent_id = str(body.get('agentId', '')).strip()
                 if not workspace_id or not agent_id:
                     return response(self, 422, {'ok': False, 'error': {'message': 'workspaceId and agentId are required.'}})
-                result = openclaw_request('/tools/invoke', {'tool': 'agents_list', 'args': {}})
-                if agent_id not in extract_agent_ids(result.get('result')):
+                try:
+                    result = openclaw_request('/tools/invoke', {'tool': 'agents_list', 'args': {}})
+                    known_agent_ids = extract_agent_ids(result.get('result'))
+                except Exception:
+                    result = openclaw_request('/tools/invoke', {'tool': 'sessions_list', 'args': {}})
+                    known_agent_ids = extract_agent_ids(result.get('result'))
+                if agent_id not in known_agent_ids:
                     return response(self, 404, {'ok': False, 'error': {'message': f'Agent not found: {agent_id}'}})
                 workspace_links[workspace_id] = agent_id
                 return response(self, 200, {'ok': True, 'result': {'workspaceId': workspace_id, 'agentId': agent_id}})
