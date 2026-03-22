@@ -12,14 +12,7 @@ import {
   TimelineEvent
 } from "@/lib/demo-data";
 import type { ActivityFeedItem } from "@/lib/demo-data";
-import {
-  ActivityIcon,
-  ArrowUpRightIcon,
-  CalendarIcon,
-  FolderIcon,
-  MessageIcon,
-  SparkIcon
-} from "@/components/ui/icons";
+import { SparkIcon } from "@/components/ui/icons";
 import {
   AppButton,
   FilterChip,
@@ -34,10 +27,8 @@ import { AgentEnabledToggle } from "@/components/product/agent-enabled-toggle";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
 import { TaskOpenClawDispatchButton } from "@/components/product/task-openclaw-dispatch-button";
 import { AgentPermissionsEditor } from "@/components/product/agent-permissions-editor";
-import { TaskWatchersManager } from "@/components/product/task-watchers-manager";
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { WorkspaceRoleEditor } from "@/components/product/workspace-role-editor";
-import { TaskAttachmentsPanel } from "@/components/product/task-attachments-panel";
 import { BoardGridInteractive } from "@/components/product/board-grid-interactive";
 
 type BoardColumn = {
@@ -539,7 +530,6 @@ export function TaskWorkspace({
         description={task.description}
         action={
           <div className="flex flex-wrap gap-2">
-            <AppButton tone="secondary">Share</AppButton>
             <AppButton tone="primary" href={`/tasks/${task.id}/edit`}>
               Update task
             </AppButton>
@@ -557,19 +547,6 @@ export function TaskWorkspace({
             <span className="rounded-full border border-[var(--line)] px-3 py-1 text-xs text-[var(--text-dim)]">
               Effort {task.effort}
             </span>
-          </div>
-
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            <Panel tone="subtle" className="p-4">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Context</h3>
-              <p className="mt-3 text-sm leading-7 text-[var(--text-muted)]">{task.description}</p>
-            </Panel>
-            <Panel tone="subtle" className="p-4">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Success criteria</h3>
-              <p className="mt-3 text-sm leading-7 text-[var(--text-muted)]">
-                Strong hierarchy, clear metadata ownership, comments separated from activity, and an execution panel that makes machine work transparent.
-              </p>
-            </Panel>
           </div>
 
           {task.parentTaskTitle || childTasks.length ? (
@@ -602,53 +579,7 @@ export function TaskWorkspace({
             </div>
           ) : null}
 
-          {resolvedContext ? (
-            <div className="mt-5 rounded-3xl border border-[var(--line)] bg-[var(--surface-subtle)] p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Resolved context</h3>
-                  <p className="mt-2 text-sm leading-7 text-[var(--text-muted)]">
-                    This task should inherit workspace and project context before any future agent starts execution.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--text-strong)]">
-                  {resolvedContext.task.layers.task.hint ?? "No task-specific override"}
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {resolvedContext.task.resolution_order.map((item) => (
-                  <span key={item} className="rounded-full border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-medium uppercase tracking-[0.12em] text-[var(--text-dim)]">
-                    {item}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-4 grid gap-3 xl:grid-cols-3">
-                <div className="rounded-2xl border border-[var(--line)] bg-white p-4">
-                  <p className="section-eyebrow">{resolvedContext.workspace.title}</p>
-                  <p className="mt-2 text-sm leading-7 text-[var(--text-muted)]">{resolvedContext.workspace.summary}</p>
-                </div>
-                {resolvedContext.project ? (
-                  <div className="rounded-2xl border border-[var(--line)] bg-white p-4">
-                    <p className="section-eyebrow">{resolvedContext.project.title}</p>
-                    <p className="mt-2 text-sm leading-7 text-[var(--text-muted)]">{resolvedContext.project.summary}</p>
-                  </div>
-                ) : null}
-                <div className="rounded-2xl border border-[var(--line)] bg-white p-4">
-                  <p className="section-eyebrow">Operational merge</p>
-                  <ul className="mt-2 space-y-2 text-sm leading-6 text-[var(--text-muted)]">
-                    {resolvedContext.task.merged.bullets.slice(0, 4).map((bullet) => (
-                      <li key={bullet} className="flex gap-2">
-                        <span className="mt-2 inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-strong)]" />
-                        <span>{bullet}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          <div className={`mt-5 grid gap-5 ${compact ? "2xl:grid-cols-[minmax(0,1fr),minmax(0,0.92fr)]" : "2xl:grid-cols-[minmax(0,1fr),minmax(0,0.95fr)]"}`}>
+          <div className="mt-5">
             <Panel tone="subtle" className="overflow-hidden">
               <PanelHeader eyebrow="Discussion" title="Comments" />
               <TaskCommentsPanel
@@ -657,75 +588,21 @@ export function TaskWorkspace({
                 mentionSuggestions={availableWatchers.map((watcher) => watcher.name)}
               />
             </Panel>
-
-            <div className="space-y-5">
-              <Panel tone="subtle" className="overflow-hidden">
-                <PanelHeader eyebrow="History" title="Activity" />
-                <div className="space-y-4 px-5 py-4">
-                  {timeline.map((event) => (
-                    <div key={`${event.label}-${event.time}`} className="timeline-item">
-                      <div className="timeline-dot" />
-                      <div>
-                        <p className="text-sm font-semibold text-[var(--text-strong)]">{event.label}</p>
-                        <p className="mt-1 text-sm text-[var(--text-muted)]">{event.detail}</p>
-                      </div>
-                      <span className="text-xs text-[var(--text-dim)]">{event.time}</span>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-
-              <Panel tone="dark" className="overflow-hidden">
-                <PanelHeader eyebrow="Execution" title="Execution feed" />
-                <div className="space-y-3 px-5 py-4">
-                  {executionFeed.length ? (
-                    executionFeed.map((line, index) => (
-                      <div key={line} className="flex gap-3 rounded-2xl border border-white/8 bg-white/5 px-4 py-3">
-                        <span className="font-mono text-xs text-white/35">{String(index + 1).padStart(2, "0")}</span>
-                        <p className="text-sm leading-6 text-white/78">{line}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="rounded-2xl border border-white/8 bg-white/5 px-4 py-4 text-sm text-white/72">
-                      No execution feed yet for this task.
-                    </div>
-                  )}
-                </div>
-              </Panel>
-            </div>
           </div>
         </div>
 
         <aside className="space-y-4 p-5">
           <Panel tone="subtle" className="p-4">
-            <p className="section-eyebrow">Properties</p>
+            <p className="section-eyebrow">Task summary</p>
             <div className="mt-4 space-y-4">
               <PropertyRow label="Owner" value={task.assignee} />
               <PropertyRow label="Type" value={task.assigneeType} />
               <PropertyRow label="Reviewer" value={task.reviewer ?? "Unassigned"} />
               <PropertyRow label="Due" value={task.due} />
-              <PropertyRow label="Start" value={task.startDate} />
             </div>
-            {task.assigneeType === "Agent" ? (
-              <div className="mt-4 border-t border-[var(--line)] pt-4">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">Capability fit</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(task.assigneeCapabilities?.length ? task.assigneeCapabilities : ["No capabilities listed"]).map((item) => (
-                    <span key={item} className="rounded-full border border-[var(--line)] bg-white px-3 py-1.5 text-xs text-[var(--text-dim)]">
-                      {item}
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-4 border-t border-[var(--line)] pt-4">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">Action policy</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(task.assigneePermissions?.length ? task.assigneePermissions : ["No permissions"]).map((item) => (
-                      <span key={item} className="rounded-full border border-[var(--line)] bg-white px-3 py-1.5 text-xs text-[var(--text-dim)]">
-                        {item.replaceAll("_", " ")}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+            {task.blockedReason ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700">
+                {task.blockedReason}
               </div>
             ) : null}
           </Panel>
@@ -767,19 +644,6 @@ export function TaskWorkspace({
           ) : null}
 
           <Panel tone="subtle" className="p-4">
-            <TaskAttachmentsPanel
-              taskId={task.id}
-              attachments={attachments}
-              agentActorName={task.assigneeType === "Agent" ? task.assignee : undefined}
-              agentActorEnabled={task.assigneeType === "Agent" ? task.assigneeEnabled !== false : false}
-            />
-          </Panel>
-
-          <Panel tone="subtle" className="p-4">
-            <TaskWatchersManager taskId={task.id} watchers={watchers} availableWatchers={availableWatchers} />
-          </Panel>
-
-          <Panel tone="subtle" className="p-4">
             <p className="section-eyebrow">Tags</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {task.tags.map((tag) => (
@@ -788,32 +652,19 @@ export function TaskWorkspace({
                 </span>
               ))}
             </div>
-            {task.blockedReason ? (
-              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700">
-                {task.blockedReason}
-              </div>
-            ) : null}
           </Panel>
 
-          <Panel tone="subtle" className="p-4">
-            <p className="section-eyebrow">Quick links</p>
-            <div className="mt-4 space-y-3">
-              {[
-                { label: "Open project", icon: <FolderIcon className="h-4 w-4" />, href: `/projects/${task.projectSlug}` },
-                { label: "Review calendar", icon: <CalendarIcon className="h-4 w-4" />, href: "/my-tasks" },
-                { label: "Discussion thread", icon: <MessageIcon className="h-4 w-4" />, href: `/tasks/${task.id}` },
-                { label: "Recent activity", icon: <ActivityIcon className="h-4 w-4" />, href: "/activity" }
-              ].map((item) => (
-                <Link key={item.label} href={item.href} className="quick-link">
-                  <span className="inline-flex items-center gap-3">
-                    <span className="nav-icon nav-icon-light">{item.icon}</span>
-                    <span>{item.label}</span>
-                  </span>
-                  <ArrowUpRightIcon className="h-4 w-4 text-[var(--text-dim)]" />
-                </Link>
-              ))}
-            </div>
-          </Panel>
+          {(attachments.length || watchers.length || executionFeed.length || resolvedContext) ? (
+            <Panel tone="subtle" className="p-4">
+              <p className="section-eyebrow">Advanced</p>
+              <div className="mt-4 space-y-4 text-sm text-[var(--text-muted)]">
+                {resolvedContext ? <p>Context inheritance is available for agent execution.</p> : null}
+                {executionFeed.length ? <p>{executionFeed.length} execution log {executionFeed.length === 1 ? "entry" : "entries"} recorded.</p> : null}
+                {attachments.length ? <p>{attachments.length} attachment{attachments.length === 1 ? "" : "s"} available.</p> : null}
+                {watchers.length ? <p>{watchers.length} watcher{watchers.length === 1 ? "" : "s"} following this task.</p> : null}
+              </div>
+            </Panel>
+          ) : null}
         </aside>
       </div>
     </Panel>
