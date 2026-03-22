@@ -83,7 +83,7 @@ export function WorkspaceOpenClawPanel({ integration }: { integration: OpenClawS
 
   return (
     <Panel className="overflow-hidden">
-      <PanelHeader eyebrow="OpenClaw" title="Mission Control runtime link" />
+      <PanelHeader eyebrow="OpenClaw" title="Agent link" description="Connect this workspace to an OpenClaw runtime only when needed." />
       <form onSubmit={handleSubmit} className="space-y-4 px-5 py-5">
         <div>
           <label className="section-eyebrow">Instance label</label>

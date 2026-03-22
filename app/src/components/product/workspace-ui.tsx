@@ -26,9 +26,7 @@ import type { ResolvedTaskContext } from "@/lib/context-resolver";
 import { AgentEnabledToggle } from "@/components/product/agent-enabled-toggle";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
 import { TaskOpenClawDispatchButton } from "@/components/product/task-openclaw-dispatch-button";
-import { AgentPermissionsEditor } from "@/components/product/agent-permissions-editor";
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
-import { WorkspaceRoleEditor } from "@/components/product/workspace-role-editor";
 import { BoardGridInteractive } from "@/components/product/board-grid-interactive";
 
 type BoardColumn = {
@@ -677,38 +675,30 @@ export function MemberDirectory({ items }: { items: Member[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 xl:grid-cols-3">
-        <Panel className="p-4">
-          <p className="section-eyebrow">Roster</p>
-          <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">{items.length}</p>
-          <p className="mt-2 text-sm text-[var(--text-muted)]">People and agents in the active workspace.</p>
-        </Panel>
-        <Panel className="p-4">
-          <p className="section-eyebrow">Humans</p>
-          <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">{humanMembers.length}</p>
-          <p className="mt-2 text-sm text-[var(--text-muted)]">Enabled human members.</p>
-        </Panel>
-        <Panel className="p-4">
-          <p className="section-eyebrow">Agents</p>
-          <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">{agentMembers.length}</p>
-          <p className="mt-2 text-sm text-[var(--text-muted)]">Enabled agent members.</p>
-        </Panel>
-      </div>
+      <Panel className="overflow-hidden">
+        <PanelHeader eyebrow="Directory" title="Workspace members" description="A simple list of people and agents in the active workspace." />
+        <div className="grid gap-3 px-5 py-4 xl:grid-cols-3">
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
+            <p className="section-eyebrow">Total</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{items.length}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
+            <p className="section-eyebrow">Humans</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{humanMembers.length}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
+            <p className="section-eyebrow">Agents</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{agentMembers.length}</p>
+          </div>
+        </div>
+      </Panel>
 
       {[
         { title: "Human members", items: humanMembers, eyebrow: "Humans" },
         { title: "Agent members", items: agentMembers, eyebrow: "Agents" }
       ].map((group) => (
         <Panel key={group.title} className="overflow-hidden">
-          <PanelHeader
-            eyebrow={group.eyebrow}
-            title={group.title}
-            description={
-              group.eyebrow === "Humans"
-                ? "People with direct ownership, review responsibility, and workspace context stewardship."
-                : "Machine collaborators available for implementation, planning, and operational support."
-            }
-          />
+          <PanelHeader eyebrow={group.eyebrow} title={group.title} />
           <div className="grid gap-3 px-5 py-4 2xl:grid-cols-2">
             {group.items.length ? group.items.map((member) => (
               <div key={member.id} className="rounded-3xl border border-[var(--line)] bg-[var(--surface-subtle)] p-4">
@@ -726,11 +716,6 @@ export function MemberDirectory({ items }: { items: Member[] }) {
                       <p className="text-sm text-[var(--text-muted)]">
                         {member.role} · {member.type}
                       </p>
-                      {member.workspaceRole ? (
-                        <p className="mt-1 inline-flex rounded-full border border-[var(--line)] bg-white px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-[var(--text-dim)]">
-                          {member.workspaceRole}
-                        </p>
-                      ) : null}
                     </div>
                   </div>
                   {member.type === "Agent" ? (
@@ -750,7 +735,7 @@ export function MemberDirectory({ items }: { items: Member[] }) {
                   <div className="rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-3">
                     <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">Contact</p>
                     <p className="mt-2 text-sm font-medium text-[var(--text-strong)]">
-                      {member.email ?? "Agent member without direct email access"}
+                      {member.email ?? "Agent member"}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-3">
@@ -758,17 +743,6 @@ export function MemberDirectory({ items }: { items: Member[] }) {
                     <p className="mt-2 text-sm font-medium text-[var(--text-strong)]">{member.load}</p>
                   </div>
                 </div>
-
-                {member.type === "Agent" ? (
-                  <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-3">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">Operational policy</p>
-                    <p className="mt-2 text-sm text-[var(--text-muted)]">
-                      {member.active
-                        ? "Enabled agents can appear in assignment, queue, execution, and review-support flows."
-                        : "Disabled agents stay visible for audit context but are removed from active assignment and review flows."}
-                    </p>
-                  </div>
-                ) : null}
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {member.projects.map((project) => (
@@ -794,11 +768,9 @@ export function MemberDirectory({ items }: { items: Member[] }) {
                   </div>
                 ) : null}
 
-                <WorkspaceRoleEditor memberId={member.id} role={member.workspaceRole} />
-
-                {member.type === "Agent" ? (
-                  <AgentPermissionsEditor memberId={member.id} permissions={member.agentPermissions ?? []} />
-                ) : null}
+                <div className="mt-4 rounded-2xl border border-dashed border-[var(--line)] bg-white/70 px-3 py-3 text-sm text-[var(--text-dim)]">
+                  Advanced member controls live in Settings.
+                </div>
               </div>
             )) : (
               <div className="rounded-3xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] p-5 text-sm text-[var(--text-dim)]">

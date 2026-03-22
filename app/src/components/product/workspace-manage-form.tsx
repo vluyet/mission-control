@@ -107,7 +107,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
     <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.15fr),360px]">
       <div className="space-y-5">
         <Panel className="overflow-hidden">
-          <PanelHeader eyebrow="Workspace" title="Manage workspace" />
+          <PanelHeader eyebrow="General" title="Workspace settings" description="Keep the workspace small and understandable. Advanced controls are separated below." />
           <form onSubmit={handleSubmit} className="grid gap-5 px-5 py-5">
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr),220px]">
               <div>
@@ -157,7 +157,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
           </form>
         </Panel>
 
-        <WorkspaceAssetsPanel assets={workspace.assets} />
+        {workspace.assets.length ? <WorkspaceAssetsPanel assets={workspace.assets} /> : null}
       </div>
 
       <div className="space-y-5">
@@ -192,10 +192,10 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
         </Panel>
 
         <Panel className="overflow-hidden">
-          <PanelHeader eyebrow="Administration" title="Manage" />
+          <PanelHeader eyebrow="Navigation" title="Open related areas" />
           <div className="space-y-3 px-5 py-5">
             <Link href="/members" className="quick-link">
-              <span>Members and agents</span>
+              <span>Members</span>
               <span>Open</span>
             </Link>
             <Link href="/projects" className="quick-link">
@@ -207,11 +207,13 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
         <WorkspaceOpenClawPanel integration={workspace.openclaw} />
 
-        <WorkspaceAgentCredentialsPanel
-          agents={workspace.agents}
-          credentials={workspace.agentCredentials}
-          authEvents={workspace.authEvents}
-        />
+        {(workspace.agentCredentials.length || workspace.authEvents.length) ? (
+          <WorkspaceAgentCredentialsPanel
+            agents={workspace.agents}
+            credentials={workspace.agentCredentials}
+            authEvents={workspace.authEvents}
+          />
+        ) : null}
       </div>
     </div>
   );

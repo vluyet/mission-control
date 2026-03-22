@@ -10,7 +10,8 @@ export default async function MembersPage() {
       <PageHeader
         eyebrow="Members"
         title="Members"
-        actions={<AppButton tone="primary" href="/manage-workspace">Manage workspace</AppButton>}
+        description="People and agents available in the active workspace. Advanced controls live in Settings."
+        actions={<AppButton tone="primary" href="/manage-workspace">Open settings</AppButton>}
       />
       <MemberDirectory items={members} />
     </div>
