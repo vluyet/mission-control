@@ -483,7 +483,7 @@ export function ActivityPanel({ items = activityFeed }: { items?: ActivityFeedIt
       <PanelHeader
         eyebrow="Activity"
         title="Recent changes"
-        action={items.length ? <AppButton tone="secondary" href="/activity">View all events</AppButton> : undefined}
+        action={undefined}
       />
       <div className="space-y-3 px-5 py-4">
         {items.length ? (
