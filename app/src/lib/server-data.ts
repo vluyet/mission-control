@@ -12,6 +12,7 @@ import type { ActivityFeedItem, AttachmentRecord, ContextBlock, Member, Metric, 
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 export {
   dispatchTaskToOpenClawInDb,
+  triggerOpenClawMentionDispatchInDb,
   handleOpenClawTaskWebhookInDb,
   syncActiveWorkspaceOpenClawAgentsInDb
 } from "@/lib/server/openclaw-server";
@@ -1187,7 +1188,7 @@ export async function createCommentInDb(taskId: string, payload: {
       actorId: membership?.id,
       actorName: authorName,
       label: "Comment added",
-      detail: `${authorName} posted an update`
+      detail: `${payload.tone === "agent" ? "Agent" : "User"} ${authorName} wrote a comment`
     }
   });
 
@@ -1451,11 +1452,37 @@ export async function updateCommentInDb(taskId: string, commentId: string, body:
       actorId: existing.authorId,
       actorName: existing.authorName,
       label: "Comment edited",
-      detail: `${existing.authorName} edited a comment`
+      detail: `User ${existing.authorName} edited a comment`
     }
   });
 
   return mapComment(updated);
+}
+
+function classifyExecutionLine(line: string) {
+  const trimmed = line.trim();
+
+  if (trimmed.startsWith("TASK_DISPATCHED")) {
+    return { label: "Task dispatched", detail: trimmed };
+  }
+
+  if (trimmed.startsWith("AGENT_ACCEPTED_TASK")) {
+    return { label: "Agent accepted task", detail: trimmed };
+  }
+
+  if (trimmed.startsWith("AGENT_CONTEXT_RETRIEVED")) {
+    return { label: "Agent retrieved context", detail: trimmed };
+  }
+
+  if (trimmed.startsWith("AGENT_FINISHED_TASK")) {
+    return { label: "Agent finished task", detail: trimmed };
+  }
+
+  if (trimmed.startsWith("AGENT_BLOCKED")) {
+    return { label: "Agent blocked", detail: trimmed };
+  }
+
+  return { label: "Execution updated", detail: trimmed };
 }
 
 export async function appendExecutionLogInDb(taskId: string, line: string, actor?: { membershipId?: string | null; label?: string | null }) {
@@ -1534,13 +1561,15 @@ export async function appendExecutionLogInDb(taskId: string, line: string, actor
     }
   });
 
+  const event = classifyExecutionLine(line);
+
   await db.taskActivity.create({
     data: {
       taskId,
       actorId: agentId,
       actorName: agent.name,
-      label: "Execution updated",
-      detail: line
+      label: event.label,
+      detail: event.detail
     }
   });
 
@@ -1558,6 +1587,17 @@ export async function deleteCommentInDb(taskId: string, commentId: string) {
   if (!comment) return null;
   if (comment.tone === "agent") return { error: "AGENT_COMMENT_NOT_DELETABLE" } as const;
   await db.comment.delete({ where: { id: commentId } });
+
+  await db.taskActivity.create({
+    data: {
+      taskId,
+      actorId: comment.authorId,
+      actorName: comment.authorName,
+      label: "Comment deleted",
+      detail: `User ${comment.authorName} deleted a comment`
+    }
+  });
+
   return { commentId };
 }
 

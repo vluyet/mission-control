@@ -18,8 +18,11 @@ export async function GET(
     return error("Task not found", 404, { taskId: params.taskId });
   }
 
+  const activity = await getTaskActivityFromDb(params.taskId);
+
   return ok({
     task_id: params.taskId,
-    activity: await getTaskActivityFromDb(params.taskId)
+    activity,
+    timeline: activity
   });
 }

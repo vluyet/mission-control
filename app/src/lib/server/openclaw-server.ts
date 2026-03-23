@@ -5,6 +5,15 @@ import { DEFAULT_WORKSPACE_SLUG, ACTIVE_WORKSPACE_COOKIE_NAME } from "@/lib/work
 import { dispatchOpenClawTaskRun, fetchOpenClawAgents } from "@/lib/openclaw";
 import { appendExecutionLogInDb, createCommentInDb } from "@/lib/server-data";
 
+type OpenClawDispatchOptions = {
+  missionControlBaseUrl?: string | null;
+  overrideAssigneeId?: string | null;
+  triggerCommentBody?: string | null;
+  triggerActorLabel?: string | null;
+  sessionKey?: string | null;
+  sessionId?: string | null;
+};
+
 async function getActiveWorkspaceSlug() {
   const cookieStore = await cookies();
   return cookieStore.get(ACTIVE_WORKSPACE_COOKIE_NAME)?.value || DEFAULT_WORKSPACE_SLUG;
@@ -45,35 +54,67 @@ function buildOpenClawTaskMessage(input: {
   taskTitle: string;
   taskDescription: string;
   taskContextHint: string;
+  followupComment: string;
+  triggerActorLabel: string;
   missionControlBaseUrl: string;
   agentToken: string;
 }) {
   const taskEndpoint = `${input.missionControlBaseUrl}/api/tasks/${input.taskId}`;
+  const taskContextEndpoint = `${taskEndpoint}/context`;
   const executionEndpoint = `${input.missionControlBaseUrl}/api/tasks/${input.taskId}/execution`;
   const commentsEndpoint = `${input.missionControlBaseUrl}/api/tasks/${input.taskId}/comments`;
+  const taskTitle = input.taskTitle.trim().slice(0, 160);
+  const taskDescription = input.taskDescription.trim().slice(0, 900);
+  const taskContextHint = input.taskContextHint.trim().slice(0, 500);
+  const followupComment = input.followupComment.trim().slice(0, 700);
 
   return [
-    `You are handling Mission Control task ${input.taskId} in project ${input.projectSlug}.`,
-    `Task title: ${input.taskTitle}`,
-    input.taskDescription ? `Task description: ${input.taskDescription}` : "Task description: (none provided)",
-    input.taskContextHint ? `Task context hint: ${input.taskContextHint}` : "Task context hint: (none provided)",
+    `Mission Control task ${input.taskId} in project ${input.projectSlug}.`,
+    `Title: ${taskTitle}`,
+    taskDescription ? `Description: ${taskDescription}` : "Description: (none)",
+    taskContextHint ? `Task hint: ${taskContextHint}` : "Task hint: (none)",
+    followupComment ? `Follow-up request from ${input.triggerActorLabel}: ${followupComment}` : "",
     "",
-    "Use Mission Control APIs to report live progress and final output.",
-    `Mission Control base URL: ${input.missionControlBaseUrl}`,
+    "Mission Control API access:",
+    `Base URL: ${input.missionControlBaseUrl}`,
     `Bearer token: ${input.agentToken}`,
+    `Task context endpoint: ${taskContextEndpoint}`,
     `Task endpoint: ${taskEndpoint}`,
     `Execution endpoint: ${executionEndpoint}`,
     `Comments endpoint: ${commentsEndpoint}`,
     "",
     "Required workflow:",
-    "1) As soon as you start, PATCH the task endpoint with {\"status\":\"in_progress\"}.",
-    "2) While working, POST concise progress updates to the execution endpoint. Do this for meaningful milestones so the UI stays live.",
-    "3) When finished, POST the final user-facing result to the comments endpoint.",
-    "4) After posting the final result, PATCH the task endpoint with {\"status\":\"review\"}.",
-    "5) If blocked, post an execution update explaining what is blocked and why.",
+    "0) First GET the task context endpoint. Respect context precedence: task > project > workspace.",
+    "1) Immediately POST execution endpoint with this exact line: AGENT_CONTEXT_RETRIEVED.",
+    "2) Keep task status in_progress while working.",
+    "3) If blocked, PATCH task endpoint with {\"status\":\"blocked\",\"blockedReason\":\"...\"} and POST execution line: AGENT_BLOCKED: <reason>.",
+    "4) When finished, POST final user-facing answer to comments endpoint.",
+    "5) Then POST execution endpoint with this exact line: AGENT_FINISHED_TASK.",
+    "6) Then PATCH task endpoint with {\"status\":\"review\"}.",
+    "Do not post periodic milestone logs.",
     "",
     "Never reveal the bearer token in comments or execution logs."
   ].join("\n");
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildTaskAgentSessionKey(taskId: string, openclawAgentId: string) {
+  const safeAgentId = openclawAgentId.replace(/[^a-zA-Z0-9_.:-]+/g, "-");
+  return `hook:mission-control:task:${taskId}:agent:${safeAgentId}`;
+}
+
+function findMentionIndex(body: string, candidate: string) {
+  const escaped = escapeRegExp(candidate.trim());
+  if (!escaped) {
+    return -1;
+  }
+
+  const mentionPattern = new RegExp(`(^|\\s)@${escaped}(?=$|\\s|[.,!?;:()\\[\\]{}])`, "i");
+  const match = mentionPattern.exec(body);
+  return match?.index ?? -1;
 }
 
 function extractOpenClawWebhookText(value: unknown): string | null {
@@ -275,7 +316,7 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
   }
 }
 
-export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { missionControlBaseUrl?: string | null }) {
+export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenClawDispatchOptions) {
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {
@@ -288,7 +329,20 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { mis
     return null;
   }
 
-  if (!task.assignee || task.assignee.kind !== "agent" || task.assignee.sourceSystem !== "openclaw" || !task.assignee.sourceKey) {
+  const requestedAssignee = options?.overrideAssigneeId
+    ? await db.membership.findFirst({
+        where: {
+          id: options.overrideAssigneeId,
+          workspaceId: task.project.workspaceId,
+          kind: "agent",
+          enabled: true,
+          sourceSystem: "openclaw"
+        }
+      })
+    : null;
+  const assignee = requestedAssignee ?? task.assignee;
+
+  if (!assignee || assignee.kind !== "agent" || assignee.sourceSystem !== "openclaw" || !assignee.sourceKey) {
     return { error: "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" } as const;
   }
 
@@ -300,8 +354,10 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { mis
     return { error: "OPENCLAW_NOT_CONFIGURED" } as const;
   }
 
-  const runtimeCredential = await createOpenClawRuntimeCredential(task.assignee.id, task.id);
+  const runtimeCredential = await createOpenClawRuntimeCredential(assignee.id, task.id);
   const missionControlBaseUrl = options?.missionControlBaseUrl?.replace(/\/+$/, "") || "http://127.0.0.1:3001";
+  const normalizedSessionKey = options?.sessionKey?.trim() || buildTaskAgentSessionKey(task.id, assignee.sourceKey);
+  const normalizedSessionId = options?.sessionId?.trim() || null;
 
   const message = buildOpenClawTaskMessage({
     taskId: task.id,
@@ -309,6 +365,8 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { mis
     taskTitle: task.title,
     taskDescription: task.description ?? "",
     taskContextHint: task.contextHint ?? "",
+    followupComment: options?.triggerCommentBody ?? "",
+    triggerActorLabel: options?.triggerActorLabel?.trim() || "Workspace Owner",
     missionControlBaseUrl,
     agentToken: runtimeCredential.token
   });
@@ -319,37 +377,42 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { mis
       baseUrl: integration.baseUrl,
       gatewayToken: integration.gatewayToken,
       hookToken: process.env.OPENCLAW_HOOKS_TOKEN?.trim() || integration.gatewayToken,
-      agentId: task.assignee.sourceKey,
+      agentId: assignee.sourceKey,
       taskId: task.id,
       workspaceId: task.project.workspaceId,
       message,
+      sessionKey: normalizedSessionKey,
+      sessionId: normalizedSessionId,
       webhookUrl: `${missionControlBaseUrl}/api/tasks/${task.id}/openclaw/webhook`,
       webhookToken
     });
 
-    await db.task.update({ where: { id: task.id }, data: { status: "in_progress" } });
-    await appendExecutionLogInDb(task.id, `Dispatched to OpenClaw agent ${task.assignee.name}.`, {
-      membershipId: task.assignee.id,
-      label: task.assignee.name
+    await db.task.update({
+      where: { id: task.id },
+      data: {
+        assigneeId: assignee.id,
+        status: "in_progress",
+        blockedReason: null
+      }
     });
-    await appendExecutionLogInDb(task.id, `OpenClaw accepted dispatch for ${task.assignee.name}. Task moved to in_progress.`, {
-      membershipId: task.assignee.id,
-      label: task.assignee.name
+    await appendExecutionLogInDb(task.id, `TASK_DISPATCHED agent=${assignee.name}`, {
+      membershipId: assignee.id,
+      label: assignee.name
     });
     await appendExecutionLogInDb(
       task.id,
-      `OpenClaw dispatch response: responseId=${dispatch.responseId ?? "none"}; payload=${JSON.stringify(dispatch.raw).slice(0, 800)}`,
-      { membershipId: task.assignee.id, label: task.assignee.name }
+      `AGENT_ACCEPTED_TASK agent=${assignee.name} responseId=${dispatch.responseId ?? "none"} sessionKey=${dispatch.sessionKey ?? normalizedSessionKey} sessionId=${dispatch.sessionId ?? "none"}`,
+      { membershipId: assignee.id, label: assignee.name }
     );
 
     let commentId: string | null = null;
     if (dispatch.finalText) {
       const comment = await createCommentInDb(task.id, {
-        author: task.assignee.name,
+        author: assignee.name,
         role: "Agent",
         tone: "agent",
         body: dispatch.finalText,
-        membershipId: task.assignee.id
+        membershipId: assignee.id
       });
 
       if (comment && "error" in comment) {
@@ -366,33 +429,36 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { mis
         if (latestExecution) {
           await db.taskExecution.update({
             where: { id: latestExecution.id },
-            data: { status: "done", summary: `Completed by OpenClaw sync response for ${task.assignee.name}.` }
+            data: { status: "done", summary: `Completed by OpenClaw sync response for ${assignee.name}.` }
           });
         }
-        await appendExecutionLogInDb(task.id, `OpenClaw returned a final response for ${task.assignee.name}. Task moved to review.`, {
-          membershipId: task.assignee.id,
-          label: task.assignee.name
+        await appendExecutionLogInDb(task.id, `AGENT_FINISHED_TASK agent=${assignee.name}`, {
+          membershipId: assignee.id,
+          label: assignee.name
         });
       }
     }
 
+    const eventType = options?.triggerCommentBody ? "openclaw.task_redispatched_from_comment" : "openclaw.task_dispatched";
     await db.authEvent.create({
       data: {
         workspaceId: task.project.workspaceId,
-        membershipId: task.assignee.id,
+        membershipId: assignee.id,
         actorType: "owner",
-        actorLabel: getOwnerAuthConfig().email,
-        eventType: "openclaw.task_dispatched",
-        detail: `Dispatched task ${task.id} to ${task.assignee.name}`
+        actorLabel: options?.triggerActorLabel?.trim() || getOwnerAuthConfig().email,
+        eventType,
+        detail: `Dispatched task ${task.id} to ${assignee.name}`
       }
     });
 
     return {
       taskId: task.id,
       projectSlug: task.project.slug,
-      agentId: task.assignee.id,
-      openclawAgentId: task.assignee.sourceKey,
+      agentId: assignee.id,
+      openclawAgentId: assignee.sourceKey,
       responseId: dispatch.responseId,
+      sessionKey: dispatch.sessionKey ?? normalizedSessionKey,
+      sessionId: dispatch.sessionId,
       accepted: dispatch.accepted,
       commentId
     };
@@ -401,15 +467,108 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { mis
     await db.authEvent.create({
       data: {
         workspaceId: task.project.workspaceId,
-        membershipId: task.assignee.id,
+        membershipId: assignee.id,
         actorType: "owner",
-        actorLabel: getOwnerAuthConfig().email,
+        actorLabel: options?.triggerActorLabel?.trim() || getOwnerAuthConfig().email,
         eventType: "openclaw.task_dispatch_failed",
         detail: message
       }
     });
     return { error: "OPENCLAW_DISPATCH_FAILED", message } as const;
   }
+}
+
+export async function triggerOpenClawMentionDispatchInDb(
+  taskId: string,
+  input: {
+    commentBody: string;
+    actorLabel?: string | null;
+    missionControlBaseUrl?: string | null;
+  }
+) {
+  const body = input.commentBody.trim();
+  if (!body.includes("@")) {
+    return { triggered: false as const };
+  }
+
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    include: {
+      project: true,
+      assignee: true
+    }
+  });
+
+  if (!task) {
+    return { error: "TASK_NOT_FOUND" } as const;
+  }
+
+  const openclawAgents = await db.membership.findMany({
+    where: {
+      workspaceId: task.project.workspaceId,
+      kind: "agent",
+      sourceSystem: "openclaw",
+      enabled: true
+    }
+  });
+
+  const mentionMatches = openclawAgents
+    .map((agent) => {
+      const options = [agent.name, agent.sourceKey ?? ""]
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const hitIndex = Math.min(
+        ...options
+          .map((option) => findMentionIndex(body, option))
+          .filter((index) => index >= 0)
+      );
+      return {
+        agent,
+        hitIndex: Number.isFinite(hitIndex) ? hitIndex : -1
+      };
+    })
+    .filter((entry) => entry.hitIndex >= 0)
+    .sort((a, b) => a.hitIndex - b.hitIndex);
+
+  const firstMatch = mentionMatches[0]?.agent;
+  if (!firstMatch || !firstMatch.sourceKey) {
+    return { triggered: false as const };
+  }
+
+  const dispatchResult = await dispatchTaskToOpenClawInDb(taskId, {
+    missionControlBaseUrl: input.missionControlBaseUrl,
+    overrideAssigneeId: firstMatch.id,
+    triggerCommentBody: body,
+    triggerActorLabel: input.actorLabel,
+    sessionKey: buildTaskAgentSessionKey(taskId, firstMatch.sourceKey)
+  });
+
+  if (!dispatchResult) {
+    return { error: "TASK_NOT_FOUND" } as const;
+  }
+
+  if ("error" in dispatchResult) {
+    return dispatchResult;
+  }
+
+  await appendExecutionLogInDb(
+    taskId,
+    `Mention-triggered redispatch by ${input.actorLabel?.trim() || "Workspace Owner"} to ${firstMatch.name}.`,
+    {
+      membershipId: firstMatch.id,
+      label: firstMatch.name
+    }
+  );
+
+  return {
+    triggered: true as const,
+    mentionedAgent: {
+      id: firstMatch.id,
+      name: firstMatch.name,
+      sourceKey: firstMatch.sourceKey
+    },
+    dispatch: dispatchResult
+  };
 }
 
 export async function handleOpenClawTaskWebhookInDb(taskId: string, payload: unknown) {
@@ -488,7 +647,7 @@ export async function handleOpenClawTaskWebhookInDb(taskId: string, payload: unk
   }
 
   await db.task.update({ where: { id: task.id }, data: { status: "review" } });
-  await appendExecutionLogInDb(task.id, `OpenClaw webhook returned a final response for ${task.assignee.name}.`, {
+  await appendExecutionLogInDb(task.id, `AGENT_FINISHED_TASK agent=${task.assignee.name}`, {
     membershipId: task.assignee.id,
     label: task.assignee.name
   });

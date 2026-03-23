@@ -7,6 +7,8 @@ export type OpenClawAgentDescriptor = {
 export type OpenClawDispatchResult = {
   responseId: string | null;
   finalText: string | null;
+  sessionId: string | null;
+  sessionKey: string | null;
   accepted: boolean;
   raw: unknown;
 };
@@ -266,6 +268,8 @@ export async function dispatchOpenClawTaskRun(input: {
   taskId: string;
   workspaceId: string;
   message: string;
+  sessionId?: string | null;
+  sessionKey?: string | null;
   webhookUrl?: string;
   webhookToken?: string;
 }): Promise<OpenClawDispatchResult> {
@@ -300,6 +304,8 @@ export async function dispatchOpenClawTaskRun(input: {
         : {
             agentId: input.agentId,
             message: input.message,
+          sessionId: input.sessionId ?? undefined,
+          sessionKey: input.sessionKey ?? undefined,
             wakeMode: "now",
             deliver: false,
             thinking: "medium",
@@ -315,6 +321,8 @@ export async function dispatchOpenClawTaskRun(input: {
     | {
         id?: string;
         runId?: string;
+        sessionId?: string;
+        sessionKey?: string;
         accepted?: boolean;
         result?: unknown;
         error?: { message?: string };
@@ -335,11 +343,19 @@ export async function dispatchOpenClawTaskRun(input: {
       (resultPayload as { id?: string; responseId?: string; runId?: string } | undefined)?.runId ??
       (resultPayload as { id?: string } | undefined)?.id ??
       null);
+  const sessionId =
+    payload?.sessionId ??
+    ((resultPayload as { sessionId?: string } | undefined)?.sessionId ?? null);
+  const sessionKey =
+    payload?.sessionKey ??
+    ((resultPayload as { sessionKey?: string } | undefined)?.sessionKey ?? null);
   const finalText = extractTextFromPayload(resultPayload);
 
   return {
     responseId,
     finalText,
+    sessionId,
+    sessionKey,
     accepted: payload?.accepted ?? true,
     raw: payload
   };

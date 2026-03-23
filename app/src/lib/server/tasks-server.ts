@@ -40,6 +40,18 @@ function formatRelativeTime(date: Date) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
+function formatDateTime(date: Date) {
+  return new Intl.DateTimeFormat("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).format(date);
+}
+
 function mapContextBlock(value: unknown, fallbackTitle: string): ContextBlock {
   if (!value || typeof value !== "object" || Array.isArray(value)) return { title: fallbackTitle, summary: "", bullets: [] };
   const record = value as Record<string, unknown>;
@@ -373,7 +385,7 @@ export async function getTaskWorkspaceForUi(taskId: string) {
       transitionOptions: payload.task.transitionOptions ?? undefined
     },
     comments: payload.comments.map((comment) => ({ ...comment, time: formatRelativeTime(new Date(comment.time)) })),
-    timeline: payload.activity.map((item): TimelineEvent => ({ taskId: item.taskId, label: item.label, detail: item.detail, time: formatRelativeTime(new Date(item.time)) })),
+    timeline: payload.activity.map((item): TimelineEvent => ({ taskId: item.taskId, label: item.label, detail: item.detail, time: formatDateTime(new Date(item.time)) })),
     executionFeed: payload.execution.logs,
     executionMeta: {
       latestStatus: payload.execution.latest_status ?? undefined,

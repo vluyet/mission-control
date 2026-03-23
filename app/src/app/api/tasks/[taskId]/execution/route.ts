@@ -1,5 +1,5 @@
 import { error, ok } from "@/lib/api-response";
-import { appendExecutionLogInDb, getTaskExecutionFromDb, getTaskResourceFromDb } from "@/lib/server-data";
+import { appendExecutionLogInDb, getTaskActivityFromDb, getTaskExecutionFromDb, getTaskResourceFromDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
 
 export async function GET(
@@ -19,11 +19,13 @@ export async function GET(
   }
 
   const execution = await getTaskExecutionFromDb(params.taskId);
+  const timeline = await getTaskActivityFromDb(params.taskId);
 
   return ok({
     task_id: params.taskId,
     status: execution.status,
-    logs: execution.logs
+    logs: execution.logs,
+    timeline
   });
 }
 

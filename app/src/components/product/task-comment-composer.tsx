@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 import { PaperclipIcon } from "@/components/ui/icons";
 import { AppButton } from "@/components/ui/primitives";
+import type { Comment } from "@/lib/demo-data";
 
 export function TaskCommentComposer({
   taskId,
@@ -13,6 +14,8 @@ export function TaskCommentComposer({
   title = "Add comment",
   placeholder = "Write an update, request input, or summarize progress.",
   mentionSuggestions = [],
+  submitSuccessLabel,
+  onSubmitted,
   onCancel
 }: {
   taskId: string;
@@ -22,26 +25,39 @@ export function TaskCommentComposer({
   title?: string;
   placeholder?: string;
   mentionSuggestions?: string[];
+  submitSuccessLabel?: string;
+  onSubmitted?: (comment: Comment) => void;
   onCancel?: () => void;
 }) {
   const router = useRouter();
   const [body, setBody] = useState(initialBody);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const isDisabled = isSubmitting || isPending;
+  const trimmedBody = body.trim();
 
   function insertMention(name: string) {
+    if (isDisabled) return;
     setBody((current) => `${current}${current.trim().length ? " " : ""}@${name}`.trimStart());
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!body.trim()) {
+    if (isDisabled) {
+      return;
+    }
+
+    if (!trimmedBody) {
       setError("Write a comment before posting.");
       return;
     }
 
     setError(null);
+    setSuccess(null);
+    setIsSubmitting(true);
 
     const response = await fetch(commentId ? `/api/tasks/${taskId}/comments/${commentId}` : `/api/tasks/${taskId}/comments`, {
       method: commentId ? "PATCH" : "POST",
@@ -51,23 +67,31 @@ export function TaskCommentComposer({
       body: JSON.stringify(
         commentId
           ? {
-              body
+              body: trimmedBody
             }
           : {
               author: "Workspace Owner",
               role: "Owner",
               tone: "human",
-              body
+              body: trimmedBody
             }
       )
-    });
+    }).catch(() => null);
 
-    if (!response.ok) {
+    setIsSubmitting(false);
+
+    if (!response || !response.ok) {
       setError(commentId ? "Comment could not be updated." : "Comment could not be posted.");
       return;
     }
 
+    const payload = (await response.json().catch(() => null)) as { comment?: Comment } | null;
+    if (payload?.comment) {
+      onSubmitted?.(payload.comment);
+    }
+
     setBody(commentId ? body : "");
+    setSuccess(submitSuccessLabel ?? (commentId ? "Comment updated." : "Comment posted."));
     onCancel?.();
     startTransition(() => {
       router.refresh();
@@ -79,7 +103,12 @@ export function TaskCommentComposer({
       <p className="text-sm font-medium text-[var(--text-strong)]">{title}</p>
       <textarea
         value={body}
-        onChange={(event) => setBody(event.target.value)}
+        onChange={(event) => {
+          setBody(event.target.value);
+          if (error) setError(null);
+          if (success) setSuccess(null);
+        }}
+        disabled={isDisabled}
         className="mt-3 min-h-[110px] w-full resize-none rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm text-[var(--text-strong)] outline-none transition focus:border-[var(--accent-strong)]"
         placeholder={placeholder}
       />
@@ -90,6 +119,7 @@ export function TaskCommentComposer({
               key={name}
               type="button"
               onClick={() => insertMention(name)}
+              disabled={isDisabled}
               className="rounded-full border border-[var(--line)] bg-white px-3 py-1.5 text-xs text-[var(--text-dim)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
             >
               @{name}
@@ -98,19 +128,20 @@ export function TaskCommentComposer({
         </div>
       ) : null}
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <button type="button" className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)]">
+        <button type="button" disabled className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)] opacity-60">
           <PaperclipIcon className="h-4 w-4" />
           Attach file
         </button>
         <div className="flex items-center gap-3">
           {error ? <span className="text-sm text-rose-600">{error}</span> : null}
+          {!error && success ? <span className="text-sm text-emerald-700">{success}</span> : null}
           {onCancel ? (
-            <AppButton type="button" tone="secondary" onClick={onCancel}>
+            <AppButton type="button" tone="secondary" onClick={onCancel} disabled={isDisabled}>
               Cancel
             </AppButton>
           ) : null}
-          <AppButton type="submit" tone="primary" className={isPending ? "opacity-70" : ""}>
-            {isPending ? (commentId ? "Saving..." : "Posting...") : submitLabel}
+          <AppButton type="submit" tone="primary" disabled={isDisabled || !trimmedBody} className={isDisabled ? "opacity-70" : ""}>
+            {isDisabled ? (commentId ? "Saving..." : "Posting...") : submitLabel}
           </AppButton>
         </div>
       </div>

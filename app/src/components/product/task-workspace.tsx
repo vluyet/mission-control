@@ -88,99 +88,62 @@ function TaskReviewSummary({
   const latestHumanOrAgentComment = comments.find((comment) => comment.tone === "agent" || comment.role !== "System");
   const formattedExecutionFeed = executionFeed.map(formatReviewSignal).filter((line): line is string => Boolean(line));
   const latestUpdate = formattedExecutionFeed[formattedExecutionFeed.length - 1] ?? latestHumanOrAgentComment?.body ?? "No completion summary was recorded yet.";
-  const recentExecutionLines = formattedExecutionFeed
-    .slice(0, -1)
-    .slice(-3)
-    .reverse();
-  const recentAttachments = attachments.slice(0, 3);
-  const commentSnippet = latestHumanOrAgentComment?.body?.trim();
+  const recentExecutionLines = formattedExecutionFeed.slice(-3).reverse();
   const evidence = [
     executionFeed.length ? `${executionFeed.length} execution ${executionFeed.length === 1 ? "update" : "updates"}` : null,
     comments.length ? `${comments.length} conversation ${comments.length === 1 ? "entry" : "entries"}` : null,
     attachments.length ? `${attachments.length} attachment${attachments.length === 1 ? "" : "s"}` : null
   ].filter(Boolean);
+  const checkpointTitle =
+    task.status === "In Review"
+      ? "Human decision required"
+      : task.status === "Blocked"
+        ? "Blocked and waiting on input"
+        : "Completed with final evidence";
   const recommendedNextStep =
     task.status === "In Review"
-      ? "Review the outcome, then approve it or request another pass with a short note."
+      ? "Approve if outcomes match the goal, otherwise leave a short correction comment and mention the agent."
       : task.status === "Blocked"
-        ? "Resolve the blocker or add the missing context before sending the task back into progress."
-        : "Use this summary to verify the outcome quickly before deciding whether anything still needs follow-up.";
+        ? "Unblock with missing context or scope changes, then set back to in progress."
+        : "Confirm acceptance criteria and close if no follow-up is needed.";
 
   return (
     <Panel tone="subtle" className="mt-5 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="section-eyebrow">Review summary</p>
-          <h3 className="mt-2 text-lg font-semibold text-[var(--text-strong)]">
-            {task.status === "Blocked"
-              ? "Blocked and waiting on human input"
-              : task.status === "In Review"
-                ? "Ready for a human decision"
-                : "Completed with review context"}
-          </h3>
+          <p className="section-eyebrow">Review checkpoint</p>
+          <h3 className="mt-2 text-lg font-semibold text-[var(--text-strong)]">{checkpointTitle}</h3>
         </div>
         <StatusBadge value={task.status} />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Goal</p>
-          <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">{task.description || task.contextHint || "Review this task against the intended outcome before closing it."}</p>
-        </div>
-        <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Recommended next step</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{recommendedNextStep}</p>
-          {latestExecutionAt ? <p className="mt-3 text-xs text-[var(--text-dim)]">Latest agent signal recorded at {latestExecutionAt}.</p> : null}
-        </div>
+      <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Recommended action</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{recommendedNextStep}</p>
+        {latestExecutionAt ? <p className="mt-3 text-xs text-[var(--text-dim)]">Last agent update: {latestExecutionAt}</p> : null}
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.25fr),minmax(0,0.75fr)]">
         <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Latest meaningful update</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Latest signal</p>
           <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">{latestUpdate}</p>
-          {recentExecutionLines.length ? (
-            <div className="mt-4 space-y-2">
-              {recentExecutionLines.map((line, index) => (
-                <div key={`${index}-${line}`} className="rounded-xl border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-muted)]">
-                  {line}
-                </div>
+          {recentExecutionLines.length > 1 ? (
+            <div className="mt-3 space-y-2 border-t border-[var(--line)] pt-3">
+              {recentExecutionLines.slice(1).map((line, index) => (
+                <p key={`${index}-${line}`} className="text-sm text-[var(--text-dim)]">• {line}</p>
               ))}
             </div>
           ) : null}
         </div>
         <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Evidence available</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Evidence</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {evidence.length ? evidence.map((item) => (
               <span key={item} className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1 text-xs text-[var(--text-strong)]">{item}</span>
             )) : <span className="text-sm text-[var(--text-muted)]">No structured evidence yet.</span>}
           </div>
-          <div className="mt-4 space-y-2 text-sm text-[var(--text-muted)]">
-            {recentAttachments.length ? (
-              <div>
-                <p className="font-medium text-[var(--text-strong)]">Artifacts</p>
-                <ul className="mt-2 space-y-1">
-                  {recentAttachments.map((attachment) => (
-                    <li key={attachment.id}>• {attachment.name} · {attachment.sizeLabel}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {commentSnippet ? (
-              <div>
-                <p className="font-medium text-[var(--text-strong)]">Latest conversation signal</p>
-                <p className="mt-2">{latestHumanOrAgentComment?.author}: {commentSnippet.length > 180 ? `${commentSnippet.slice(0, 177)}...` : commentSnippet}</p>
-              </div>
-            ) : null}
-          </div>
+          {task.blockedReason ? <p className="mt-3 text-sm text-rose-700">Blocker: {task.blockedReason}</p> : null}
         </div>
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Risks and caveats</p>
-        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">
-          {task.blockedReason ?? "Review the final output against the task goal before marking it done. If anything is unclear, request changes with a short correction note."}
-        </p>
       </div>
     </Panel>
   );
@@ -189,7 +152,7 @@ function TaskReviewSummary({
 export function TaskWorkspace({
   task,
   comments,
-  timeline: _timeline,
+  timeline,
   executionFeed,
   executionMeta,
   attachments = [],
@@ -223,6 +186,13 @@ export function TaskWorkspace({
   const openClawFreshness = agentHealth.detail;
   const openClawState = agentHealth.label;
   const decisionGuidance = getHumanDecisionGuidance(task, openClawState);
+  const latestExecutionLine = executionFeed[executionFeed.length - 1] ?? null;
+  const taskSignals = [
+    task.project ? `Project ${task.project}` : null,
+    task.effort ? `Effort ${task.effort}` : null,
+    task.due ? `Due ${task.due}` : null,
+    watchers.length ? `${watchers.length} watcher${watchers.length === 1 ? "" : "s"}` : null
+  ].filter(Boolean);
 
   return (
     <Panel className="overflow-hidden">
@@ -237,95 +207,63 @@ export function TaskWorkspace({
           </div>
         }
       />
-      <div className={`grid gap-0 ${compact ? "2xl:grid-cols-[minmax(0,1.28fr),320px]" : "xl:grid-cols-[minmax(0,1.5fr),320px]"}`}>
+      <div className={`grid gap-0 ${compact ? "2xl:grid-cols-[minmax(0,1.3fr),320px]" : "xl:grid-cols-[minmax(0,1.55fr),320px]"}`}>
         <div className="border-b border-[var(--line)] p-5 xl:border-b-0 xl:border-r">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge value={task.status} />
-            <PriorityBadge value={task.priority} />
-            <span className="rounded-full border border-[var(--line)] px-3 py-1 text-xs text-[var(--text-dim)]">
-              {task.project}
-            </span>
-            <span className="rounded-full border border-[var(--line)] px-3 py-1 text-xs text-[var(--text-dim)]">
-              Effort {task.effort}
-            </span>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-3 text-sm text-[var(--text-muted)]">
-            <span>Owner {task.assignee}</span>
-            <span>Reviewer {task.reviewer ?? "Unassigned"}</span>
-            <span>Due {task.due}</span>
-          </div>
-
-          {task.description ? (
-            <div className="mt-5 rounded-3xl border border-[var(--line)] bg-[var(--surface-subtle)] px-5 py-4">
-              <p className="section-eyebrow">Task brief</p>
-              <p className="mt-3 max-w-4xl whitespace-pre-wrap break-words text-[15px] leading-7 text-[var(--text-strong)]">
-                {task.description}
-              </p>
+          <section className="rounded-3xl border border-[var(--line)] bg-white px-5 py-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="section-eyebrow">Task state</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <StatusBadge value={task.status} />
+                  <PriorityBadge value={task.priority} />
+                </div>
+              </div>
+              {taskSignals.length ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  {taskSignals.map((signal) => (
+                    <span key={signal} className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1 text-xs text-[var(--text-dim)]">
+                      {signal}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
-          ) : null}
 
-          {task.parentTaskTitle || childTasks.length ? (
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              <Panel tone="subtle" className="p-4">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Task structure</h3>
-                {task.parentTaskTitle ? (
-                  <Link href={`/tasks/${task.parentTaskId}`} className="mt-3 inline-flex rounded-2xl border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">
-                    Parent: {task.parentTaskTitle}
-                  </Link>
-                ) : (
-                  <p className="mt-3 text-sm text-[var(--text-muted)]">This task is currently a top-level task.</p>
-                )}
-              </Panel>
-              <Panel tone="subtle" className="p-4">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Subtasks</h3>
-                {childTasks.length ? (
-                  <div className="mt-3 space-y-2">
-                    {childTasks.map((child) => (
-                      <Link key={child.id} href={`/tasks/${child.id}`} className="flex items-center justify-between rounded-2xl border border-[var(--line)] bg-white px-3 py-3 text-sm hover:border-[var(--line-strong)]">
-                        <span className="font-medium text-[var(--text-strong)]">{child.title}</span>
-                        <StatusBadge value={child.status} />
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-3 text-sm text-[var(--text-muted)]">No subtasks yet for this task.</p>
-                )}
-              </Panel>
+            {task.description ? (
+              <div className="mt-4 border-t border-[var(--line)] pt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Goal and brief</p>
+                <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-7 text-[var(--text-strong)]">{task.description}</p>
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-dim)]">Owner</p>
+                <p className="mt-1 text-sm font-medium text-[var(--text-strong)]">{task.assignee}</p>
+              </div>
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-dim)]">Reviewer</p>
+                <p className="mt-1 text-sm font-medium text-[var(--text-strong)]">{task.reviewer ?? "Unassigned"}</p>
+              </div>
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-dim)]">Type</p>
+                <p className="mt-1 text-sm font-medium text-[var(--text-strong)]">{task.assigneeType}</p>
+              </div>
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-dim)]">Due</p>
+                <p className="mt-1 text-sm font-medium text-[var(--text-strong)]">{task.due}</p>
+              </div>
             </div>
-          ) : null}
+          </section>
 
-          <TaskReviewSummary
-            task={task}
-            comments={comments}
-            executionFeed={executionFeed}
-            attachments={attachments}
-            latestExecutionAt={executionMeta?.latestUpdatedAt}
-          />
-
-          <div className="mt-5">
-            <Panel tone="subtle" className="overflow-hidden">
-              <PanelHeader
-                eyebrow="Discussion"
-                title="Latest comments"
-                description="Newest updates stay at the top so the current state is immediately visible."
-              />
-              <TaskCommentsPanel
-                taskId={task.id}
-                comments={comments}
-                mentionSuggestions={availableWatchers.map((watcher) => watcher.name)}
-              />
-            </Panel>
-          </div>
-        </div>
-
-        <aside className="space-y-4 p-5 xl:sticky xl:top-5 xl:self-start">
-          <Panel tone="subtle" className="p-4">
+          <section className="mt-5 rounded-3xl border border-[var(--line)] bg-white px-5 py-5">
             <div className="flex items-center justify-between gap-3">
-              <p className="section-eyebrow">Next action</p>
+              <div>
+                <p className="section-eyebrow">Next action</p>
+                <h3 className="mt-2 text-base font-semibold text-[var(--text-strong)]">{decisionGuidance.title}</h3>
+              </div>
               <StatusBadge value={task.status} />
             </div>
-            <h3 className="mt-3 text-base font-semibold text-[var(--text-strong)]">{decisionGuidance.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{decisionGuidance.detail}</p>
             {task.blockedReason ? (
               <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700">
                 {task.blockedReason}
@@ -337,87 +275,127 @@ export function TaskWorkspace({
                 currentStatus={task.status}
                 blockedReason={task.blockedReason}
                 actorType="human"
-                title="What you can do next"
+                title="Workflow controls"
                 options={task.humanTransitionOptions ?? []}
               />
             </div>
-          </Panel>
+          </section>
 
-          <Panel tone="subtle" className="p-4">
-            <p className="section-eyebrow">Task summary</p>
-            <div className="mt-4 space-y-4">
-              <PropertyRow label="Owner" value={task.assignee} />
-              <PropertyRow label="Type" value={task.assigneeType} />
-              <PropertyRow label="Reviewer" value={task.reviewer ?? "Unassigned"} />
-              <PropertyRow label="Due" value={task.due} />
-            </div>
-          </Panel>
-
-          {task.assigneeType === "Agent" ? (
-            <>
-              <Panel tone="subtle" className="p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="section-eyebrow">Agent run</p>
-                  <span className={`rounded-full border px-3 py-1 text-xs ${agentHealth.accentClass}`}>{openClawState}</span>
+          {task.parentTaskTitle || childTasks.length ? (
+            <section className="mt-5 rounded-3xl border border-[var(--line)] bg-white px-5 py-5">
+              <p className="section-eyebrow">Task structure</p>
+              <div className="mt-3 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Parent</p>
+                  {task.parentTaskTitle ? (
+                    <Link href={`/tasks/${task.parentTaskId}`} className="mt-3 inline-flex rounded-2xl border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">
+                      {task.parentTaskTitle}
+                    </Link>
+                  ) : (
+                    <p className="mt-2 text-sm text-[var(--text-muted)]">No parent task.</p>
+                  )}
                 </div>
-                <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
-                  Dispatch work to the assigned OpenClaw agent and follow the latest progress here.
-                </p>
-                <div className="mt-4">
-                  <TaskOpenClawDispatchButton taskId={task.id} currentStatus={task.status} />
-                </div>
-                <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white px-3 py-3 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-[var(--text-strong)]">Latest meaningful update</span>
-                    <span className="text-xs text-[var(--text-dim)]">{openClawFreshness}</span>
-                  </div>
-                  <p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-muted)]">
-                    {executionFeed[executionFeed.length - 1] ?? "No execution updates yet. Once dispatched, progress entries will appear here."}
-                  </p>
-                </div>
-                {executionFeed.length ? (
-                  <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white px-3 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Recent updates</p>
+                <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Subtasks</p>
+                  {childTasks.length ? (
                     <div className="mt-3 space-y-2">
-                      {executionFeed.slice(-3).reverse().map((line, index) => (
-                        <div key={`${index}-${line}`} className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm text-[var(--text-muted)]">
-                          {line}
-                        </div>
+                      {childTasks.map((child) => (
+                        <Link key={child.id} href={`/tasks/${child.id}`} className="flex items-center justify-between rounded-2xl border border-[var(--line)] bg-white px-3 py-3 text-sm hover:border-[var(--line-strong)]">
+                          <span className="font-medium text-[var(--text-strong)]">{child.title}</span>
+                          <StatusBadge value={child.status} />
+                        </Link>
                       ))}
                     </div>
-                  </div>
-                ) : null}
-                <div className="mt-5 border-t border-[var(--line)] pt-4">
-                  <TaskStatusActions
-                    taskId={task.id}
-                    currentStatus={task.status}
-                    blockedReason={task.blockedReason}
-                    actorType="agent"
-                    title="Agent controls"
-                    options={task.transitionOptions ?? []}
-                  />
+                  ) : (
+                    <p className="mt-2 text-sm text-[var(--text-muted)]">No subtasks yet.</p>
+                  )}
                 </div>
-              </Panel>
-            </>
+              </div>
+            </section>
           ) : null}
 
-          {(task.tags.length || attachments.length || watchers.length || executionFeed.length || resolvedContext) ? (
+          <TaskReviewSummary
+            task={task}
+            comments={comments}
+            executionFeed={executionFeed}
+            attachments={attachments}
+            latestExecutionAt={executionMeta?.latestUpdatedAt}
+          />
+
+          <section className="mt-5 overflow-hidden rounded-3xl border border-[var(--line)] bg-white">
+            <PanelHeader
+              eyebrow="Task communication"
+              title="Comments and timeline"
+            />
+            <TaskCommentsPanel
+              taskId={task.id}
+              comments={comments}
+              timeline={timeline}
+              mentionSuggestions={availableWatchers.map((watcher) => watcher.name)}
+            />
+          </section>
+        </div>
+
+        <aside className="space-y-4 p-5 xl:sticky xl:top-5 xl:self-start">
+          {task.assigneeType === "Agent" ? (
             <Panel tone="subtle" className="p-4">
-              <p className="section-eyebrow">Details</p>
-              {task.tags.length ? (
-                <div className="mt-4 flex flex-wrap gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="section-eyebrow">Agent run health</p>
+                <span className={`rounded-full border px-3 py-1 text-xs ${agentHealth.accentClass}`}>{openClawState}</span>
+              </div>
+              <div className="mt-4">
+                <TaskOpenClawDispatchButton taskId={task.id} currentStatus={task.status} />
+              </div>
+              <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white px-3 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs uppercase tracking-[0.12em] text-[var(--text-dim)]">Latest signal</span>
+                  <span className="text-xs text-[var(--text-dim)]">{openClawFreshness}</span>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-[var(--text-muted)]">
+                  {latestExecutionLine ?? "No execution signal yet."}
+                </p>
+              </div>
+              <div className="mt-4 border-t border-[var(--line)] pt-4">
+                <TaskStatusActions
+                  taskId={task.id}
+                  currentStatus={task.status}
+                  blockedReason={task.blockedReason}
+                  actorType="agent"
+                  title="Agent controls"
+                  options={task.transitionOptions ?? []}
+                />
+              </div>
+            </Panel>
+          ) : null}
+
+          <Panel tone="subtle" className="p-4">
+            <p className="section-eyebrow">Task facts</p>
+            <div className="mt-4 space-y-4">
+              <PropertyRow label="Owner" value={task.assignee} />
+              <PropertyRow label="Reviewer" value={task.reviewer ?? "Unassigned"} />
+              <PropertyRow label="Due" value={task.due} />
+              <PropertyRow label="Priority" value={task.priority} />
+            </div>
+            {task.tags.length ? (
+              <div className="mt-4 border-t border-[var(--line)] pt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-dim)]">Tags</p>
+                <div className="mt-2 flex flex-wrap gap-2">
                   {task.tags.map((tag) => (
-                    <span key={tag} className="rounded-full border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--text-strong)]">
-                      {tag}
-                    </span>
+                    <span key={tag} className="rounded-full border border-[var(--line)] bg-white px-2.5 py-1 text-xs text-[var(--text-strong)]">{tag}</span>
                   ))}
                 </div>
-              ) : null}
-              <div className="mt-4 space-y-3 text-sm text-[var(--text-muted)]">
-                {resolvedContext ? <p>Context inheritance is available for agent execution.</p> : null}
+              </div>
+            ) : null}
+          </Panel>
+
+          {(attachments.length || executionFeed.length || watchers.length || resolvedContext) ? (
+            <Panel tone="subtle" className="p-4">
+              <p className="section-eyebrow">Context and evidence</p>
+              <div className="mt-3 space-y-2 text-sm text-[var(--text-muted)]">
+                {resolvedContext ? <p>Context inheritance is active for this task.</p> : null}
                 {executionFeed.length ? <p>{executionFeed.length} execution log {executionFeed.length === 1 ? "entry" : "entries"} recorded.</p> : null}
                 {attachments.length ? <p>{attachments.length} attachment{attachments.length === 1 ? "" : "s"} available.</p> : null}
-                {watchers.length ? <p>{watchers.length} watcher{watchers.length === 1 ? "" : "s"} following this task.</p> : null}
+                {watchers.length ? <p>{watchers.length} watcher{watchers.length === 1 ? "" : "s"} following updates.</p> : null}
               </div>
             </Panel>
           ) : null}
