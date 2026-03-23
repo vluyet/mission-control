@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProjectWorkspaceForUi } from "@/lib/server-data";
-import { BoardGrid, ContextPanel, PageHeader, TaskTable, TaskViewToolbar, TaskWorkspace } from "@/components/product/workspace-ui";
+import { BoardGrid, ContextPanel, PageHeader, TaskTable, TaskViewToolbar } from "@/components/product/workspace-ui";
 import { AppButton } from "@/components/ui/primitives";
 import { applyTaskView, getTagOptions, parseTaskViewState } from "@/lib/task-view";
 import { SavedTaskViews } from "@/components/product/saved-task-views";
@@ -18,7 +18,7 @@ export default async function ProjectWorkspacePage({
   if (!workspace?.workspaceContext) {
     notFound();
   }
-  const { project, workspaceContext, projectContext, tasks, board, featuredTask } = workspace;
+  const { project, workspaceContext, projectContext, tasks, board } = workspace;
   const visibleTasks = applyTaskView(tasks, view);
   const tags = getTagOptions(tasks);
 
@@ -62,20 +62,6 @@ export default async function ProjectWorkspacePage({
 
         <BoardGrid columns={board} title="Board snapshot" />
       </div>
-
-      {featuredTask ? (
-        <TaskWorkspace
-          task={featuredTask.task}
-          comments={featuredTask.comments}
-          timeline={featuredTask.timeline}
-          executionFeed={featuredTask.executionFeed}
-          attachments={featuredTask.attachments}
-          childTasks={featuredTask.childTasks}
-          resolvedContext={featuredTask.resolvedContext}
-          watchers={featuredTask.watchers}
-          availableWatchers={featuredTask.availableWatchers}
-        />
-      ) : null}
     </div>
   );
 }

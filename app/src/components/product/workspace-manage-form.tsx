@@ -109,13 +109,13 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
           <PanelHeader
             eyebrow="Guide"
             title="What lives here"
-            description="Use this page to update workspace identity, review scope, manage the OpenClaw connection, and rotate agent credentials without hunting through unrelated controls."
+            description="Update workspace identity first, then move down into scope, OpenClaw, and credentials only when you need them."
           />
-          <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 xl:grid-cols-4">
-            <a href="#workspace-settings" className="quick-link"><span>Workspace settings</span><span>Jump</span></a>
-            <a href="#workspace-scope" className="quick-link"><span>Scope & links</span><span>Jump</span></a>
-            <a href="#workspace-openclaw" className="quick-link"><span>OpenClaw connection</span><span>Jump</span></a>
-            <a href="#workspace-credentials" className="quick-link"><span>Agent credentials</span><span>Jump</span></a>
+          <div className="flex flex-wrap gap-2 px-5 pb-5">
+            <a href="#workspace-settings" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Workspace settings</a>
+            <a href="#workspace-scope" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Scope & links</a>
+            <a href="#workspace-openclaw" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">OpenClaw connection</a>
+            <a href="#workspace-credentials" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Agent credentials</a>
           </div>
         </Panel>
 
@@ -176,50 +176,51 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
         <div id="workspace-scope">
         <Panel className="overflow-hidden">
-          <PanelHeader eyebrow="Scope" title="Workspace scope" />
-          <div className="space-y-3 px-5 py-5">
-            <div className="property-row">
-              <span>Projects</span>
-              <span>{workspace.projectCount}</span>
+          <PanelHeader eyebrow="Scope" title="Workspace scope" description="A quick read on workspace size, plus the related areas you are most likely to open next." />
+          <div className="grid gap-5 px-5 py-5 xl:grid-cols-[minmax(0,1fr),320px]">
+            <div className="space-y-3">
+              <div className="property-row">
+                <span>Projects</span>
+                <span>{workspace.projectCount}</span>
+              </div>
+              <div className="property-row">
+                <span>Members</span>
+                <span>{workspace.memberCount}</span>
+              </div>
+              <div className="property-row">
+                <span>Humans</span>
+                <span>{workspace.humanCount}</span>
+              </div>
+              <div className="property-row">
+                <span>Agents</span>
+                <span>{workspace.agentCount}</span>
+              </div>
+              <div className="property-row">
+                <span>Workspace files</span>
+                <span>{workspace.workspaceAssetCount}</span>
+              </div>
+              <div className="property-row">
+                <span>Task files</span>
+                <span>{workspace.attachmentCount}</span>
+              </div>
             </div>
-            <div className="property-row">
-              <span>Members</span>
-              <span>{workspace.memberCount}</span>
+            <div className="rounded-3xl border border-[var(--line)] bg-[var(--surface-subtle)] p-4">
+              <p className="section-eyebrow">Open related areas</p>
+              <div className="mt-3 space-y-3">
+                <Link href="/members" className="quick-link">
+                  <span>Members</span>
+                  <span>Open</span>
+                </Link>
+                <Link href="/projects" className="quick-link">
+                  <span>Projects</span>
+                  <span>Open</span>
+                </Link>
+                <Link href="/queue" className="quick-link">
+                  <span>Agent queue</span>
+                  <span>Open</span>
+                </Link>
+              </div>
             </div>
-            <div className="property-row">
-              <span>Humans</span>
-              <span>{workspace.humanCount}</span>
-            </div>
-            <div className="property-row">
-              <span>Agents</span>
-              <span>{workspace.agentCount}</span>
-            </div>
-            <div className="property-row">
-              <span>Workspace files</span>
-              <span>{workspace.workspaceAssetCount}</span>
-            </div>
-            <div className="property-row">
-              <span>Task files</span>
-              <span>{workspace.attachmentCount}</span>
-            </div>
-          </div>
-        </Panel>
-
-        <Panel className="overflow-hidden">
-          <PanelHeader eyebrow="Navigation" title="Open related areas" />
-          <div className="space-y-3 px-5 py-5">
-            <Link href="/members" className="quick-link">
-              <span>Members</span>
-              <span>Open</span>
-            </Link>
-            <Link href="/projects" className="quick-link">
-              <span>Projects</span>
-              <span>Open</span>
-            </Link>
-            <Link href="/queue" className="quick-link">
-              <span>Agent queue</span>
-              <span>Open</span>
-            </Link>
           </div>
         </Panel>
         </div>

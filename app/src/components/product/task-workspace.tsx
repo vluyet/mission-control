@@ -130,7 +130,7 @@ export function TaskWorkspace({
           </div>
         </div>
 
-        <aside className="space-y-4 p-5">
+        <aside className="space-y-4 p-5 xl:sticky xl:top-5 xl:self-start">
           <Panel tone="subtle" className="p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="section-eyebrow">Summary</p>
@@ -167,7 +167,7 @@ export function TaskWorkspace({
                   <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-xs text-[var(--text-dim)]">{openClawState}</span>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
-                  Send this task to the assigned OpenClaw agent. Progress, comments, and status changes will report back here while the run is active.
+                  Dispatch work to the assigned OpenClaw agent and follow the latest progress here.
                 </p>
                 <div className="mt-4">
                   <TaskOpenClawDispatchButton taskId={task.id} currentStatus={task.status} />
