@@ -3,10 +3,9 @@ import type { ReactNode } from "react";
 import { activityFeed, agentDocsSections, ContextBlock, Metric, ProjectSummary, TaskRecord } from "@/lib/demo-data";
 import type { ActivityFeedItem } from "@/lib/demo-data";
 import { getAgentRunHealth } from "@/lib/agent-run-health";
-import { SparkIcon } from "@/components/ui/icons";
+import { BoardIcon, CalendarIcon, ChartIcon, FolderIcon, SearchIcon, SparkIcon, StackIcon } from "@/components/ui/icons";
 import {
   AppButton,
-  FilterChip,
   Panel,
   PanelHeader,
   PriorityBadge,
@@ -18,6 +17,7 @@ import { TaskStatusActions } from "@/components/product/task-status-actions";
 import { TaskOpenClawDispatchButton } from "@/components/product/task-openclaw-dispatch-button";
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { BoardGridInteractive } from "@/components/product/board-grid-interactive";
+import { SavedTaskViews } from "@/components/product/saved-task-views";
 export { TaskWorkspace } from "@/components/product/task-workspace";
 export { MemberDirectory } from "@/components/product/member-directory";
 
@@ -380,22 +380,65 @@ function buildTaskViewHref(
   return query ? `${pathname}?${query}` : pathname;
 }
 
+function TaskViewControlLabel({
+  label,
+  icon
+}: {
+  label: string;
+  icon: ReactNode;
+}) {
+  return (
+    <div className="inline-flex h-8 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-dim)]">
+      <span className="text-[var(--text-muted)]">{icon}</span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function TaskViewControlChip({
+  href,
+  label,
+  active = false,
+  icon
+}: {
+  href: string;
+  label: string;
+  active?: boolean;
+  icon?: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex h-8 items-center gap-2 rounded-full border px-3 text-xs font-medium transition ${
+        active
+          ? "border-[var(--accent-strong)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+          : "border-[var(--line)] bg-[var(--surface-subtle)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]"
+      }`}
+    >
+      {icon ? <span className="text-current">{icon}</span> : null}
+      <span>{label}</span>
+    </Link>
+  );
+}
+
 export function TaskViewToolbar({
   basePath,
   current,
   tagOptions = [],
   includeTags = false,
-  preservedParams = {}
+  preservedParams = {},
+  savedViewsKey
 }: {
   basePath: string;
   current: { mode: "list" | "board"; status: string; timing: string; sort: string; tag: string };
   tagOptions?: string[];
   includeTags?: boolean;
   preservedParams?: Record<string, string>;
+  savedViewsKey?: string;
 }) {
   const modeOptions = [
-    { label: "List", value: "list" as const },
-    { label: "Board", value: "board" as const }
+    { label: "List", value: "list" as const, icon: <StackIcon className="h-3.5 w-3.5" /> },
+    { label: "Board", value: "board" as const, icon: <BoardIcon className="h-3.5 w-3.5" /> }
   ];
   const statusOptions = [
     { label: "All statuses", value: "" },
@@ -417,69 +460,97 @@ export function TaskViewToolbar({
   ];
 
   return (
-    <Panel className="p-4">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="section-eyebrow mr-2">Layout</p>
+    <Panel className="overflow-hidden p-3">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-sm whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-2 pr-1">
+          <TaskViewControlLabel label="View" icon={<SparkIcon className="h-3.5 w-3.5" />} />
           {modeOptions.map((option) => (
-            <Link key={option.label} href={buildTaskViewHref(basePath, current, { mode: option.value }, preservedParams)} className="inline-flex">
-              <FilterChip label={option.label} active={current.mode === option.value} />
-            </Link>
+            <TaskViewControlChip
+              key={option.label}
+              href={buildTaskViewHref(basePath, current, { mode: option.value }, preservedParams)}
+              label={option.label}
+              icon={option.icon}
+              active={current.mode === option.value}
+            />
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="section-eyebrow mr-2">Filter</p>
+        <div className="h-5 w-px shrink-0 bg-[var(--line)]" />
+
+        <div className="flex items-center gap-2 pr-1">
+          <TaskViewControlLabel label="Status" icon={<SearchIcon className="h-3.5 w-3.5" />} />
           {statusOptions.map((option) => (
-            <Link
+            <TaskViewControlChip
               key={option.label}
               href={buildTaskViewHref(basePath, current, { status: option.value }, preservedParams)}
-              className="inline-flex"
-            >
-              <FilterChip label={option.label} active={current.status === option.value} />
-            </Link>
+              label={option.label}
+              active={current.status === option.value}
+            />
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="section-eyebrow mr-2">Timing</p>
+        <div className="h-5 w-px shrink-0 bg-[var(--line)]" />
+
+        <div className="flex items-center gap-2 pr-1">
+          <TaskViewControlLabel label="Timing" icon={<CalendarIcon className="h-3.5 w-3.5" />} />
           {timingOptions.map((option) => (
-            <Link
+            <TaskViewControlChip
               key={option.label}
               href={buildTaskViewHref(basePath, current, { timing: option.value }, preservedParams)}
-              className="inline-flex"
-            >
-              <FilterChip label={option.label} active={current.timing === option.value} />
-            </Link>
+              label={option.label}
+              active={current.timing === option.value}
+            />
           ))}
         </div>
 
         {includeTags && tagOptions.length ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="section-eyebrow mr-2">Tags</p>
-            <Link href={buildTaskViewHref(basePath, current, { tag: "" }, preservedParams)} className="inline-flex">
-              <FilterChip label="All tags" active={!current.tag} />
-            </Link>
+          <>
+            <div className="h-5 w-px shrink-0 bg-[var(--line)]" />
+            <div className="flex items-center gap-2 pr-1">
+              <TaskViewControlLabel label="Tags" icon={<FolderIcon className="h-3.5 w-3.5" />} />
+              <TaskViewControlChip
+                href={buildTaskViewHref(basePath, current, { tag: "" }, preservedParams)}
+                label="All tags"
+                active={!current.tag}
+              />
             {tagOptions.map((tag) => (
-              <Link key={tag} href={buildTaskViewHref(basePath, current, { tag }, preservedParams)} className="inline-flex">
-                <FilterChip label={tag} active={current.tag === tag} />
-              </Link>
+              <TaskViewControlChip
+                key={tag}
+                href={buildTaskViewHref(basePath, current, { tag }, preservedParams)}
+                label={tag}
+                active={current.tag === tag}
+              />
             ))}
-          </div>
+            </div>
+          </>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="section-eyebrow mr-2">Sort</p>
+        <div className="h-5 w-px shrink-0 bg-[var(--line)]" />
+
+        <div className="flex items-center gap-2">
+          <TaskViewControlLabel label="Sort" icon={<ChartIcon className="h-3.5 w-3.5" />} />
           {sortOptions.map((option) => (
-            <Link
+            <TaskViewControlChip
               key={option.label}
               href={buildTaskViewHref(basePath, current, { sort: option.value }, preservedParams)}
-              className="inline-flex"
-            >
-              <FilterChip label={option.label} active={current.sort === option.value} />
-            </Link>
+              label={option.label}
+              active={current.sort === option.value}
+            />
           ))}
         </div>
+
+        {savedViewsKey ? (
+          <>
+            <div className="h-5 w-px shrink-0 bg-[var(--line)]" />
+            <SavedTaskViews
+              storageKey={savedViewsKey}
+              basePath={basePath}
+              current={current}
+              preservedParams={preservedParams}
+              compact
+            />
+          </>
+        ) : null}
       </div>
     </Panel>
   );

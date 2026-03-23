@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BookIcon, PlusIcon } from "@/components/ui/icons";
 import { AppButton, Panel } from "@/components/ui/primitives";
 
 type TaskViewState = {
@@ -44,12 +45,14 @@ export function SavedTaskViews({
   storageKey,
   basePath,
   current,
-  preservedParams = {}
+  preservedParams = {},
+  compact = false
 }: {
   storageKey: string;
   basePath: string;
   current: TaskViewState;
   preservedParams?: Record<string, string>;
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
@@ -95,6 +98,42 @@ export function SavedTaskViews({
     () => Boolean(current.mode !== "list" || current.status || current.timing || current.tag || current.sort !== "due"),
     [current]
   );
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="inline-flex h-8 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-dim)]">
+          <span className="text-[var(--text-muted)]">
+            <BookIcon className="h-3.5 w-3.5" />
+          </span>
+          <span>Views</span>
+        </div>
+        <AppButton tone="secondary" onClick={saveCurrent} disabled={!canSave} className="h-8 rounded-full px-3 py-0 text-xs">
+          <PlusIcon className="h-3.5 w-3.5" />
+          Save
+        </AppButton>
+        {savedViews.map((view) => (
+          <div key={view.id} className="inline-flex h-8 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 text-xs text-[var(--text-strong)]">
+            <button
+              type="button"
+              onClick={() => router.push(buildHref(basePath, view, preservedParams))}
+              className="font-medium"
+            >
+              {view.label}
+            </button>
+            <button
+              type="button"
+              onClick={() => persist(savedViews.filter((item) => item.id !== view.id))}
+              className="text-[var(--text-dim)] hover:text-[var(--text-strong)]"
+              aria-label={`Remove ${view.label}`}
+            >
+              Del
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <Panel className="p-4">

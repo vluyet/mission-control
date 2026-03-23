@@ -3,7 +3,6 @@ import { getProjectWorkspaceForUi } from "@/lib/server-data";
 import { BoardGrid, ContextPanel, FocusQueuePanel, PageHeader, TaskTable, TaskViewToolbar } from "@/components/product/workspace-ui";
 import { AppButton } from "@/components/ui/primitives";
 import { applyTaskView, buildBoardColumns, getTagOptions, parseTaskViewState } from "@/lib/task-view";
-import { SavedTaskViews } from "@/components/product/saved-task-views";
 import { getAgentRunHealth } from "@/lib/agent-run-health";
 
 export default async function ProjectWorkspacePage({
@@ -63,8 +62,13 @@ export default async function ProjectWorkspacePage({
           blocks={[workspaceContext, projectContext ?? undefined]}
         />
 
-        <TaskViewToolbar basePath={`/projects/${project.slug}`} current={view} tagOptions={tags} includeTags />
-        <SavedTaskViews storageKey={`saved-view:project:${project.slug}`} basePath={`/projects/${project.slug}`} current={view} />
+        <TaskViewToolbar
+          basePath={`/projects/${project.slug}`}
+          current={view}
+          tagOptions={tags}
+          includeTags
+          savedViewsKey={`saved-view:project:${project.slug}`}
+        />
 
         {view.mode === "board" ? (
           <BoardGrid columns={visibleBoard} title="Board snapshot" />
@@ -103,10 +107,7 @@ export default async function ProjectWorkspacePage({
             </div>
           </div>
         ) : (
-          <>
-            <TaskTable items={visibleTasks} projectScoped title="Project tasks" />
-            <BoardGrid columns={visibleBoard} title="Board snapshot" />
-          </>
+          <TaskTable items={visibleTasks} projectScoped title="Project tasks" />
         )}
       </div>
     </div>
