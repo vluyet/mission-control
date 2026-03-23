@@ -104,8 +104,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
   }
 
   return (
-    <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.15fr),360px]">
-      <div className="space-y-5">
+    <div className="space-y-5">
         <Panel className="overflow-hidden">
           <PanelHeader
             eyebrow="Guide"
@@ -174,9 +173,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
         </div>
 
         {workspace.assets.length ? <WorkspaceAssetsPanel assets={workspace.assets} /> : null}
-      </div>
 
-      <div className="space-y-5">
         <div id="workspace-scope">
         <Panel className="overflow-hidden">
           <PanelHeader eyebrow="Scope" title="Workspace scope" />
@@ -240,7 +237,6 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
             />
           </div>
         ) : null}
-      </div>
     </div>
   );
 }

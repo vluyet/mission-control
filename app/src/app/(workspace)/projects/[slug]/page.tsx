@@ -39,28 +39,26 @@ export default async function ProjectWorkspacePage({
         }
       />
 
-      <div className="grid gap-4 2xl:grid-cols-[1.12fr,0.88fr]">
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs uppercase tracking-[0.12em] text-[var(--text-dim)]">
-              {project.lifecycle}
-            </span>
-            <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs uppercase tracking-[0.12em] text-[var(--text-dim)]">
-              {project.visibility}
-            </span>
-          </div>
-          <ContextPanel
-            title="Project context"
-            blocks={[workspaceContext, projectContext ?? undefined]}
-          />
-          <SavedTaskViews storageKey={`saved-view:project:${project.slug}`} basePath={`/projects/${project.slug}`} current={view} />
-          <TaskViewToolbar basePath={`/projects/${project.slug}`} current={view} tagOptions={tags} includeTags />
-          <TaskTable
-            items={visibleTasks}
-            projectScoped
-            title="Project task list"
-          />
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs uppercase tracking-[0.12em] text-[var(--text-dim)]">
+            {project.lifecycle}
+          </span>
+          <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs uppercase tracking-[0.12em] text-[var(--text-dim)]">
+            {project.visibility}
+          </span>
         </div>
+
+        <ContextPanel
+          title="Project context"
+          blocks={[workspaceContext, projectContext ?? undefined]}
+        />
+
+        <TaskViewToolbar basePath={`/projects/${project.slug}`} current={view} tagOptions={tags} includeTags />
+        <SavedTaskViews storageKey={`saved-view:project:${project.slug}`} basePath={`/projects/${project.slug}`} current={view} />
+
+        <TaskTable items={visibleTasks} projectScoped title="Project task list" />
+
         <BoardGrid columns={board} title="Project board" />
       </div>
 
