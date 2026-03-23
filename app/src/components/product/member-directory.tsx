@@ -1,4 +1,5 @@
 import { Member } from "@/lib/demo-data";
+import Link from "next/link";
 import { Panel, PanelHeader } from "@/components/ui/primitives";
 import { AgentEnabledToggle } from "@/components/product/agent-enabled-toggle";
 
@@ -24,6 +25,24 @@ export function MemberDirectory({ items }: { items: Member[] }) {
             <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{agentMembers.length}</p>
           </div>
         </div>
+        {!items.length ? (
+          <div className="border-t border-[var(--line)] px-5 py-5">
+            <div className="rounded-3xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] p-5">
+              <h3 className="text-sm font-semibold text-[var(--text-strong)]">No members yet</h3>
+              <p className="mt-2 text-sm leading-7 text-[var(--text-muted)]">
+                Add people or sync agents before assigning work. Once members exist, this page becomes the quickest way to check who is active and what they can handle.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href="/manage-workspace"
+                  className="inline-flex items-center rounded-full border border-[var(--line)] bg-white px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition hover:border-[var(--line-strong)]"
+                >
+                  Open workspace settings
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </Panel>
 
       {[

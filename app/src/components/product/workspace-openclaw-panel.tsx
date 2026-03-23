@@ -20,6 +20,7 @@ export function WorkspaceOpenClawPanel({ integration }: { integration: OpenClawS
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<"save" | "sync" | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isSyncing, startSyncTransition] = useTransition();
 
@@ -42,6 +43,7 @@ export function WorkspaceOpenClawPanel({ integration }: { integration: OpenClawS
     setError(null);
     setSaved(null);
     setSyncMessage(null);
+    setLastAction("save");
 
     const response = await fetch("/api/workspaces/current/openclaw", {
       method: "PATCH",
@@ -64,6 +66,7 @@ export function WorkspaceOpenClawPanel({ integration }: { integration: OpenClawS
     setError(null);
     setSaved(null);
     setSyncMessage(null);
+    setLastAction("sync");
 
     const response = await fetch("/api/workspaces/current/openclaw/sync", {
       method: "POST"
@@ -122,14 +125,26 @@ export function WorkspaceOpenClawPanel({ integration }: { integration: OpenClawS
         </div>
 
         <div className="flex flex-col gap-3">
-          <div className="text-sm">
-            {error ? <span className="text-rose-600">{error}</span> : saved ? <span className="text-emerald-600">{saved}</span> : syncMessage ? <span className="text-emerald-600">{syncMessage}</span> : <span className="text-[var(--text-dim)]">Link Mission Control to an OpenClaw gateway and sync available agents.</span>}
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-3 text-sm">
+            {error ? (
+              <span className="text-rose-600">{error}</span>
+            ) : saved ? (
+              <span className="text-emerald-600">{saved}</span>
+            ) : syncMessage ? (
+              <span className="text-emerald-600">{syncMessage}</span>
+            ) : isPending && lastAction === "save" ? (
+              <span className="text-[var(--text-muted)]">Saving the OpenClaw connection and refreshing workspace settings…</span>
+            ) : isSyncing && lastAction === "sync" ? (
+              <span className="text-[var(--text-muted)]">Syncing available OpenClaw agents and refreshing the member list…</span>
+            ) : (
+              <span className="text-[var(--text-dim)]">Link Mission Control to an OpenClaw gateway and sync available agents.</span>
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
             <AppButton type="submit" tone="primary" className={isPending ? "opacity-70" : ""}>
               {isPending ? "Saving..." : "Save OpenClaw link"}
             </AppButton>
-            <AppButton type="button" tone="secondary" onClick={handleSync} disabled={isSyncing}>
+            <AppButton type="button" tone="secondary" onClick={handleSync} disabled={isSyncing || isPending}>
               {isSyncing ? "Syncing..." : "Sync agents"}
             </AppButton>
           </div>

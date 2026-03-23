@@ -45,6 +45,7 @@ export function WorkspaceAgentCredentialsPanel({
   const [selectedScopes, setSelectedScopes] = useState<string[]>(["tasks.read", "tasks.write", "comments.write"]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function toggleScope(scope: string) {
@@ -56,10 +57,12 @@ export function WorkspaceAgentCredentialsPanel({
   async function createCredential() {
     if (!selectedAgentId || !credentialName.trim() || !selectedScopes.length) {
       setError("Agent, name, and at least one scope are required.");
+      setStatusMessage(null);
       return;
     }
 
     setError(null);
+    setStatusMessage("Creating credential and refreshing the workspace record…");
     setCreatedToken(null);
 
     const response = await fetch("/api/workspaces/current/agent-credentials", {
@@ -78,11 +81,13 @@ export function WorkspaceAgentCredentialsPanel({
 
     if (!response.ok) {
       setError(payload?.error?.message ?? "Credential could not be created.");
+      setStatusMessage(null);
       return;
     }
 
     setCreatedToken(payload?.data?.token ?? null);
     setCredentialName("");
+    setStatusMessage("Credential created. Copy the token now — it will not be shown again.");
     startTransition(() => {
       router.refresh();
     });
@@ -90,6 +95,7 @@ export function WorkspaceAgentCredentialsPanel({
 
   async function setCredentialEnabled(id: string, enabled: boolean) {
     setError(null);
+    setStatusMessage(enabled ? "Enabling credential and refreshing the list…" : "Revoking credential and refreshing the list…");
 
     const response = await fetch(`/api/agent-credentials/${id}`, {
       method: "PATCH",
@@ -103,9 +109,11 @@ export function WorkspaceAgentCredentialsPanel({
 
     if (!response.ok) {
       setError(payload?.error?.message ?? "Credential update failed.");
+      setStatusMessage(null);
       return;
     }
 
+    setStatusMessage(enabled ? "Credential enabled." : "Credential revoked.");
     startTransition(() => {
       router.refresh();
     });
@@ -160,6 +168,12 @@ export function WorkspaceAgentCredentialsPanel({
             </AppButton>
           </div>
 
+          {statusMessage ? (
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-muted)]">
+              {statusMessage}
+            </div>
+          ) : null}
+
           {createdToken ? (
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">New token</p>
@@ -202,7 +216,9 @@ export function WorkspaceAgentCredentialsPanel({
               ))
             ) : (
               <div className="rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] px-4 py-4 text-sm text-[var(--text-dim)]">
-                No agent credentials yet
+                {agents.length
+                  ? "No agent credentials yet. Create one when an agent needs API access."
+                  : "No enabled agents are available yet. Enable or sync an agent first, then create a credential here."}
               </div>
             )}
           </div>
@@ -225,7 +241,7 @@ export function WorkspaceAgentCredentialsPanel({
             ))
           ) : (
             <div className="rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] px-4 py-4 text-sm text-[var(--text-dim)]">
-              No auth events yet
+              No auth events yet. Recent credential use will appear here once an agent starts calling the API.
             </div>
           )}
         </div>

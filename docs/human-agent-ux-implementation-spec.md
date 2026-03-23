@@ -14,6 +14,7 @@ Completed in this pass:
 - Queue attention sections now remain stable even when individual groups are empty, which preserves scan order and avoids section jumping
 - Queue and My Tasks metric strips were reduced to a smaller set of decision-oriented counters to cut header noise
 - review summary now packages currently available evidence more explicitly using recent execution lines, attachment names, and the latest conversation signal
+- members/settings admin surfaces now handle low-data and in-flight states more clearly: empty member lists point back to workspace settings, OpenClaw link/sync actions explain what is happening while requests are in flight, and agent credential states explain next steps when no agents, credentials, or auth events exist yet
 
 Still to refine in follow-up passes:
 - package stronger evidence/validation summaries when richer backend data becomes available

@@ -7,8 +7,8 @@
   },
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
-    "build": "NEXT_DIST_DIR=.next-build next build",
-    "start": "NEXT_DIST_DIR=.next-build next start -H 0.0.0.0",
+    "build": "NEXT_DIST_DIR=.next-build node scripts/with-root-env.mjs next build",
+    "start": "NEXT_DIST_DIR=.next-build node scripts/with-root-env.mjs next start -H 0.0.0.0",
     "db:bootstrap": "node scripts/bootstrap-db.mjs",
     "lint": "next lint",
     "test:migrations": "prisma validate && prisma migrate status",
