@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Comment, ContextBlock, TaskRecord, TimelineEvent } from "@/lib/demo-data";
+import { AttachmentRecord, Comment, ContextBlock, TaskRecord, TimelineEvent } from "@/lib/demo-data";
 import type { ResolvedTaskContext } from "@/lib/context-resolver";
+import { getAgentRunHealth } from "@/lib/agent-run-health";
 import { AppButton, Panel, PanelHeader, PriorityBadge, StatusBadge } from "@/components/ui/primitives";
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
@@ -15,15 +16,79 @@ function PropertyRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatFreshness(value?: string) {
-  if (!value) return "No agent updates yet";
-  const diffMs = Date.now() - new Date(value).getTime();
-  const minutes = Math.max(0, Math.round(diffMs / 60000));
-  if (minutes <= 1) return "Updated just now";
-  if (minutes < 60) return `Updated ${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `Updated ${hours}h ago`;
-  return `Updated ${Math.round(hours / 24)}d ago`;
+function TaskReviewSummary({
+  task,
+  comments,
+  executionFeed,
+  attachments,
+  latestExecutionAt
+}: {
+  task: TaskRecord;
+  comments: Comment[];
+  executionFeed: string[];
+  attachments: AttachmentRecord[];
+  latestExecutionAt?: string;
+}) {
+  if (!["In Review", "Blocked", "Done"].includes(task.status) || task.assigneeType !== "Agent") return null;
+
+  const latestHumanOrAgentComment = [...comments].reverse().find((comment) => comment.tone === "agent" || comment.role !== "System");
+  const latestUpdate = executionFeed[executionFeed.length - 1] ?? latestHumanOrAgentComment?.body ?? "No completion summary was recorded yet.";
+  const evidence = [
+    executionFeed.length ? `${executionFeed.length} execution ${executionFeed.length === 1 ? "update" : "updates"}` : null,
+    comments.length ? `${comments.length} conversation ${comments.length === 1 ? "entry" : "entries"}` : null,
+    attachments.length ? `${attachments.length} attachment${attachments.length === 1 ? "" : "s"}` : null
+  ].filter(Boolean);
+  const recommendedNextStep =
+    task.status === "In Review"
+      ? "Review the outcome, then approve it or request another pass with a short note."
+      : task.status === "Blocked"
+        ? "Resolve the blocker or add the missing context before sending the task back into progress."
+        : "Use this summary to verify the outcome quickly before deciding whether anything still needs follow-up.";
+
+  return (
+    <Panel tone="subtle" className="mt-5 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="section-eyebrow">Review summary</p>
+          <h3 className="mt-2 text-lg font-semibold text-[var(--text-strong)]">
+            {task.status === "Blocked"
+              ? "Blocked and waiting on human input"
+              : task.status === "In Review"
+                ? "Ready for a human decision"
+                : "Completed with review context"}
+          </h3>
+        </div>
+        <StatusBadge value={task.status} />
+      </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Outcome</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{latestUpdate}</p>
+        </div>
+        <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Recommended next step</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{recommendedNextStep}</p>
+          {latestExecutionAt ? <p className="mt-3 text-xs text-[var(--text-dim)]">Latest agent signal recorded at {latestExecutionAt}.</p> : null}
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
+        <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Evidence available</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {evidence.length ? evidence.map((item) => (
+              <span key={item} className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1 text-xs text-[var(--text-strong)]">{item}</span>
+            )) : <span className="text-sm text-[var(--text-muted)]">No structured evidence yet.</span>}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Risks and caveats</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+            {task.blockedReason ?? "Review the final output against the task goal before marking it done. If anything is unclear, request changes with a short correction note."}
+          </p>
+        </div>
+      </div>
+    </Panel>
+  );
 }
 
 export function TaskWorkspace({
@@ -59,8 +124,9 @@ export function TaskWorkspace({
   availableWatchers?: import("@/lib/demo-data").WatcherRecord[];
   compact?: boolean;
 }) {
-  const openClawFreshness = formatFreshness(executionMeta?.latestUpdatedAt ?? task.updatedAt);
-  const openClawState = task.status === "In Progress" ? "Live" : task.status === "Blocked" ? "Blocked" : task.status === "In Review" ? "Completed" : "Idle";
+  const agentHealth = getAgentRunHealth(task, executionMeta?.latestUpdatedAt ?? task.updatedAt);
+  const openClawFreshness = agentHealth.detail;
+  const openClawState = agentHealth.label;
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
@@ -118,6 +184,14 @@ export function TaskWorkspace({
             </div>
           ) : null}
 
+          <TaskReviewSummary
+            task={task}
+            comments={comments}
+            executionFeed={executionFeed}
+            attachments={attachments}
+            latestExecutionAt={executionMeta?.latestUpdatedAt}
+          />
+
           <div className="mt-5">
             <Panel tone="subtle" className="overflow-hidden">
               <PanelHeader eyebrow="Discussion" title="Team conversation" />
@@ -164,7 +238,7 @@ export function TaskWorkspace({
               <Panel tone="subtle" className="p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="section-eyebrow">Agent run</p>
-                  <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-xs text-[var(--text-dim)]">{openClawState}</span>
+                  <span className={`rounded-full border px-3 py-1 text-xs ${agentHealth.accentClass}`}>{openClawState}</span>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
                   Dispatch work to the assigned OpenClaw agent and follow the latest progress here.
@@ -174,7 +248,7 @@ export function TaskWorkspace({
                 </div>
                 <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white px-3 py-3 text-sm">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-[var(--text-strong)]">Latest update</span>
+                    <span className="font-medium text-[var(--text-strong)]">Latest meaningful update</span>
                     <span className="text-xs text-[var(--text-dim)]">{openClawFreshness}</span>
                   </div>
                   <p className="mt-2 text-[var(--text-muted)]">

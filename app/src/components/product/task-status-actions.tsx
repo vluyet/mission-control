@@ -27,6 +27,22 @@ export function TaskStatusActions({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const normalizedStatus = currentStatus.toLowerCase();
+  const stateAwareDescription =
+    description ??
+    (actorType === "agent"
+      ? normalizedStatus.includes("review")
+        ? "The run is finished. Keep the next step human: approve it, send it back for another pass, or mark it blocked if the outcome is incomplete."
+        : normalizedStatus.includes("progress")
+          ? "The run is active. Only intervene if you need to add context, redirect the work, or mark a blocker."
+          : normalizedStatus.includes("blocked")
+            ? "The run is blocked. Add the missing context or move the task into the state that best reflects the next safe step."
+            : `Current state: ${currentStatus}. Use the constrained workflow below to keep agent execution predictable.`
+      : normalizedStatus.includes("review")
+        ? "A decision is needed now. Approve the result, request changes, or move it into a clearer human-owned state."
+        : normalizedStatus.includes("blocked")
+          ? "Resolve the blocker first, then move the task forward deliberately."
+          : `Current state: ${currentStatus}. Human operators can move work intentionally without bypassing the shared workflow model.`);
 
   async function handleTransition(nextStatus: TransitionOption["value"]) {
     setError(null);
@@ -57,21 +73,20 @@ export function TaskStatusActions({
   return (
     <div>
       <p className="section-eyebrow">{title ?? (actorType === "agent" ? "Agent workflow" : "Human workflow")}</p>
-      <p className="mt-2 text-sm text-[var(--text-muted)]">
-        {description ??
-          (actorType === "agent"
-            ? `Current state: ${currentStatus}. Use the constrained workflow below to keep agent execution predictable.`
-            : `Current state: ${currentStatus}. Human operators can move work intentionally without bypassing the shared workflow model.`)}
-      </p>
+      <p className="mt-2 text-sm text-[var(--text-muted)]">{stateAwareDescription}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {options.length ? (
-          options.map((option) => (
+          options.map((option, index) => (
             <button
               key={option.value}
               type="button"
               onClick={() => handleTransition(option.value)}
               disabled={isPending}
-              className="rounded-xl border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-muted)] transition hover:border-[var(--line-strong)] hover:text-[var(--text-strong)] disabled:opacity-60"
+              className={`rounded-xl border px-3 py-2 text-sm transition disabled:opacity-60 ${
+                index === 0
+                  ? "border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90"
+                  : "border-[var(--line)] bg-[var(--surface-subtle)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]"
+              }`}
             >
               {isPending ? "Updating..." : option.label}
             </button>

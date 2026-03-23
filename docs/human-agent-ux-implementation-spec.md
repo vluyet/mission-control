@@ -1,7 +1,20 @@
 # Human-Agent UX Implementation Spec
 
 ## Status
-Draft for guided implementation
+In implementation
+
+## Current implementation notes
+Completed in this pass:
+- shared agent run health/freshness helper introduced for consistent labels across task and queue surfaces
+- task detail now includes a review summary panel for `In Review`, `Blocked`, and agent-completed `Done` tasks so historical lifecycle inconsistencies do not hide the review layer
+- queue now emphasizes `Needs review now`, `Waiting on human`, and `May be stalled`
+- task and queue rows expose agent health labels/details instead of status alone
+- task status action copy is now more state-aware, with one stronger primary action
+
+Still to refine in follow-up passes:
+- apply the same attention-first grouping to My Tasks where it improves scanning without adding noise
+- package stronger evidence/validation summaries when richer backend data becomes available
+- continue screenshot-led density reduction on list headers and top metric strips
 
 ## Purpose
 Define the next UX phase for Mission Control now that async OpenClaw dispatch and task lifecycle handling are working.

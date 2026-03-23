@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { activityFeed, agentDocsSections, ContextBlock, Metric, ProjectSummary, TaskRecord } from "@/lib/demo-data";
 import type { ActivityFeedItem } from "@/lib/demo-data";
+import { getAgentRunHealth } from "@/lib/agent-run-health";
 import { SparkIcon } from "@/components/ui/icons";
 import {
   AppButton,
@@ -134,25 +135,30 @@ export function FocusQueuePanel({
       <PanelHeader eyebrow="Focus" title={title} action={<AppButton tone="secondary" href="/my-tasks">Open tasks</AppButton>} />
       <div className="divide-y divide-[var(--line)]">
         {items.length ? (
-          items.map((task) => (
-            <Link key={task.id} href={`/tasks/${task.id}`} className="dashboard-list-row">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1 font-mono text-[11px] text-[var(--text-dim)]">
-                    {task.id}
-                  </span>
-                  <h3 className="truncate text-sm font-semibold text-[var(--text-strong)]">{task.title}</h3>
+          items.map((task) => {
+            const health = getAgentRunHealth(task);
+            return (
+              <Link key={task.id} href={`/tasks/${task.id}`} className="dashboard-list-row">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1 font-mono text-[11px] text-[var(--text-dim)]">
+                      {task.id}
+                    </span>
+                    <h3 className="truncate text-sm font-semibold text-[var(--text-strong)]">{task.title}</h3>
+                  </div>
+                  <p className="mt-2 text-sm text-[var(--text-muted)]">
+                    {task.project} · {task.assignee} · {task.due}
+                  </p>
+                  <p className="mt-2 text-xs text-[var(--text-dim)]">{health.detail}</p>
                 </div>
-                <p className="mt-2 text-sm text-[var(--text-muted)]">
-                  {task.project} · {task.assignee} · {task.due}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <PriorityBadge value={task.priority} />
-                <StatusBadge value={task.status} />
-              </div>
-            </Link>
-          ))
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className={`rounded-full border px-2.5 py-1 text-xs ${health.accentClass}`}>{health.label}</span>
+                  <PriorityBadge value={task.priority} />
+                  <StatusBadge value={task.status} />
+                </div>
+              </Link>
+            );
+          })
         ) : (
           <div className="px-5 py-6 text-sm text-[var(--text-muted)]">Nothing needs attention yet.</div>
         )}
@@ -277,56 +283,61 @@ export function TaskTable({
             <span>Due</span>
           </div>
           <div className="divide-y divide-[var(--line)]">
-            {items.map((task) => (
-              <Link key={task.id} href={projectScoped ? `/projects/${task.projectSlug}/tasks/${task.id}` : `/tasks/${task.id}`} className="task-row">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-3">
-                    <span className="rounded-xl border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1 font-mono text-[11px] text-[var(--text-dim)]">
-                      {task.id}
-                    </span>
-                    <h3 className="truncate text-sm font-semibold text-[var(--text-strong)]">{task.title}</h3>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
-                    <span>{task.project}</span>
-                    {task.parentTaskTitle ? (
-                      <>
-                        <span className="text-[var(--line-strong)]">•</span>
-                        <span>Subtask of {task.parentTaskTitle}</span>
-                      </>
-                    ) : null}
-                    {task.childCount ? (
-                      <>
-                        <span className="text-[var(--line-strong)]">•</span>
-                        <span>{task.childCount} subtasks</span>
-                      </>
-                    ) : null}
-                    {task.tags.slice(0, 2).map((tag) => (
-                      <span key={tag} className="rounded-full bg-[var(--surface-subtle)] px-2 py-1 text-xs text-[var(--text-dim)]">
-                        {tag}
+            {items.map((task) => {
+              const health = task.assigneeType === "Agent" ? getAgentRunHealth(task) : null;
+              return (
+                <Link key={task.id} href={projectScoped ? `/projects/${task.projectSlug}/tasks/${task.id}` : `/tasks/${task.id}`} className="task-row">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3">
+                      <span className="rounded-xl border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1 font-mono text-[11px] text-[var(--text-dim)]">
+                        {task.id}
                       </span>
-                    ))}
-                    {task.tags.length > 2 ? (
-                      <span className="text-xs text-[var(--text-dim)]">+{task.tags.length - 2}</span>
-                    ) : null}
+                      <h3 className="truncate text-sm font-semibold text-[var(--text-strong)]">{task.title}</h3>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+                      <span>{task.project}</span>
+                      {task.parentTaskTitle ? (
+                        <>
+                          <span className="text-[var(--line-strong)]">•</span>
+                          <span>Subtask of {task.parentTaskTitle}</span>
+                        </>
+                      ) : null}
+                      {task.childCount ? (
+                        <>
+                          <span className="text-[var(--line-strong)]">•</span>
+                          <span>{task.childCount} subtasks</span>
+                        </>
+                      ) : null}
+                      {task.tags.slice(0, 2).map((tag) => (
+                        <span key={tag} className="rounded-full bg-[var(--surface-subtle)] px-2 py-1 text-xs text-[var(--text-dim)]">
+                          {tag}
+                        </span>
+                      ))}
+                      {task.tags.length > 2 ? <span className="text-xs text-[var(--text-dim)]">+{task.tags.length - 2}</span> : null}
+                    </div>
+                    {health ? <p className="mt-2 text-xs text-[var(--text-dim)]">{health.detail}</p> : null}
                   </div>
-                </div>
-                <div className="flex justify-start">
-                  <StatusBadge value={task.status} />
-                </div>
-                <div className="flex justify-start">
-                  <PriorityBadge value={task.priority} />
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`avatar-chip ${task.assigneeType === "Agent" ? "avatar-chip-agent" : ""}`}>
-                    {task.assignee.slice(0, 2)}
-                  </span>
-                  <div className="min-w-0 text-left text-sm font-medium text-[var(--text-strong)]">
-                    <span className="block truncate">{task.assignee}</span>
+                  <div className="flex justify-start">
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge value={task.status} />
+                      {health ? <span className={`rounded-full border px-2.5 py-1 text-xs ${health.accentClass}`}>{health.label}</span> : null}
+                    </div>
                   </div>
-                </div>
-                <div className="text-right text-sm font-medium text-[var(--text-strong)]">{task.due}</div>
-              </Link>
-            ))}
+                  <div className="flex justify-start">
+                    <PriorityBadge value={task.priority} />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`avatar-chip ${task.assigneeType === "Agent" ? "avatar-chip-agent" : ""}`}>
+                      {task.assignee.slice(0, 2)}
+                    </span>
+                    <div className="min-w-0 text-left text-sm font-medium text-[var(--text-strong)]">
+                      <span className="block truncate">{task.assignee}</span>
+                    </div>
+                  </div>
+                  <div className="text-right text-sm font-medium text-[var(--text-strong)]">{task.due}</div>
+                </Link>
+              );
+            })}
           </div>
         </>
       ) : (
