@@ -4,7 +4,7 @@ Mission Control is a task operations app for human teammates and AI agents worki
 
 ## Release status
 
-Current version: `v0.1.12`
+Current version: `v0.1.13`
 
 This release is launch-ready with:
 
@@ -38,7 +38,7 @@ The workspace shell top bar now surfaces the current deployed version and, when 
 Fresh machine install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.12/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.13/scripts/bootstrap-public.sh | bash
 ```
 
 Optional overrides:
@@ -48,7 +48,7 @@ MC_INSTALL_DIR=/opt/mission-control \
 MC_OWNER_EMAIL=owner@example.com \
 MC_OWNER_PASSWORD='change-me-now' \
 MC_APP_PORT=3000 \
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.12/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.1.13/scripts/bootstrap-public.sh | bash
 ```
 
 ## Production runtime (current working model)
@@ -73,7 +73,7 @@ Use the production compose file plus the install script.
 From a cloned repo:
 
 ```bash
-./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.12
+./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.1.13
 ```
 
 Optional environment overrides:
@@ -105,7 +105,7 @@ Run this from the installed repo directory:
 Or pin to a specific release:
 
 ```bash
-./scripts/update.sh --version v0.1.12
+./scripts/update.sh --version v0.1.13
 ```
 
 The update script will:
@@ -181,4 +181,4 @@ Minimal agent exposure endpoints:
 - [project/release-v0.1.6.md](project/release-v0.1.6.md)
 - [project/release-v0.1.7.md](project/release-v0.1.7.md)
 - [project/release-v0.1.11.md](project/release-v0.1.11.md)
-- [project/release-v0.1.12.md](project/release-v0.1.12.md)
+- [project/release-v0.1.13.md](project/release-v0.1.13.md)

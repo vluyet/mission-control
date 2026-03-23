@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.13 - 2026-03-23
+
+Release hardening and host-runtime alignment for the current OpenClaw-backed deployment model.
+
+- Aligned production install and update flows with the documented host-app + Docker-PostgreSQL runtime.
+- Hardened `scripts/install.sh` and `scripts/update.sh` for version resolution, service restart, deployment stamping, and health checks.
+- Added configurable `MC_APP_PORT` and `MC_DB_PORT` support across release/install paths.
+- Hid disabled stale OpenClaw agents from workspace discovery to reduce operator confusion.
+- Consolidated backlog/release documentation and refreshed release metadata for `v0.1.13`.
+
 ## v0.1.12 - 2026-03-18
 
 OpenClaw autonomous task-handling stabilization and production hardening.
