@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getTaskWorkspaceForUi } from "@/lib/server-data";
 import { PageHeader, TaskWorkspace } from "@/components/product/workspace-ui";
+import { TaskLiveShell } from "@/components/product/task-live-shell";
 
 export default async function TaskPage({
   params
@@ -19,17 +20,20 @@ export default async function TaskPage({
         eyebrow="Task"
         title={`${taskWorkspace.task.id} · ${taskWorkspace.task.title}`}
       />
-      <TaskWorkspace
-        task={taskWorkspace.task}
-        comments={taskWorkspace.comments}
-        timeline={taskWorkspace.timeline}
-        executionFeed={taskWorkspace.executionFeed}
-        attachments={taskWorkspace.attachments}
-        childTasks={taskWorkspace.childTasks}
-        resolvedContext={taskWorkspace.resolvedContext}
-        watchers={taskWorkspace.watchers}
-        availableWatchers={taskWorkspace.availableWatchers}
-      />
+      <TaskLiveShell taskId={taskWorkspace.task.id} status={taskWorkspace.task.status} assigneeType={taskWorkspace.task.assigneeType}>
+        <TaskWorkspace
+          task={taskWorkspace.task}
+          comments={taskWorkspace.comments}
+          timeline={taskWorkspace.timeline}
+          executionFeed={taskWorkspace.executionFeed}
+          executionMeta={taskWorkspace.executionMeta}
+          attachments={taskWorkspace.attachments}
+          childTasks={taskWorkspace.childTasks}
+          resolvedContext={taskWorkspace.resolvedContext}
+          watchers={taskWorkspace.watchers}
+          availableWatchers={taskWorkspace.availableWatchers}
+        />
+      </TaskLiveShell>
     </div>
   );
 }

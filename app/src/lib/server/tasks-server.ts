@@ -221,7 +221,18 @@ function isAllowedAgentTransition(current: string, next: string) {
 }
 
 function agentHasPermission(member: { kind?: string; agentPermissions?: string[] } | null | undefined, permission: string) {
-  return member?.kind === "agent" && Array.isArray(member.agentPermissions) && member.agentPermissions.includes(permission);
+  if (member?.kind !== "agent" || !Array.isArray(member.agentPermissions)) {
+    return false;
+  }
+
+  const aliases: Record<string, string[]> = {
+    "tasks.write": ["tasks.write", "change_status", "task.transitions"],
+    "comments.write": ["comments.write", "comment", "task.comments"],
+    "execution.write": ["execution.write", "log_execution", "task.execution"]
+  };
+
+  const allowed = aliases[permission] ?? [permission];
+  return allowed.some((value) => member.agentPermissions?.includes(value));
 }
 
 async function logPermissionDenied(taskId: string, actorId: string | null, actorName: string, detail: string) {
@@ -280,7 +291,9 @@ export async function getTaskResourceFromDb(taskId: string) {
       childCount: task.childTasks.length,
       effort: task.effort,
       blockedReason: task.blockedReason,
-      contextHint: task.contextHint
+      contextHint: task.contextHint,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString()
     },
     watchers: task.watchers.map((watcher) => mapWatcher(watcher.membership)),
     available_watchers: availableWatchers.map((item) => item.membership).filter((member) => member.enabled).map(mapWatcher),
@@ -289,7 +302,12 @@ export async function getTaskResourceFromDb(taskId: string) {
     attachments: task.attachments.map(mapAttachment),
     child_tasks: task.childTasks.map((child) => ({ id: child.id, title: child.title, status: formatStatus(child.status) })),
     activity: task.activity.map(mapActivity),
-    execution: { latest_status: latestExecution?.status ?? null, logs: latestExecution?.logs.map((log) => log.line) ?? [] }
+    execution: {
+      latest_status: latestExecution?.status ?? null,
+      latest_created_at: latestExecution?.createdAt?.toISOString() ?? null,
+      latest_updated_at: latestExecution?.updatedAt?.toISOString() ?? null,
+      logs: latestExecution?.logs.map((log) => log.line) ?? []
+    }
   };
 }
 
@@ -346,6 +364,8 @@ export async function getTaskWorkspaceForUi(taskId: string) {
       parentTaskTitle: payload.task.parentTaskTitle ?? undefined,
       childCount: payload.task.childCount ?? 0,
       blockedReason: payload.task.blockedReason ?? undefined,
+      createdAt: payload.task.createdAt ?? undefined,
+      updatedAt: payload.task.updatedAt ?? undefined,
       assigneeCapabilities: payload.task.assigneeCapabilities ?? undefined,
       assigneeEnabled: payload.task.assigneeEnabled ?? true,
       assigneePermissions: payload.task.assigneePermissions ?? undefined,
@@ -355,6 +375,11 @@ export async function getTaskWorkspaceForUi(taskId: string) {
     comments: payload.comments.map((comment) => ({ ...comment, time: formatRelativeTime(new Date(comment.time)) })),
     timeline: payload.activity.map((item): TimelineEvent => ({ taskId: item.taskId, label: item.label, detail: item.detail, time: formatRelativeTime(new Date(item.time)) })),
     executionFeed: payload.execution.logs,
+    executionMeta: {
+      latestStatus: payload.execution.latest_status ?? undefined,
+      latestCreatedAt: payload.execution.latest_created_at ?? undefined,
+      latestUpdatedAt: payload.execution.latest_updated_at ?? undefined
+    },
     attachments: payload.attachments ?? [],
     childTasks: payload.child_tasks ?? [],
     watchers: payload.watchers ?? [],
@@ -444,7 +469,7 @@ export async function createTaskInDb(projectSlug: string, payload: any) {
   return { id: task.id, projectSlug: project.slug };
 }
 
-export async function updateTaskInDb(taskId: string, payload: any, actorType: "human" | "agent" = "human", actor?: { membershipId?: string | null; label?: string | null }) {
+export async function updateTaskInDb(taskId: string, payload: any, actorType: "human" | "agent" = "human", actor?: { membershipId?: string | null; label?: string | null; scopes?: string[] | null }) {
   const existing = await db.task.findUnique({ where: { id: taskId }, include: { assignee: true, project: { include: { memberships: true } }, executions: { orderBy: { createdAt: "desc" }, include: { logs: { orderBy: { createdAt: "asc" } } }, take: 1 } } });
   if (!existing) return null;
   const title = payload.title?.trim();
@@ -463,9 +488,16 @@ export async function updateTaskInDb(taskId: string, payload: any, actorType: "h
   }
   if (payload.status && existing.assigneeId && payload.status !== existing.status) {
     const assignee = existing.assignee;
-    if (actorType === "agent" && assignee?.kind === "agent" && !agentHasPermission(assignee, "change_status")) {
-      await logPermissionDenied(taskId, assignee.id, assignee.name, `${assignee.name} attempted a status transition without change_status permission.`);
-      return { error: "AGENT_PERMISSION_DENIED" } as const;
+    if (actorType === "agent" && assignee?.kind === "agent") {
+      const actorMatchesAssignee = Boolean(actor?.membershipId && actor.membershipId === assignee.id);
+      const actorScopes = new Set((actor?.scopes ?? []).filter(Boolean));
+      const actorHasStatusScope = ["tasks.write", "change_status", "task.transitions"].some((scope) => actorScopes.has(scope));
+      const assigneeHasStatusPermission = agentHasPermission(assignee, "change_status");
+
+      if (!actorMatchesAssignee || (!actorHasStatusScope && !assigneeHasStatusPermission)) {
+        await logPermissionDenied(taskId, assignee.id, assignee.name, `${assignee.name} attempted a status transition without task transition permission.`);
+        return { error: "AGENT_PERMISSION_DENIED" } as const;
+      }
     }
     if (actorType === "agent" && !isAllowedAgentTransition(existing.status, payload.status)) return { error: "INVALID_AGENT_STATUS_TRANSITION" } as const;
     if (actorType === "human" && !isAllowedHumanTransition(existing.status, payload.status)) return { error: "INVALID_HUMAN_STATUS_TRANSITION" } as const;

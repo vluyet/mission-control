@@ -29,7 +29,7 @@ async function createOpenClawRuntimeCredential(membershipId: string, taskId: str
       membershipId,
       name: `runtime-${taskId}-${Date.now()}`,
       tokenHash,
-      scopes: ["tasks.read", "comments.write", "execution.write"]
+      scopes: ["tasks.read", "tasks.write", "comments.write", "execution.write"]
     }
   });
 
@@ -48,21 +48,29 @@ function buildOpenClawTaskMessage(input: {
   missionControlBaseUrl: string;
   agentToken: string;
 }) {
+  const taskEndpoint = `${input.missionControlBaseUrl}/api/tasks/${input.taskId}`;
+  const executionEndpoint = `${input.missionControlBaseUrl}/api/tasks/${input.taskId}/execution`;
+  const commentsEndpoint = `${input.missionControlBaseUrl}/api/tasks/${input.taskId}/comments`;
+
   return [
     `You are handling Mission Control task ${input.taskId} in project ${input.projectSlug}.`,
     `Task title: ${input.taskTitle}`,
     input.taskDescription ? `Task description: ${input.taskDescription}` : "Task description: (none provided)",
     input.taskContextHint ? `Task context hint: ${input.taskContextHint}` : "Task context hint: (none provided)",
     "",
-    "Use Mission Control APIs to report progress and final output:",
+    "Use Mission Control APIs to report live progress and final output.",
     `Mission Control base URL: ${input.missionControlBaseUrl}`,
     `Bearer token: ${input.agentToken}`,
-    `Execution endpoint: ${input.missionControlBaseUrl}/api/tasks/${input.taskId}/execution`,
-    `Comments endpoint: ${input.missionControlBaseUrl}/api/tasks/${input.taskId}/comments`,
+    `Task endpoint: ${taskEndpoint}`,
+    `Execution endpoint: ${executionEndpoint}`,
+    `Comments endpoint: ${commentsEndpoint}`,
     "",
-    "Required actions:",
-    "1) POST progress lines to /execution as you work.",
-    "2) POST your final user-facing answer to /comments.",
+    "Required workflow:",
+    "1) As soon as you start, PATCH the task endpoint with {\"status\":\"in_progress\"}.",
+    "2) While working, POST concise progress updates to the execution endpoint. Do this for meaningful milestones so the UI stays live.",
+    "3) When finished, POST the final user-facing result to the comments endpoint.",
+    "4) After posting the final result, PATCH the task endpoint with {\"status\":\"review\"}.",
+    "5) If blocked, post an execution update explaining what is blocked and why.",
     "",
     "Never reveal the bearer token in comments or execution logs."
   ].join("\n");
@@ -306,6 +314,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { mis
   });
 
   try {
+    const webhookToken = process.env.OPENCLAW_WEBHOOK_TOKEN?.trim() || process.env.MISSION_CONTROL_OPENCLAW_WEBHOOK_TOKEN?.trim() || undefined;
     const dispatch = await dispatchOpenClawTaskRun({
       baseUrl: integration.baseUrl,
       gatewayToken: integration.gatewayToken,
@@ -313,14 +322,17 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { mis
       agentId: task.assignee.sourceKey,
       taskId: task.id,
       workspaceId: task.project.workspaceId,
-      message
+      message,
+      webhookUrl: `${missionControlBaseUrl}/api/tasks/${task.id}/openclaw/webhook`,
+      webhookToken
     });
 
+    await db.task.update({ where: { id: task.id }, data: { status: "in_progress" } });
     await appendExecutionLogInDb(task.id, `Dispatched to OpenClaw agent ${task.assignee.name}.`, {
       membershipId: task.assignee.id,
       label: task.assignee.name
     });
-    await appendExecutionLogInDb(task.id, `OpenClaw accepted dispatch for ${task.assignee.name}.`, {
+    await appendExecutionLogInDb(task.id, `OpenClaw accepted dispatch for ${task.assignee.name}. Task moved to in_progress.`, {
       membershipId: task.assignee.id,
       label: task.assignee.name
     });
@@ -346,7 +358,18 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { mis
 
       if (comment && !("error" in comment)) {
         commentId = comment.id;
-        await appendExecutionLogInDb(task.id, `OpenClaw returned a final response for ${task.assignee.name}.`, {
+        await db.task.update({ where: { id: task.id }, data: { status: "review", blockedReason: null } });
+        const latestExecution = await db.taskExecution.findFirst({
+          where: { taskId: task.id },
+          orderBy: { createdAt: "desc" }
+        });
+        if (latestExecution) {
+          await db.taskExecution.update({
+            where: { id: latestExecution.id },
+            data: { status: "done", summary: `Completed by OpenClaw sync response for ${task.assignee.name}.` }
+          });
+        }
+        await appendExecutionLogInDb(task.id, `OpenClaw returned a final response for ${task.assignee.name}. Task moved to review.`, {
           membershipId: task.assignee.id,
           label: task.assignee.name
         });
@@ -366,6 +389,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: { mis
 
     return {
       taskId: task.id,
+      projectSlug: task.project.slug,
       agentId: task.assignee.id,
       openclawAgentId: task.assignee.sourceKey,
       responseId: dispatch.responseId,
@@ -405,7 +429,48 @@ export async function handleOpenClawTaskWebhookInDb(taskId: string, payload: unk
     return { error: "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" } as const;
   }
 
+  const record = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+  const event = typeof record.event === "string" ? record.event : null;
+  const progressText = typeof record.progress === "string" ? record.progress.trim() : null;
+  const status = typeof record.status === "string" ? record.status.trim() : null;
   const finalText = extractOpenClawWebhookText(payload);
+
+  if (status === "in_progress") {
+    await db.task.update({ where: { id: task.id }, data: { status: "in_progress", blockedReason: null } });
+  }
+
+  if (status === "blocked" || event === "blocked") {
+    await db.task.update({
+      where: { id: task.id },
+      data: { status: "blocked", blockedReason: progressText || "OpenClaw reported the task as blocked." }
+    });
+  }
+
+  if (progressText) {
+    await appendExecutionLogInDb(task.id, progressText, {
+      membershipId: task.assignee.id,
+      label: task.assignee.name
+    });
+  }
+
+  if (event === "progress" || event === "blocked") {
+    return {
+      ok: true as const,
+      progress: true as const
+    };
+  }
+
+  if (event === "failed") {
+    await appendExecutionLogInDb(task.id, `OpenClaw reported failure for ${task.assignee.name}.${progressText ? ` ${progressText}` : ""}`.trim(), {
+      membershipId: task.assignee.id,
+      label: task.assignee.name
+    });
+    return {
+      ok: true as const,
+      failed: true as const
+    };
+  }
+
   if (!finalText) {
     return { error: "NO_FINAL_TEXT" } as const;
   }
@@ -422,6 +487,7 @@ export async function handleOpenClawTaskWebhookInDb(taskId: string, payload: unk
     return { error: "OPENCLAW_COMMENT_WRITE_FAILED" } as const;
   }
 
+  await db.task.update({ where: { id: task.id }, data: { status: "review" } });
   await appendExecutionLogInDb(task.id, `OpenClaw webhook returned a final response for ${task.assignee.name}.`, {
     membershipId: task.assignee.id,
     label: task.assignee.name

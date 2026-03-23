@@ -67,7 +67,8 @@ export async function PATCH(
     auth.actor.type === "agent"
       ? {
           membershipId: auth.actor.membershipId,
-          label: auth.actor.label
+          label: auth.actor.label,
+          scopes: auth.actor.scopes
         }
       : {
           label: auth.actor.label

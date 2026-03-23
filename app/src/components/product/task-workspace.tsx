@@ -15,11 +15,23 @@ function PropertyRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function formatFreshness(value?: string) {
+  if (!value) return "No agent updates yet";
+  const diffMs = Date.now() - new Date(value).getTime();
+  const minutes = Math.max(0, Math.round(diffMs / 60000));
+  if (minutes <= 1) return "Updated just now";
+  if (minutes < 60) return `Updated ${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `Updated ${hours}h ago`;
+  return `Updated ${Math.round(hours / 24)}d ago`;
+}
+
 export function TaskWorkspace({
   task,
   comments,
   timeline: _timeline,
   executionFeed,
+  executionMeta,
   attachments = [],
   childTasks = [],
   resolvedContext,
@@ -31,6 +43,11 @@ export function TaskWorkspace({
   comments: Comment[];
   timeline: TimelineEvent[];
   executionFeed: string[];
+  executionMeta?: {
+    latestStatus?: string;
+    latestCreatedAt?: string;
+    latestUpdatedAt?: string;
+  };
   attachments?: import("@/lib/demo-data").AttachmentRecord[];
   childTasks?: Array<{ id: string; title: string; status: string }>;
   resolvedContext: {
@@ -42,6 +59,8 @@ export function TaskWorkspace({
   availableWatchers?: import("@/lib/demo-data").WatcherRecord[];
   compact?: boolean;
 }) {
+  const openClawFreshness = formatFreshness(executionMeta?.latestUpdatedAt ?? task.updatedAt);
+  const openClawState = task.status === "In Progress" ? "Live" : task.status === "Blocked" ? "Blocked" : task.status === "In Review" ? "Completed" : "Idle";
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
@@ -146,7 +165,37 @@ export function TaskWorkspace({
                   Dispatch this task to the assigned OpenClaw agent. The run will use Mission Control's API contract for context, execution logs, comments, and status updates.
                 </p>
                 <div className="mt-4">
-                  <TaskOpenClawDispatchButton taskId={task.id} />
+                  <TaskOpenClawDispatchButton taskId={task.id} currentStatus={task.status} />
+                </div>
+              </Panel>
+
+              <Panel tone="subtle" className="p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="section-eyebrow">OpenClaw activity</p>
+                  <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-xs text-[var(--text-dim)]">{openClawState}</span>
+                </div>
+                <div className="mt-4 space-y-3 text-sm">
+                  <div className="rounded-2xl border border-[var(--line)] bg-white px-3 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-[var(--text-strong)]">Latest agent activity</span>
+                      <span className="text-xs text-[var(--text-dim)]">{openClawFreshness}</span>
+                    </div>
+                    <p className="mt-2 text-[var(--text-muted)]">
+                      {executionFeed[executionFeed.length - 1] ?? "No execution updates yet. Once dispatched, progress entries will appear here."}
+                    </p>
+                  </div>
+                  {executionFeed.length ? (
+                    <div className="rounded-2xl border border-[var(--line)] bg-white px-3 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Recent progress</p>
+                      <div className="mt-3 space-y-2">
+                        {executionFeed.slice(-4).reverse().map((line, index) => (
+                          <div key={`${index}-${line}`} className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm text-[var(--text-muted)]">
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </Panel>
 

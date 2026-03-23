@@ -293,7 +293,9 @@ export async function dispatchOpenClawTaskRun(input: {
         ? {
             agentId: input.agentId,
             taskId: input.taskId,
-            prompt: input.message
+            prompt: input.message,
+            webhookUrl: input.webhookUrl,
+            webhookToken: input.webhookToken
           }
         : {
             agentId: input.agentId,
@@ -301,7 +303,9 @@ export async function dispatchOpenClawTaskRun(input: {
             wakeMode: "now",
             deliver: false,
             thinking: "medium",
-            timeoutSeconds: 120
+            timeoutSeconds: 120,
+            webhookUrl: input.webhookUrl,
+            webhookToken: input.webhookToken
           }
     ),
     cache: "no-store"
@@ -311,6 +315,7 @@ export async function dispatchOpenClawTaskRun(input: {
     | {
         id?: string;
         runId?: string;
+        accepted?: boolean;
         result?: unknown;
         error?: { message?: string };
         ok?: boolean;
@@ -323,13 +328,19 @@ export async function dispatchOpenClawTaskRun(input: {
   }
 
   const resultPayload = useConnector && payload && typeof payload === "object" ? payload.result ?? payload : payload?.result ?? payload;
-  const responseId = payload?.id ?? payload?.runId ?? ((resultPayload as { id?: string } | undefined)?.id ?? null);
+  const responseId =
+    payload?.id ??
+    payload?.runId ??
+    ((resultPayload as { id?: string; responseId?: string; runId?: string } | undefined)?.responseId ??
+      (resultPayload as { id?: string; responseId?: string; runId?: string } | undefined)?.runId ??
+      (resultPayload as { id?: string } | undefined)?.id ??
+      null);
   const finalText = extractTextFromPayload(resultPayload);
 
   return {
     responseId,
     finalText,
-    accepted: true,
+    accepted: payload?.accepted ?? true,
     raw: payload
   };
 }

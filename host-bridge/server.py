@@ -63,7 +63,7 @@ def extract_text(value):
                         return text
     return None
 
-def dispatch_openclaw(agent_id, task_id, prompt):
+def dispatch_openclaw(agent_id, task_id, prompt, webhook_url=None, webhook_token=None):
     attempts = [
         ('/hooks/agent', {
             'agentId': agent_id,
@@ -71,7 +71,9 @@ def dispatch_openclaw(agent_id, task_id, prompt):
             'wakeMode': 'now',
             'deliver': False,
             'thinking': 'medium',
-            'timeoutSeconds': 120
+            'timeoutSeconds': 120,
+            'webhookUrl': webhook_url,
+            'webhookToken': webhook_token
         }, 'hook', OPENCLAW_HOOK_TOKEN or OPENCLAW_GATEWAY_TOKEN),
         ('/v1/responses', {
             'model': f'agent:{agent_id}',
@@ -87,21 +89,20 @@ def dispatch_openclaw(agent_id, task_id, prompt):
             result = openclaw_request(path, payload, token=token)
             result_payload = result.get('result') if mode == 'hook' and isinstance(result, dict) else result
             final_text = extract_text(result_payload)
-            if not final_text:
-                last_error = 'OpenClaw dispatch did not return a final response.'
-                continue
 
             response_id = None
             if isinstance(result, dict):
                 response_id = result.get('id') or result.get('runId')
                 if not response_id and isinstance(result.get('result'), dict):
-                    response_id = result['result'].get('id') or (result['result'].get('response') or {}).get('id') if isinstance(result['result'].get('response'), dict) else result['result'].get('id')
+                    response_id = result['result'].get('responseId') or result['result'].get('runId') or result['result'].get('id') or ((result['result'].get('response') or {}).get('id') if isinstance(result['result'].get('response'), dict) else None)
             if not response_id and isinstance(result_payload, dict):
-                response_id = result_payload.get('id') or (result_payload.get('response') or {}).get('id') if isinstance(result_payload.get('response'), dict) else result_payload.get('id')
+                response_id = result_payload.get('responseId') or result_payload.get('runId') or result_payload.get('id') or ((result_payload.get('response') or {}).get('id') if isinstance(result_payload.get('response'), dict) else None)
 
             return {
+                'accepted': True,
                 'responseId': response_id,
                 'finalText': final_text,
+                'mode': 'async' if not final_text else 'sync',
                 'raw': result
             }
         except HTTPError as e:
@@ -132,20 +133,21 @@ def dispatch_openclaw(agent_id, task_id, prompt):
     payload = json.loads(raw[start:])
     result_payload = payload.get('result') if isinstance(payload, dict) else payload
     final_text = extract_text(result_payload)
-    if not final_text:
-        raise RuntimeError('OpenClaw CLI dispatch did not return a final response.')
 
     response_id = payload.get('runId') if isinstance(payload, dict) else None
     if not response_id and isinstance(result_payload, dict):
+        response_id = result_payload.get('responseId') or result_payload.get('runId') or result_payload.get('id')
         meta = result_payload.get('meta')
-        if isinstance(meta, dict):
+        if not response_id and isinstance(meta, dict):
             agent_meta = meta.get('agentMeta')
             if isinstance(agent_meta, dict):
                 response_id = agent_meta.get('sessionId')
 
     return {
+        'accepted': True,
         'responseId': response_id,
         'finalText': final_text,
+        'mode': 'async' if not final_text else 'sync',
         'raw': payload
     }
 
@@ -266,22 +268,26 @@ class Handler(BaseHTTPRequestHandler):
                 agent_id = str(body.get('agentId', '')).strip()
                 task_id = str(body.get('taskId', '')).strip()
                 prompt = str(body.get('prompt', '')).strip()
+                webhook_url = str(body.get('webhookUrl', '')).strip() or None
+                webhook_token = str(body.get('webhookToken', '')).strip() or None
                 if not agent_id or not task_id or not prompt:
                     return response(self, 422, {'ok': False, 'error': {'message': 'agentId, taskId, and prompt are required.'}})
-                dispatch = dispatch_openclaw(agent_id, task_id, prompt)
-                return response(self, 200, {'ok': True, 'result': dispatch})
+                dispatch = dispatch_openclaw(agent_id, task_id, prompt, webhook_url=webhook_url, webhook_token=webhook_token)
+                return response(self, 202, {'ok': True, 'accepted': True, 'result': dispatch})
             if self.path == '/workspace-dispatch':
                 body = parse_json(self)
                 workspace_id = str(body.get('workspaceId', '')).strip()
                 task_id = str(body.get('taskId', '')).strip()
                 prompt = str(body.get('prompt', '')).strip()
+                webhook_url = str(body.get('webhookUrl', '')).strip() or None
+                webhook_token = str(body.get('webhookToken', '')).strip() or None
                 if not workspace_id or not task_id or not prompt:
                     return response(self, 422, {'ok': False, 'error': {'message': 'workspaceId, taskId, and prompt are required.'}})
                 agent_id = workspace_links.get(workspace_id)
                 if not agent_id:
                     return response(self, 404, {'ok': False, 'error': {'message': f'No linked agent for workspace: {workspace_id}'}})
-                dispatch = dispatch_openclaw(agent_id, task_id, prompt)
-                return response(self, 200, {'ok': True, 'result': {'workspaceId': workspace_id, 'agentId': agent_id, 'response': dispatch}})
+                dispatch = dispatch_openclaw(agent_id, task_id, prompt, webhook_url=webhook_url, webhook_token=webhook_token)
+                return response(self, 202, {'ok': True, 'accepted': True, 'result': {'workspaceId': workspace_id, 'agentId': agent_id, 'response': dispatch}})
             return response(self, 404, {'ok': False, 'error': {'message': 'Not found'}})
         except HTTPError as e:
             try:

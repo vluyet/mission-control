@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { error, ok } from "@/lib/api-response";
 import { dispatchTaskToOpenClawInDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
@@ -32,5 +33,12 @@ export async function POST(request: Request, { params }: { params: { taskId: str
     return error(messageMap[code] ?? "OpenClaw dispatch failed.", status, { code });
   }
 
-  return ok({ dispatch: result }, { status: 201 });
+  revalidatePath(`/tasks/${params.taskId}`);
+  if (result.projectSlug) {
+    revalidatePath(`/projects/${result.projectSlug}/tasks/${params.taskId}`);
+    revalidatePath(`/projects/${result.projectSlug}`);
+  }
+  revalidatePath(`/my-tasks`);
+  revalidatePath(`/queue`);
+  return ok({ dispatch: result, message: "Task dispatched to OpenClaw and marked in progress." }, { status: 202 });
 }
