@@ -270,22 +270,40 @@ export async function dispatchOpenClawTaskRun(input: {
   webhookToken?: string;
 }): Promise<OpenClawDispatchResult> {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
+  const useConnector =
+    baseUrl.includes("openclaw-connector") ||
+    /127\.0\.0\.1:18890$/.test(baseUrl) ||
+    /localhost:18890$/.test(baseUrl) ||
+    /host\.docker\.internal:18890$/.test(baseUrl) ||
+    /127\.0\.0\.1:18891$/.test(baseUrl) ||
+    /localhost:18891$/.test(baseUrl) ||
+    /192\.168\.90\.90:18891$/.test(baseUrl);
+
+  const targetUrl = useConnector ? `${baseUrl}/dispatch` : `${baseUrl}/hooks/agent`;
   const headers = {
     "content-type": "application/json",
     authorization: `Bearer ${input.hookToken ?? input.gatewayToken}`
   };
 
-  const response = await fetch(`${baseUrl}/hooks/agent`, {
+  const response = await fetch(targetUrl, {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      agentId: input.agentId,
-      message: input.message,
-      wakeMode: "now",
-      deliver: false,
-      thinking: "medium",
-      timeoutSeconds: 120
-    }),
+    body: JSON.stringify(
+      useConnector
+        ? {
+            agentId: input.agentId,
+            taskId: input.taskId,
+            prompt: input.message
+          }
+        : {
+            agentId: input.agentId,
+            message: input.message,
+            wakeMode: "now",
+            deliver: false,
+            thinking: "medium",
+            timeoutSeconds: 120
+          }
+    ),
     cache: "no-store"
   });
 
@@ -304,8 +322,9 @@ export async function dispatchOpenClawTaskRun(input: {
     throw new Error((payload?.error?.message || `OpenClaw dispatch failed with status ${response.status}.`) + ` [status=${response.status} payload=${payloadPreview}]`);
   }
 
-  const responseId = payload?.id ?? payload?.runId ?? ((payload?.result as { id?: string } | undefined)?.id ?? null);
-  const finalText = extractTextFromPayload(payload?.result ?? payload);
+  const resultPayload = useConnector && payload && typeof payload === "object" ? payload.result ?? payload : payload?.result ?? payload;
+  const responseId = payload?.id ?? payload?.runId ?? ((resultPayload as { id?: string } | undefined)?.id ?? null);
+  const finalText = extractTextFromPayload(resultPayload);
 
   return {
     responseId,

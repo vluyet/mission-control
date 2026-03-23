@@ -50,7 +50,7 @@ def extract_text(value):
             text = extract_text(value.get(key))
             if text:
                 return text
-        for key in ['result', 'data', 'details']:
+        for key in ['result', 'data', 'details', 'payloads']:
             text = extract_text(value.get(key))
             if text:
                 return text
@@ -116,7 +116,38 @@ def dispatch_openclaw(agent_id, task_id, prompt):
         except URLError as e:
             raise RuntimeError(str(e.reason))
 
-    raise RuntimeError(last_error)
+    cmd = ['openclaw', 'agent', '--agent', agent_id, '--message', prompt, '--json', '--timeout', '120']
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=140, check=True)
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or '').strip()
+        stdout = (exc.stdout or '').strip()
+        raise RuntimeError(stderr or stdout or last_error)
+
+    raw = (result.stdout or '').strip()
+    start = raw.find('{')
+    if start < 0:
+        raise RuntimeError('openclaw agent returned no JSON payload')
+
+    payload = json.loads(raw[start:])
+    result_payload = payload.get('result') if isinstance(payload, dict) else payload
+    final_text = extract_text(result_payload)
+    if not final_text:
+        raise RuntimeError('OpenClaw CLI dispatch did not return a final response.')
+
+    response_id = payload.get('runId') if isinstance(payload, dict) else None
+    if not response_id and isinstance(result_payload, dict):
+        meta = result_payload.get('meta')
+        if isinstance(meta, dict):
+            agent_meta = meta.get('agentMeta')
+            if isinstance(agent_meta, dict):
+                response_id = agent_meta.get('sessionId')
+
+    return {
+        'responseId': response_id,
+        'finalText': final_text,
+        'raw': payload
+    }
 
 def extract_agent_ids(result):
     if isinstance(result, list):
