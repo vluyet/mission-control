@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.0 - 2026-03-23
+
+Simplified product surface release with recovered cleanup work and release/runtime hardening.
+
+- Restored the intended simplified Mission Control workspace flow from yesterday's cleanup work.
+- Reduced the default product surface to the core areas: Projects, My Tasks, Members, and Settings.
+- Redirected non-core workspace routes `/activity`, `/queue`, and `/search` back to `/projects`.
+- Kept the host-app + Docker-PostgreSQL runtime alignment and hardened install/update flows from the recent release work.
+- Preserved the OpenClaw bridge/discovery compatibility improvements needed for the current deployment.
+
 ## v0.1.13 - 2026-03-23
 
 Release hardening and host-runtime alignment for the current OpenClaw-backed deployment model.
