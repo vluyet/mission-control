@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.1 - 2026-03-23
+
+Async-first OpenClaw dispatch plus human-agent operations UX refinement.
+
+- Made OpenClaw task dispatch async-first, with immediate acceptance and correct task lifecycle transitions through `in_progress` and `review`.
+- Added dedicated OpenClaw activity visibility plus lightweight live refresh on active task detail pages.
+- Restored Queue as a first-class workspace surface and made Queue / My Tasks / project task views attention-first.
+- Added review-summary, agent health, and intervention-focused task-detail UX for agent work.
+- Simplified project, task, and settings hierarchy while improving members/settings empty and saving states.
+- Cleaned up build/start env loading and aligned public implementation docs for this release.
+
 ## v0.2.0 - 2026-03-23
 
 Simplified product surface release with recovered cleanup work and release/runtime hardening.
