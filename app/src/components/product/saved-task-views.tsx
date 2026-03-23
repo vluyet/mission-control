@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppButton, Panel } from "@/components/ui/primitives";
 
 type TaskViewState = {
+  mode: "list" | "board";
   status: string;
   timing: string;
   sort: string;
@@ -30,7 +31,7 @@ function buildHref(
   }
 
   for (const [key, value] of Object.entries(current)) {
-    if (value) {
+    if (value && !(key === "mode" && value === "list")) {
       params.set(key, value);
     }
   }
@@ -91,7 +92,7 @@ export function SavedTaskViews({
   }
 
   const canSave = useMemo(
-    () => Boolean(current.status || current.timing || current.tag || current.sort !== "due"),
+    () => Boolean(current.mode !== "list" || current.status || current.timing || current.tag || current.sort !== "due"),
     [current]
   );
 
@@ -100,6 +101,7 @@ export function SavedTaskViews({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="section-eyebrow">Saved views</p>
+          <p className="mt-1 text-sm text-[var(--text-dim)]">Save a reusable combination of layout, filters, and sort once you move away from the default view.</p>
         </div>
         <AppButton tone="secondary" onClick={saveCurrent} disabled={!canSave}>
           Save current view
@@ -127,7 +129,7 @@ export function SavedTaskViews({
           ))}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-[var(--text-dim)]">No saved views yet</p>
+        <p className="mt-4 text-sm text-[var(--text-dim)]">No saved views yet. Switch layout or apply filters to create one.</p>
       )}
     </Panel>
   );

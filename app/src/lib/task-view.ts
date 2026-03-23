@@ -1,6 +1,7 @@
 import type { TaskRecord } from "@/lib/demo-data";
 
 export type TaskViewState = {
+  mode: "list" | "board";
   status: string;
   timing: string;
   sort: string;
@@ -13,7 +14,10 @@ export function parseTaskViewState(searchParams?: Record<string, string | string
     return Array.isArray(value) ? value[0] || "" : value || "";
   };
 
+  const mode = read("mode");
+
   return {
+    mode: mode === "board" ? "board" : "list",
     status: read("status"),
     timing: read("timing"),
     sort: read("sort") || "due",
@@ -73,6 +77,40 @@ export function applyTaskView(items: TaskRecord[], view: TaskViewState) {
     const leftDue = left.dueAt ? new Date(left.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
     const rightDue = right.dueAt ? new Date(right.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
     return leftDue - rightDue;
+  });
+}
+
+export function buildBoardColumns(items: TaskRecord[]) {
+  const base = [
+    { title: "Todo", accent: "slate" },
+    { title: "In Progress", accent: "blue" },
+    { title: "In Review", accent: "gold" },
+    { title: "Blocked", accent: "red" },
+    { title: "Done", accent: "emerald" }
+  ] as const;
+
+  return base.map((column) => {
+    const cards = items
+      .filter((item) => item.status === column.title)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        assignee: item.assignee,
+        priority: item.priority,
+        eta: item.due,
+        effort: item.effort,
+        project: item.project,
+        tags: item.tags,
+        childCount: item.childCount,
+        parentTaskTitle: item.parentTaskTitle ?? null
+      }));
+
+    return {
+      title: column.title,
+      count: cards.length,
+      accent: column.accent,
+      cards
+    };
   });
 }
 

@@ -9,7 +9,6 @@ import {
   Panel,
   PanelHeader,
   PriorityBadge,
-  SegmentedTabs,
   StatusBadge
 } from "@/components/ui/primitives";
 import type { ResolvedTaskContext } from "@/lib/context-resolver";
@@ -267,11 +266,7 @@ export function TaskTable({
 }) {
   return (
     <Panel className="overflow-hidden">
-      <PanelHeader
-        eyebrow="Tasks"
-        title={title}
-        action={<SegmentedTabs tabs={[{ label: "List", active: true }, { label: "Board" }, { label: "Timeline" }]} />}
-      />
+      <PanelHeader eyebrow="Tasks" title={title} />
       {items.length ? (
         <>
           <div className="task-table-header">
@@ -348,8 +343,8 @@ export function TaskTable({
 
 function buildTaskViewHref(
   basePath: string,
-  current: { status: string; timing: string; sort: string; tag: string },
-  updates: Partial<{ status: string; timing: string; sort: string; tag: string }>,
+  current: { mode: "list" | "board"; status: string; timing: string; sort: string; tag: string },
+  updates: Partial<{ mode: "list" | "board"; status: string; timing: string; sort: string; tag: string }>,
   preserved: Record<string, string> = {}
 ) {
   const [pathname, existingQuery] = basePath.split("?");
@@ -382,11 +377,15 @@ export function TaskViewToolbar({
   preservedParams = {}
 }: {
   basePath: string;
-  current: { status: string; timing: string; sort: string; tag: string };
+  current: { mode: "list" | "board"; status: string; timing: string; sort: string; tag: string };
   tagOptions?: string[];
   includeTags?: boolean;
   preservedParams?: Record<string, string>;
 }) {
+  const modeOptions = [
+    { label: "List", value: "list" as const },
+    { label: "Board", value: "board" as const }
+  ];
   const statusOptions = [
     { label: "All statuses", value: "" },
     { label: "Todo", value: "todo" },
@@ -409,6 +408,15 @@ export function TaskViewToolbar({
   return (
     <Panel className="p-4">
       <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="section-eyebrow mr-2">Layout</p>
+          {modeOptions.map((option) => (
+            <Link key={option.label} href={buildTaskViewHref(basePath, current, { mode: option.value }, preservedParams)} className="inline-flex">
+              <FilterChip label={option.label} active={current.mode === option.value} />
+            </Link>
+          ))}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <p className="section-eyebrow mr-2">Filter</p>
           {statusOptions.map((option) => (
