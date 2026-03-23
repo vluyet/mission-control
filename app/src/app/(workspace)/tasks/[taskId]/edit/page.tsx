@@ -24,6 +24,7 @@ export default async function EditTaskPage({
       <TaskEditForm
         task={data.task}
         projectName={data.project.name}
+        projectSlug={data.project.slug}
         assignees={data.assignees}
         parentOptions={data.parentOptions}
       />

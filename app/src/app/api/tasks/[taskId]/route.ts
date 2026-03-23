@@ -1,5 +1,5 @@
 import { error, ok } from "@/lib/api-response";
-import { getTaskResourceFromDb, updateTaskInDb } from "@/lib/server-data";
+import { deleteTaskInDb, getTaskResourceFromDb, updateTaskInDb } from "@/lib/server-data";
 import { logAppEvent } from "@/lib/logger";
 import { resolveApiActor } from "@/lib/api-auth";
 
@@ -114,4 +114,25 @@ export async function PATCH(
   return ok({
     task: updated
   });
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { taskId: string } }
+) {
+  const auth = await resolveApiActor(request, "tasks.write");
+
+  if (!auth.ok) {
+    return error(auth.message, auth.status, { code: auth.error });
+  }
+
+  const deleted = await deleteTaskInDb(params.taskId);
+
+  if (!deleted) {
+    logAppEvent("error", "task.delete.failed", { taskId: params.taskId, reason: "task_not_found" });
+    return error("Task not found", 404, { taskId: params.taskId });
+  }
+
+  logAppEvent("info", "task.deleted", { taskId: params.taskId });
+  return ok({ deleted: true, taskId: params.taskId, projectSlug: deleted.projectSlug });
 }

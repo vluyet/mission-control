@@ -254,6 +254,65 @@ export async function createProjectInDb(payload: {
   return { id: project.id, slug: project.slug, name: project.name };
 }
 
+export async function getProjectEditDataForUi(slug: string) {
+  const activeWorkspace = await getActiveWorkspaceRecord();
+  const project = await db.project.findFirst({
+    where: { slug, ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {}) }
+  });
+  if (!project) return null;
+  return {
+    slug: project.slug,
+    name: project.name,
+    description: project.description ?? "",
+    status: project.status as "active" | "archived",
+    visibility: project.visibility as "workspace" | "project_members",
+    startDate: project.startDate ? project.startDate.toISOString().slice(0, 10) : "",
+    endDate: project.endDate ? project.endDate.toISOString().slice(0, 10) : ""
+  };
+}
+
+export async function updateProjectInDb(
+  slug: string,
+  payload: {
+    name?: string;
+    description?: string;
+    startDate?: string | null;
+    endDate?: string | null;
+    visibility?: "workspace" | "project_members";
+    status?: "active" | "archived";
+  }
+) {
+  const project = await db.project.findFirst({ where: { slug } });
+  if (!project) return null;
+  const updated = await db.project.update({
+    where: { id: project.id },
+    data: {
+      ...(payload.name?.trim() ? { name: payload.name.trim() } : {}),
+      ...(payload.description !== undefined ? { description: payload.description.trim() || null } : {}),
+      ...(payload.visibility ? { visibility: payload.visibility } : {}),
+      ...(payload.status ? { status: payload.status } : {}),
+      ...(payload.startDate !== undefined ? { startDate: payload.startDate ? new Date(`${payload.startDate}T00:00:00Z`) : null } : {}),
+      ...(payload.endDate !== undefined ? { endDate: payload.endDate ? new Date(`${payload.endDate}T00:00:00Z`) : null } : {})
+    }
+  });
+  return {
+    slug: updated.slug,
+    name: updated.name,
+    description: updated.description ?? "",
+    status: updated.status as "active" | "archived",
+    visibility: updated.visibility as "workspace" | "project_members",
+    startDate: updated.startDate?.toISOString().slice(0, 10) ?? "",
+    endDate: updated.endDate?.toISOString().slice(0, 10) ?? ""
+  };
+}
+
+export async function deleteProjectInDb(slug: string) {
+  const project = await db.project.findFirst({ where: { slug } });
+  if (!project) return null;
+  await db.project.delete({ where: { id: project.id } });
+  return { slug };
+}
+
 export async function setProjectMembersInDb(
   slug: string,
   entries: Array<{ membershipId: string; role?: "lead" | "member" | "observer" }> | string[]

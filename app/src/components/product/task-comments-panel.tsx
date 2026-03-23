@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { Comment } from "@/lib/demo-data";
 import { TaskCommentComposer } from "@/components/product/task-comment-composer";
 
@@ -57,7 +58,19 @@ export function TaskCommentsPanel({
   mentionSuggestions: string[];
 }) {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const sortedMentions = useMemo(() => Array.from(new Set(mentionSuggestions)).sort((a, b) => a.localeCompare(b)), [mentionSuggestions]);
+
+  async function handleDeleteComment(commentId: string) {
+    if (!window.confirm("Delete this comment? This cannot be undone.")) return;
+    setDeletingCommentId(commentId);
+    const response = await fetch(`/api/tasks/${taskId}/comments/${commentId}`, { method: "DELETE" });
+    setDeletingCommentId(null);
+    if (!response.ok) return;
+    startTransition(() => router.refresh());
+  }
 
   return (
     <div className="space-y-4 px-5 py-4">
@@ -105,7 +118,15 @@ export function TaskCommentsPanel({
                   {renderMentions(comment.body, sortedMentions)}
                 </div>
                 {comment.tone === "human" ? (
-                  <div className="mt-4 flex justify-end">
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteComment(comment.id)}
+                      disabled={deletingCommentId === comment.id || isPending}
+                      className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
+                    >
+                      {deletingCommentId === comment.id ? "Deleting..." : "Delete"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => setEditingCommentId(comment.id)}

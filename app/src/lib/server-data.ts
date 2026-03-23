@@ -30,20 +30,27 @@ export {
 } from "@/lib/server/workspace-server";
 import {
   createProjectInDb,
+  deleteProjectInDb,
   getProjectContextBlockForUi,
+  getProjectEditDataForUi,
   getProjectMembersForUi,
   getProjectsForUi,
-  setProjectMembersInDb
+  setProjectMembersInDb,
+  updateProjectInDb
 } from "@/lib/server/projects-server";
 export {
   createProjectInDb,
+  deleteProjectInDb,
   getProjectContextBlockForUi,
+  getProjectEditDataForUi,
   getProjectMembersForUi,
   getProjectsForUi,
-  setProjectMembersInDb
+  setProjectMembersInDb,
+  updateProjectInDb
 };
 import {
   createTaskInDb,
+  deleteTaskInDb,
   getBoardColumnsForUi,
   getMyTasksForUi,
   getTaskCreateFormData,
@@ -55,6 +62,7 @@ import {
 } from "@/lib/server/tasks-server";
 export {
   createTaskInDb,
+  deleteTaskInDb,
   getBoardColumnsForUi,
   getMyTasksForUi,
   getTaskCreateFormData,
@@ -1541,6 +1549,16 @@ export async function appendExecutionLogInDb(taskId: string, line: string, actor
     line: log.line,
     time: log.createdAt.toISOString()
   };
+}
+
+export async function deleteCommentInDb(taskId: string, commentId: string) {
+  const comment = await db.comment.findFirst({
+    where: { id: commentId, taskId }
+  });
+  if (!comment) return null;
+  if (comment.tone === "agent") return { error: "AGENT_COMMENT_NOT_DELETABLE" } as const;
+  await db.comment.delete({ where: { id: commentId } });
+  return { commentId };
 }
 
 export async function setTaskWatchersInDb(taskId: string, membershipIds: string[]) {

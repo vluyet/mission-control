@@ -40,6 +40,9 @@ export default async function ProjectWorkspacePage({
             <AppButton tone="secondary" href={`/projects/${project.slug}/members`}>
               Project access
             </AppButton>
+            <AppButton tone="secondary" href={`/projects/${project.slug}/edit`}>
+              Edit project
+            </AppButton>
             <AppButton tone="primary" href={`/projects/${project.slug}/tasks/new`}>
               Add task
             </AppButton>

@@ -32,16 +32,19 @@ type TaskEditValues = {
 export function TaskEditForm({
   task,
   projectName,
+  projectSlug,
   assignees,
   parentOptions
 }: {
   task: TaskEditValues;
   projectName: string;
+  projectSlug: string;
   assignees: AssigneeOption[];
   parentOptions: ParentOption[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -87,6 +90,22 @@ export function TaskEditForm({
 
     startTransition(() => {
       router.push(`/tasks/${task.id}`);
+      router.refresh();
+    });
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(`Permanently delete task ${task.id}? All comments, attachments, and execution history will be removed. This cannot be undone.`)) return;
+    setIsDeleting(true);
+    setError(null);
+    const response = await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
+    if (!response.ok) {
+      setIsDeleting(false);
+      setError("Task could not be deleted.");
+      return;
+    }
+    startTransition(() => {
+      router.push(`/projects/${projectSlug}`);
       router.refresh();
     });
   }
@@ -189,6 +208,18 @@ export function TaskEditForm({
             <AppButton type="submit" tone="primary" className={isPending ? "opacity-70" : ""}>
               {isPending ? "Saving..." : "Save changes"}
             </AppButton>
+          </div>
+          <div className="border-t border-[var(--line)] pt-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-600">Danger zone</p>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">Permanently delete this task and all its history.</p>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isDeleting || isPending}
+              className="mt-3 inline-flex items-center rounded-2xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {isDeleting ? "Deleting..." : "Delete task"}
+            </button>
           </div>
         </div>
       </form>

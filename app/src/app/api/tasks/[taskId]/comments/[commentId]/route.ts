@@ -1,5 +1,5 @@
 import { error, ok } from "@/lib/api-response";
-import { getTaskResourceFromDb, updateCommentInDb } from "@/lib/server-data";
+import { deleteCommentInDb, getTaskResourceFromDb, updateCommentInDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
 
 export async function PATCH(
@@ -49,4 +49,33 @@ export async function PATCH(
     task_id: params.taskId,
     comment
   });
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { taskId: string; commentId: string } }
+) {
+  const auth = await resolveApiActor(request, "comments.write");
+
+  if (!auth.ok) {
+    return error(auth.message, auth.status, { code: auth.error });
+  }
+
+  const task = await getTaskResourceFromDb(params.taskId);
+
+  if (!task) {
+    return error("Task not found", 404, { taskId: params.taskId });
+  }
+
+  const result = await deleteCommentInDb(params.taskId, params.commentId);
+
+  if (!result) {
+    return error("Comment not found", 404, { taskId: params.taskId, commentId: params.commentId });
+  }
+
+  if ("error" in result) {
+    return error("Agent comments cannot be deleted.", 403, { code: result.error });
+  }
+
+  return ok({ deleted: true, taskId: params.taskId, commentId: params.commentId });
 }

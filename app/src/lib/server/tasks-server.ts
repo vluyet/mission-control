@@ -426,6 +426,17 @@ export async function getTaskEditFormData(taskId: string) {
   };
 }
 
+export async function deleteTaskInDb(taskId: string) {
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    select: { id: true, project: { select: { slug: true } } }
+  });
+  if (!task) return null;
+  const projectSlug = task.project.slug;
+  await db.task.delete({ where: { id: taskId } });
+  return { taskId, projectSlug };
+}
+
 export async function getTaskCreateFormData(slug: string) {
   const activeWorkspace = await getActiveWorkspaceRecord();
   const project = await db.project.findFirst({
