@@ -88,7 +88,10 @@ function TaskReviewSummary({
   const latestHumanOrAgentComment = [...comments].reverse().find((comment) => comment.tone === "agent" || comment.role !== "System");
   const formattedExecutionFeed = executionFeed.map(formatReviewSignal).filter((line): line is string => Boolean(line));
   const latestUpdate = formattedExecutionFeed[formattedExecutionFeed.length - 1] ?? latestHumanOrAgentComment?.body ?? "No completion summary was recorded yet.";
-  const recentExecutionLines = formattedExecutionFeed.slice(-3).reverse();
+  const recentExecutionLines = formattedExecutionFeed
+    .slice(0, -1)
+    .slice(-3)
+    .reverse();
   const recentAttachments = attachments.slice(0, 3);
   const commentSnippet = latestHumanOrAgentComment?.body?.trim();
   const evidence = [
