@@ -16,6 +16,44 @@ function PropertyRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function getHumanDecisionGuidance(task: TaskRecord, agentHealthLabel?: string) {
+  if (task.status === "In Review") {
+    return {
+      title: "Approve or request another pass",
+      detail: "Start with the review summary, then either approve the result or send it back with a short correction note."
+    };
+  }
+
+  if (task.status === "Blocked") {
+    return {
+      title: "Resolve the blocker",
+      detail: task.blockedReason || "Add the missing context or choose the safest next state before asking the agent to continue."
+    };
+  }
+
+  if (task.assigneeType === "Agent" && task.status === "In Progress") {
+    return {
+      title: agentHealthLabel === "May be stalled" ? "Check the quiet run" : "Let the run continue unless you need to steer it",
+      detail:
+        agentHealthLabel === "May be stalled"
+          ? "No recent progress signal is visible. Add context, re-dispatch, or mark the task blocked if the agent is waiting on you."
+          : "The agent is still working. Intervene only if you need to redirect scope, add context, or capture a blocker."
+    };
+  }
+
+  if (task.assigneeType === "Agent" && task.status === "Todo") {
+    return {
+      title: "Dispatch when the task is ready",
+      detail: "Confirm the task context is complete, then send it to OpenClaw to start execution."
+    };
+  }
+
+  return {
+    title: "Move the task forward deliberately",
+    detail: "Use the workflow controls below to reflect the next real state instead of leaving ambiguity in the task."
+  };
+}
+
 function TaskReviewSummary({
   task,
   comments,
@@ -164,6 +202,8 @@ export function TaskWorkspace({
   const agentHealth = getAgentRunHealth(task, executionMeta?.latestUpdatedAt ?? task.updatedAt);
   const openClawFreshness = agentHealth.detail;
   const openClawState = agentHealth.label;
+  const decisionGuidance = getHumanDecisionGuidance(task, openClawState);
+
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
@@ -189,6 +229,11 @@ export function TaskWorkspace({
             <span className="rounded-full border border-[var(--line)] px-3 py-1 text-xs text-[var(--text-dim)]">
               Effort {task.effort}
             </span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-3 text-sm text-[var(--text-muted)]">
+            <span>Owner {task.assignee}</span>
+            <span>Reviewer {task.reviewer ?? "Unassigned"}</span>
+            <span>Due {task.due}</span>
           </div>
 
           {task.parentTaskTitle || childTasks.length ? (
@@ -244,15 +289,11 @@ export function TaskWorkspace({
         <aside className="space-y-4 p-5 xl:sticky xl:top-5 xl:self-start">
           <Panel tone="subtle" className="p-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="section-eyebrow">Summary</p>
+              <p className="section-eyebrow">Next action</p>
               <StatusBadge value={task.status} />
             </div>
-            <div className="mt-4 space-y-4">
-              <PropertyRow label="Owner" value={task.assignee} />
-              <PropertyRow label="Type" value={task.assigneeType} />
-              <PropertyRow label="Reviewer" value={task.reviewer ?? "Unassigned"} />
-              <PropertyRow label="Due" value={task.due} />
-            </div>
+            <h3 className="mt-3 text-base font-semibold text-[var(--text-strong)]">{decisionGuidance.title}</h3>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{decisionGuidance.detail}</p>
             {task.blockedReason ? (
               <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700">
                 {task.blockedReason}
@@ -267,6 +308,16 @@ export function TaskWorkspace({
                 title="What you can do next"
                 options={task.humanTransitionOptions ?? []}
               />
+            </div>
+          </Panel>
+
+          <Panel tone="subtle" className="p-4">
+            <p className="section-eyebrow">Task summary</p>
+            <div className="mt-4 space-y-4">
+              <PropertyRow label="Owner" value={task.assignee} />
+              <PropertyRow label="Type" value={task.assigneeType} />
+              <PropertyRow label="Reviewer" value={task.reviewer ?? "Unassigned"} />
+              <PropertyRow label="Due" value={task.due} />
             </div>
           </Panel>
 

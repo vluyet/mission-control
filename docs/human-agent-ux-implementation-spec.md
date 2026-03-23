@@ -14,12 +14,14 @@ Completed in this pass:
 - Queue attention sections now remain stable even when individual groups are empty, which preserves scan order and avoids section jumping
 - Queue and My Tasks metric strips were reduced to a smaller set of decision-oriented counters to cut header noise
 - review summary now packages currently available evidence more explicitly using recent execution lines, attachment names, and the latest conversation signal
+- task detail right rail now separates the immediate human decision from quieter metadata so review and intervention states are easier to scan
+- project task surfaces now inherit the lighter attention-first grouping pattern in list mode, while board snapshots follow the active filters instead of showing stale totals
 - members/settings admin surfaces now handle low-data and in-flight states more clearly: empty member lists point back to workspace settings, OpenClaw link/sync actions explain what is happening while requests are in flight, and agent credential states explain next steps when no agents, credentials, or auth events exist yet
 
 Still to refine in follow-up passes:
 - package stronger evidence/validation summaries when richer backend data becomes available
-- continue screenshot-led density reduction on task-detail header and right-rail surfaces
-- consider whether project-level task lists should inherit the same lighter metric and attention grouping patterns
+- continue screenshot-led polish on task-detail spacing/copy after live browser validation
+- decide later whether project surfaces need their own reduced metric strip or should stay more context-heavy than Queue/My Tasks
 
 ## Purpose
 Define the next UX phase for Mission Control now that async OpenClaw dispatch and task lifecycle handling are working.
