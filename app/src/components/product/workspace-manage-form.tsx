@@ -107,6 +107,21 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
     <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.15fr),360px]">
       <div className="space-y-5">
         <Panel className="overflow-hidden">
+          <PanelHeader
+            eyebrow="Guide"
+            title="What lives here"
+            description="Use this page to update workspace identity, review scope, manage the OpenClaw connection, and rotate agent credentials without hunting through unrelated controls."
+          />
+          <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 xl:grid-cols-4">
+            <a href="#workspace-settings" className="quick-link"><span>Workspace settings</span><span>Jump</span></a>
+            <a href="#workspace-scope" className="quick-link"><span>Scope & links</span><span>Jump</span></a>
+            <a href="#workspace-openclaw" className="quick-link"><span>OpenClaw connection</span><span>Jump</span></a>
+            <a href="#workspace-credentials" className="quick-link"><span>Agent credentials</span><span>Jump</span></a>
+          </div>
+        </Panel>
+
+        <div id="workspace-settings">
+        <Panel className="overflow-hidden">
           <PanelHeader eyebrow="General" title="Workspace settings" description="Keep the workspace small and understandable. Advanced controls are separated below." />
           <form onSubmit={handleSubmit} className="grid gap-5 px-5 py-5">
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr),220px]">
@@ -156,11 +171,13 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
             </div>
           </form>
         </Panel>
+        </div>
 
         {workspace.assets.length ? <WorkspaceAssetsPanel assets={workspace.assets} /> : null}
       </div>
 
       <div className="space-y-5">
+        <div id="workspace-scope">
         <Panel className="overflow-hidden">
           <PanelHeader eyebrow="Scope" title="Workspace scope" />
           <div className="space-y-3 px-5 py-5">
@@ -202,17 +219,26 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
               <span>Projects</span>
               <span>Open</span>
             </Link>
+            <Link href="/queue" className="quick-link">
+              <span>Agent queue</span>
+              <span>Open</span>
+            </Link>
           </div>
         </Panel>
+        </div>
 
-        <WorkspaceOpenClawPanel integration={workspace.openclaw} />
+        <div id="workspace-openclaw">
+          <WorkspaceOpenClawPanel integration={workspace.openclaw} />
+        </div>
 
         {(workspace.agentCredentials.length || workspace.authEvents.length) ? (
-          <WorkspaceAgentCredentialsPanel
-            agents={workspace.agents}
-            credentials={workspace.agentCredentials}
-            authEvents={workspace.authEvents}
-          />
+          <div id="workspace-credentials">
+            <WorkspaceAgentCredentialsPanel
+              agents={workspace.agents}
+              credentials={workspace.agentCredentials}
+              authEvents={workspace.authEvents}
+            />
+          </div>
         ) : null}
       </div>
     </div>

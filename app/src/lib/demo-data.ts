@@ -179,7 +179,10 @@ export const primaryNav: NavItem[] = [
   { label: "Settings", icon: "settings", href: "/manage-workspace" }
 ];
 
-export const secondaryNav: NavItem[] = [{ label: "Sign In", icon: "inbox", href: "/sign-in" }];
+export const secondaryNav: NavItem[] = [
+  { label: "Queue", icon: "inbox", href: "/queue", count: "0" },
+  { label: "Sign In", icon: "inbox", href: "/sign-in" }
+];
 
 export const signInHighlights = [
   "Workspace-aware task management",

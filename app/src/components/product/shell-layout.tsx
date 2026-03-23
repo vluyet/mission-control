@@ -58,6 +58,10 @@ function getSectionLabel(pathname: string) {
     return "Settings";
   }
 
+  if (pathname === "/queue") {
+    return "Queue";
+  }
+
   return "Workspace";
 }
 
@@ -93,10 +97,11 @@ export function ProductShell({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const sectionLabel = getSectionLabel(pathname);
-  const activeTaskLabel = activeTaskHref.startsWith("/tasks/") || activeTaskHref.includes("/tasks/")
+  const hasConcreteActiveTask = activeTaskHref.startsWith("/tasks/") || activeTaskHref.includes("/tasks/");
+  const activeTaskLabel = hasConcreteActiveTask
     ? "Open active task"
     : activeTaskHref === "/projects"
-      ? "Open projects"
+      ? "Browse projects"
       : activeTaskHref === "/manage-workspace"
         ? "Manage workspace"
         : "Open workspace";
@@ -241,7 +246,7 @@ export function ProductShell({
                   {isPending ? "Signing out..." : "Sign out"}
                 </AppButton>
                 <Link href={activeTaskHref}>
-                  <AppButton tone="primary" className="utilitybar-primary-button">
+                  <AppButton tone={hasConcreteActiveTask ? "primary" : "secondary"} className="utilitybar-primary-button">
                     {activeTaskLabel}
                   </AppButton>
                 </Link>
