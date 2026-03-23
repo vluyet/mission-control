@@ -120,7 +120,7 @@ export function TaskWorkspace({
 
           <div className="mt-5">
             <Panel tone="subtle" className="overflow-hidden">
-              <PanelHeader eyebrow="Discussion" title="Comments" />
+              <PanelHeader eyebrow="Discussion" title="Team conversation" />
               <TaskCommentsPanel
                 taskId={task.id}
                 comments={comments}
@@ -133,7 +133,7 @@ export function TaskWorkspace({
         <aside className="space-y-4 p-5">
           <Panel tone="subtle" className="p-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="section-eyebrow">Task overview</p>
+              <p className="section-eyebrow">Summary</p>
               <StatusBadge value={task.status} />
             </div>
             <div className="mt-4 space-y-4">
@@ -153,7 +153,7 @@ export function TaskWorkspace({
                 currentStatus={task.status}
                 blockedReason={task.blockedReason}
                 actorType="human"
-                title="Human workflow"
+                title="What you can do next"
                 options={task.humanTransitionOptions ?? []}
               />
             </div>
@@ -163,18 +163,18 @@ export function TaskWorkspace({
             <>
               <Panel tone="subtle" className="p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="section-eyebrow">OpenClaw</p>
+                  <p className="section-eyebrow">Agent run</p>
                   <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-xs text-[var(--text-dim)]">{openClawState}</span>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
-                  Dispatch this task to the assigned OpenClaw agent. The run will use Mission Control's API contract for context, execution logs, comments, and status updates.
+                  Send this task to the assigned OpenClaw agent. Progress, comments, and status changes will report back here while the run is active.
                 </p>
                 <div className="mt-4">
                   <TaskOpenClawDispatchButton taskId={task.id} currentStatus={task.status} />
                 </div>
                 <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white px-3 py-3 text-sm">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-[var(--text-strong)]">Latest agent activity</span>
+                    <span className="font-medium text-[var(--text-strong)]">Latest update</span>
                     <span className="text-xs text-[var(--text-dim)]">{openClawFreshness}</span>
                   </div>
                   <p className="mt-2 text-[var(--text-muted)]">
@@ -183,7 +183,7 @@ export function TaskWorkspace({
                 </div>
                 {executionFeed.length ? (
                   <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white px-3 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Recent progress</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Recent updates</p>
                     <div className="mt-3 space-y-2">
                       {executionFeed.slice(-3).reverse().map((line, index) => (
                         <div key={`${index}-${line}`} className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm text-[var(--text-muted)]">
@@ -199,7 +199,7 @@ export function TaskWorkspace({
                     currentStatus={task.status}
                     blockedReason={task.blockedReason}
                     actorType="agent"
-                    title="Agent workflow"
+                    title="Agent controls"
                     options={task.transitionOptions ?? []}
                   />
                 </div>
@@ -209,7 +209,7 @@ export function TaskWorkspace({
 
           {(task.tags.length || attachments.length || watchers.length || executionFeed.length || resolvedContext) ? (
             <Panel tone="subtle" className="p-4">
-              <p className="section-eyebrow">Metadata</p>
+              <p className="section-eyebrow">Details</p>
               {task.tags.length ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {task.tags.map((tag) => (

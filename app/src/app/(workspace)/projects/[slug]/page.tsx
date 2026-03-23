@@ -27,6 +27,7 @@ export default async function ProjectWorkspacePage({
       <PageHeader
         eyebrow="Project overview"
         title={project.name}
+        description="Use the task list as the main working area. The board below is there for a quick status scan once you have filtered the project." 
         actions={
           <>
             <AppButton tone="secondary" href={`/projects/${project.slug}/members`}>
@@ -57,9 +58,9 @@ export default async function ProjectWorkspacePage({
         <TaskViewToolbar basePath={`/projects/${project.slug}`} current={view} tagOptions={tags} includeTags />
         <SavedTaskViews storageKey={`saved-view:project:${project.slug}`} basePath={`/projects/${project.slug}`} current={view} />
 
-        <TaskTable items={visibleTasks} projectScoped title="Project task list" />
+        <TaskTable items={visibleTasks} projectScoped title="Project tasks" />
 
-        <BoardGrid columns={board} title="Project board" />
+        <BoardGrid columns={board} title="Board snapshot" />
       </div>
 
       {featuredTask ? (
