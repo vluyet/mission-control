@@ -54,6 +54,22 @@ function getHumanDecisionGuidance(task: TaskRecord, agentHealthLabel?: string) {
   };
 }
 
+function formatReviewSignal(line: string) {
+  const normalized = line.trim();
+
+  if (!normalized) return null;
+
+  if (normalized.startsWith("OpenClaw dispatch response:")) {
+    return "OpenClaw accepted the run and returned a final response.";
+  }
+
+  if (normalized.length > 280) {
+    return `${normalized.slice(0, 277)}...`;
+  }
+
+  return normalized;
+}
+
 function TaskReviewSummary({
   task,
   comments,
@@ -70,8 +86,9 @@ function TaskReviewSummary({
   if (!["In Review", "Blocked", "Done"].includes(task.status) || task.assigneeType !== "Agent") return null;
 
   const latestHumanOrAgentComment = [...comments].reverse().find((comment) => comment.tone === "agent" || comment.role !== "System");
-  const latestUpdate = executionFeed[executionFeed.length - 1] ?? latestHumanOrAgentComment?.body ?? "No completion summary was recorded yet.";
-  const recentExecutionLines = executionFeed.slice(-3).reverse();
+  const formattedExecutionFeed = executionFeed.map(formatReviewSignal).filter((line): line is string => Boolean(line));
+  const latestUpdate = formattedExecutionFeed[formattedExecutionFeed.length - 1] ?? latestHumanOrAgentComment?.body ?? "No completion summary was recorded yet.";
+  const recentExecutionLines = formattedExecutionFeed.slice(-3).reverse();
   const recentAttachments = attachments.slice(0, 3);
   const commentSnippet = latestHumanOrAgentComment?.body?.trim();
   const evidence = [

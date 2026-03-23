@@ -17,6 +17,7 @@ Completed in this pass:
 - task detail right rail now separates the immediate human decision from quieter metadata so review and intervention states are easier to scan
 - project task surfaces now inherit the lighter attention-first grouping pattern in list mode, while board snapshots follow the active filters instead of showing stale totals
 - members/settings admin surfaces now handle low-data and in-flight states more clearly: empty member lists point back to workspace settings, OpenClaw link/sync actions explain what is happening while requests are in flight, and agent credential states explain next steps when no agents, credentials, or auth events exist yet
+- review-summary evidence lines now normalize raw transport-style execution messages into shorter human-readable signals so the latest meaningful update stays readable during review
 
 Still to refine in follow-up passes:
 - package stronger evidence/validation summaries when richer backend data becomes available
