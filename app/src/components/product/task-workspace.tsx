@@ -85,7 +85,7 @@ function TaskReviewSummary({
 }) {
   if (!["In Review", "Blocked", "Done"].includes(task.status) || task.assigneeType !== "Agent") return null;
 
-  const latestHumanOrAgentComment = [...comments].reverse().find((comment) => comment.tone === "agent" || comment.role !== "System");
+  const latestHumanOrAgentComment = comments.find((comment) => comment.tone === "agent" || comment.role !== "System");
   const formattedExecutionFeed = executionFeed.map(formatReviewSignal).filter((line): line is string => Boolean(line));
   const latestUpdate = formattedExecutionFeed[formattedExecutionFeed.length - 1] ?? latestHumanOrAgentComment?.body ?? "No completion summary was recorded yet.";
   const recentExecutionLines = formattedExecutionFeed
@@ -125,7 +125,7 @@ function TaskReviewSummary({
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Goal</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{task.description || task.contextHint || "Review this task against the intended outcome before closing it."}</p>
+          <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">{task.description || task.contextHint || "Review this task against the intended outcome before closing it."}</p>
         </div>
         <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Recommended next step</p>
@@ -137,7 +137,7 @@ function TaskReviewSummary({
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Latest meaningful update</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{latestUpdate}</p>
+          <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">{latestUpdate}</p>
           {recentExecutionLines.length ? (
             <div className="mt-4 space-y-2">
               {recentExecutionLines.map((line, index) => (
@@ -178,7 +178,7 @@ function TaskReviewSummary({
 
       <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Risks and caveats</p>
-        <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">
           {task.blockedReason ?? "Review the final output against the task goal before marking it done. If anything is unclear, request changes with a short correction note."}
         </p>
       </div>
@@ -229,7 +229,6 @@ export function TaskWorkspace({
       <PanelHeader
         eyebrow="Task detail"
         title={task.title}
-        description={task.description}
         action={
           <div className="flex flex-wrap gap-2">
             <AppButton tone="primary" href={`/tasks/${task.id}/edit`}>
@@ -255,6 +254,15 @@ export function TaskWorkspace({
             <span>Reviewer {task.reviewer ?? "Unassigned"}</span>
             <span>Due {task.due}</span>
           </div>
+
+          {task.description ? (
+            <div className="mt-5 rounded-3xl border border-[var(--line)] bg-[var(--surface-subtle)] px-5 py-4">
+              <p className="section-eyebrow">Task brief</p>
+              <p className="mt-3 max-w-4xl whitespace-pre-wrap break-words text-[15px] leading-7 text-[var(--text-strong)]">
+                {task.description}
+              </p>
+            </div>
+          ) : null}
 
           {task.parentTaskTitle || childTasks.length ? (
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -296,7 +304,11 @@ export function TaskWorkspace({
 
           <div className="mt-5">
             <Panel tone="subtle" className="overflow-hidden">
-              <PanelHeader eyebrow="Discussion" title="Team conversation" />
+              <PanelHeader
+                eyebrow="Discussion"
+                title="Latest comments"
+                description="Newest updates stay at the top so the current state is immediately visible."
+              />
               <TaskCommentsPanel
                 taskId={task.id}
                 comments={comments}
@@ -359,7 +371,7 @@ export function TaskWorkspace({
                     <span className="font-medium text-[var(--text-strong)]">Latest meaningful update</span>
                     <span className="text-xs text-[var(--text-dim)]">{openClawFreshness}</span>
                   </div>
-                  <p className="mt-2 text-[var(--text-muted)]">
+                  <p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-muted)]">
                     {executionFeed[executionFeed.length - 1] ?? "No execution updates yet. Once dispatched, progress entries will appear here."}
                   </p>
                 </div>

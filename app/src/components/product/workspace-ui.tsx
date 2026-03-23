@@ -388,7 +388,7 @@ function TaskViewControlLabel({
   icon: ReactNode;
 }) {
   return (
-    <div className="inline-flex h-8 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-dim)]">
+    <div className="inline-flex h-8 items-center gap-2 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-dim)]">
       <span className="text-[var(--text-muted)]">{icon}</span>
       <span>{label}</span>
     </div>

@@ -256,7 +256,7 @@ export async function getTaskResourceFromDb(taskId: string) {
       parentTask: { select: { id: true, title: true } },
       childTasks: { orderBy: { createdAt: "asc" }, select: { id: true, title: true, status: true } },
       watchers: { orderBy: { createdAt: "asc" }, include: { membership: true } },
-      comments: { orderBy: { createdAt: "asc" } },
+      comments: { orderBy: { createdAt: "desc" } },
       attachments: { orderBy: { createdAt: "desc" }, include: { author: true } },
       activity: { orderBy: { createdAt: "asc" } },
       executions: { orderBy: { createdAt: "desc" }, include: { agent: true, logs: { orderBy: { createdAt: "asc" } } } }

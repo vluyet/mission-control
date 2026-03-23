@@ -101,7 +101,7 @@ export function TaskCommentsPanel({
               </div>
             ) : (
               <>
-                <div className="mt-4 flex flex-wrap items-start gap-2 text-sm leading-7 text-[var(--text-muted)]">
+                <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--text-muted)]">
                   {renderMentions(comment.body, sortedMentions)}
                 </div>
                 {comment.tone === "human" ? (
