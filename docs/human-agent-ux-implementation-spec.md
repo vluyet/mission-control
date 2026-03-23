@@ -10,11 +10,15 @@ Completed in this pass:
 - queue now emphasizes `Needs review now`, `Waiting on human`, and `May be stalled`
 - task and queue rows expose agent health labels/details instead of status alone
 - task status action copy is now more state-aware, with one stronger primary action
+- My Tasks now applies attention-first grouping in list mode only when visible work actually needs intervention, so calm views stay calm
+- Queue attention sections now remain stable even when individual groups are empty, which preserves scan order and avoids section jumping
+- Queue and My Tasks metric strips were reduced to a smaller set of decision-oriented counters to cut header noise
+- review summary now packages currently available evidence more explicitly using recent execution lines, attachment names, and the latest conversation signal
 
 Still to refine in follow-up passes:
-- apply the same attention-first grouping to My Tasks where it improves scanning without adding noise
 - package stronger evidence/validation summaries when richer backend data becomes available
-- continue screenshot-led density reduction on list headers and top metric strips
+- continue screenshot-led density reduction on task-detail header and right-rail surfaces
+- consider whether project-level task lists should inherit the same lighter metric and attention grouping patterns
 
 ## Purpose
 Define the next UX phase for Mission Control now that async OpenClaw dispatch and task lifecycle handling are working.

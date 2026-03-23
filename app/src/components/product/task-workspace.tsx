@@ -33,6 +33,9 @@ function TaskReviewSummary({
 
   const latestHumanOrAgentComment = [...comments].reverse().find((comment) => comment.tone === "agent" || comment.role !== "System");
   const latestUpdate = executionFeed[executionFeed.length - 1] ?? latestHumanOrAgentComment?.body ?? "No completion summary was recorded yet.";
+  const recentExecutionLines = executionFeed.slice(-3).reverse();
+  const recentAttachments = attachments.slice(0, 3);
+  const commentSnippet = latestHumanOrAgentComment?.body?.trim();
   const evidence = [
     executionFeed.length ? `${executionFeed.length} execution ${executionFeed.length === 1 ? "update" : "updates"}` : null,
     comments.length ? `${comments.length} conversation ${comments.length === 1 ? "entry" : "entries"}` : null,
@@ -60,10 +63,11 @@ function TaskReviewSummary({
         </div>
         <StatusBadge value={task.status} />
       </div>
+
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Outcome</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{latestUpdate}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Goal</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{task.description || task.contextHint || "Review this task against the intended outcome before closing it."}</p>
         </div>
         <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Recommended next step</p>
@@ -71,7 +75,21 @@ function TaskReviewSummary({
           {latestExecutionAt ? <p className="mt-3 text-xs text-[var(--text-dim)]">Latest agent signal recorded at {latestExecutionAt}.</p> : null}
         </div>
       </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Latest meaningful update</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{latestUpdate}</p>
+          {recentExecutionLines.length ? (
+            <div className="mt-4 space-y-2">
+              {recentExecutionLines.map((line, index) => (
+                <div key={`${index}-${line}`} className="rounded-xl border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-muted)]">
+                  {line}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Evidence available</p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -79,13 +97,32 @@ function TaskReviewSummary({
               <span key={item} className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1 text-xs text-[var(--text-strong)]">{item}</span>
             )) : <span className="text-sm text-[var(--text-muted)]">No structured evidence yet.</span>}
           </div>
+          <div className="mt-4 space-y-2 text-sm text-[var(--text-muted)]">
+            {recentAttachments.length ? (
+              <div>
+                <p className="font-medium text-[var(--text-strong)]">Artifacts</p>
+                <ul className="mt-2 space-y-1">
+                  {recentAttachments.map((attachment) => (
+                    <li key={attachment.id}>• {attachment.name} · {attachment.sizeLabel}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {commentSnippet ? (
+              <div>
+                <p className="font-medium text-[var(--text-strong)]">Latest conversation signal</p>
+                <p className="mt-2">{latestHumanOrAgentComment?.author}: {commentSnippet.length > 180 ? `${commentSnippet.slice(0, 177)}...` : commentSnippet}</p>
+              </div>
+            ) : null}
+          </div>
         </div>
-        <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Risks and caveats</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-            {task.blockedReason ?? "Review the final output against the task goal before marking it done. If anything is unclear, request changes with a short correction note."}
-          </p>
-        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white px-4 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Risks and caveats</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+          {task.blockedReason ?? "Review the final output against the task goal before marking it done. If anything is unclear, request changes with a short correction note."}
+        </p>
       </div>
     </Panel>
   );

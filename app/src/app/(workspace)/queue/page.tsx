@@ -22,10 +22,9 @@ export default async function QueuePage() {
 
       <MetricStrip
         items={[
-          { label: "Agent tasks", value: `${items.length}`, detail: "Open work currently assigned to agents", tone: "accent" },
-          { label: "Needs review", value: `${reviewItems.length}`, detail: "Ready for a human decision", tone: reviewItems.length ? "warning" : "success" },
-          { label: "Waiting on human", value: `${blockedItems.length}`, detail: "Need intervention or clarified context", tone: blockedItems.length ? "warning" : "success" },
-          { label: "May be stalled", value: `${staleItems.length}`, detail: "In progress without a recent signal", tone: staleItems.length ? "warning" : "success" }
+          { label: "Attention now", value: `${reviewItems.length + blockedItems.length + staleItems.length}`, detail: "Review, unblock, or inspect stalled runs", tone: reviewItems.length + blockedItems.length + staleItems.length ? "warning" : "success" },
+          { label: "Running", value: `${healthyActiveItems.length}`, detail: "Active runs with recent signals", tone: healthyActiveItems.length ? "accent" : "neutral" },
+          { label: "Ready to dispatch", value: `${todoItems.length}`, detail: "Agent-owned tasks not started yet", tone: todoItems.length ? "neutral" : "success" }
         ]}
       />
 
@@ -39,10 +38,22 @@ export default async function QueuePage() {
             emptyDescription="Agent-completed work will surface here as soon as a human decision is needed."
           />
           <TaskTable
-            items={blockedItems.length ? blockedItems : staleItems.length ? staleItems : healthyActiveItems.length ? healthyActiveItems : todoItems}
-            title={blockedItems.length ? "Waiting on human" : staleItems.length ? "May be stalled" : healthyActiveItems.length ? "Running normally" : "Ready to dispatch"}
+            items={blockedItems}
+            title="Waiting on human"
+            emptyTitle="No blocked agent work"
+            emptyDescription="Blocked runs that need context or intervention will stay pinned here until resolved."
+          />
+          <TaskTable
+            items={staleItems}
+            title="May be stalled"
+            emptyTitle="No stale runs right now"
+            emptyDescription="If an active run goes quiet for too long, it will move here so you can decide whether to re-dispatch or add context."
+          />
+          <TaskTable
+            items={healthyActiveItems.length ? healthyActiveItems : todoItems}
+            title={healthyActiveItems.length ? "Running normally" : "Ready to dispatch"}
             emptyTitle="Queue is clear"
-            emptyDescription={todoItems.length ? "Agent-owned tasks are ready, but none are actively running yet." : "There is no blocked, stale, or active agent work right now."}
+            emptyDescription={todoItems.length ? "There is agent-owned work ready to start, but nothing is currently running." : "There is no active or pending agent-owned work right now."}
           />
         </div>
       </div>
