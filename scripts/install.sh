@@ -201,6 +201,7 @@ WorkingDirectory=$(pwd)/app
 EnvironmentFile=$(pwd)/.env
 Environment=NODE_ENV=production
 Environment=NEXT_DIST_DIR=.next-build
+ExecStartPre=$(command -v bash) $(pwd)/scripts/ensure-db.sh
 ExecStart=$(command -v node) $(pwd)/app/node_modules/next/dist/bin/next start -H 0.0.0.0 -p ${app_port}
 Restart=always
 RestartSec=2

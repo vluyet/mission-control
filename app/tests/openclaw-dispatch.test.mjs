@@ -237,7 +237,7 @@ test("owner can dispatch an OpenClaw-assigned task and receive the final respons
       cookie
     });
 
-    assert.equal(dispatch.response.status, 201);
+    assert.equal(dispatch.response.status, 202);
     assert.equal(dispatch.payload?.data?.dispatch?.responseId, "hook_run_123");
 
     const responseRequest = mock.requests.find((request) => request.url === "/hooks/agent");
@@ -248,7 +248,8 @@ test("owner can dispatch an OpenClaw-assigned task and receive the final respons
     assert.equal(payload.deliver, false);
     assert.equal(payload.thinking, "medium");
     assert.equal(payload.timeoutSeconds, 120);
-    assert.match(payload.message, /Use Mission Control APIs to report progress and final output/);
+    assert.match(payload.message, /AGENT_CONTEXT_RETRIEVED/);
+    assert.match(payload.message, /Do not post periodic milestone logs/);
 
     const comments = await json(`/api/tasks/${taskId}/comments`, { cookie });
     assert.equal(comments.response.status, 200);
