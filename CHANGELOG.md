@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.2 - 2026-03-26
+
+Task communication and runtime reliability hardening.
+
+- Reworked task communication UX into a cleaner split: human/agent comments plus a terminal-style task timeline for operational events.
+- Standardized timeline event semantics for agent lifecycle and comment actions (`Task dispatched`, `Agent accepted task`, `Agent retrieved context`, `Agent finished task`, comment add/edit/delete).
+- Updated OpenClaw task instructions to reduce noisy periodic logs and use explicit lifecycle reporting lines suitable for monitoring and follow-up automation.
+- Improved comment composer responsiveness with immediate submit feedback, disabled/loading states, optimistic list updates, and clearer validation behavior.
+- Added database startup preflight support (`scripts/ensure-db.sh`) and wired install-time host service generation to run DB readiness checks before app start.
+- Stabilized CI/runtime alignment for Docker+host startup assumptions and database availability paths.
+
 ## v0.2.1 - 2026-03-23
 
 Async-first OpenClaw dispatch plus human-agent operations UX refinement.
