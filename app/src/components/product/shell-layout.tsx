@@ -5,8 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useTransition } from "react";
 import { primaryNav, secondaryNav, ShellCounts, workspaceSummary, WorkspaceOption, WorkspaceSummary } from "@/lib/demo-data";
 import type { DeploymentMetadata } from "@/lib/runtime-metadata";
-import { ChevronDownIcon, FolderIcon, HomeIcon, InboxIcon, SettingsIcon, SparkIcon, StackIcon, UsersIcon } from "@/components/ui/icons";
-import { AppButton } from "@/components/ui/primitives";
+import { ChevronDownIcon, FolderIcon, HomeIcon, InboxIcon, LogOutIcon, SettingsIcon, SparkIcon, StackIcon, UsersIcon } from "@/components/ui/icons";
 
 function iconFor(name: string) {
   switch (name) {
@@ -37,34 +36,6 @@ function matchesPath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function getSectionLabel(pathname: string) {
-  if (pathname === "/" || pathname.startsWith("/projects")) {
-    return "Projects";
-  }
-
-  if (pathname.startsWith("/tasks")) {
-    return "Task";
-  }
-
-  if (pathname === "/my-tasks") {
-    return "My Tasks";
-  }
-
-  if (pathname === "/members") {
-    return "Members";
-  }
-
-  if (pathname === "/manage-workspace") {
-    return "Settings";
-  }
-
-  if (pathname === "/queue") {
-    return "Queue";
-  }
-
-  return "Workspace";
-}
-
 function getWorkspaceDestination(pathname: string) {
   if (pathname === "/projects" || pathname === "/members" || pathname === "/my-tasks" || pathname === "/manage-workspace") {
     return pathname;
@@ -83,7 +54,7 @@ export function ProductShell({
     members: primaryNav.find((item) => item.href === "/members")?.count ?? "0",
     queues: secondaryNav.find((item) => item.href === "/queue")?.count ?? "0"
   },
-  activeTaskHref = "/projects",
+  activeTaskHref: _activeTaskHref = "/projects",
   deployment
 }: {
   children: ReactNode;
@@ -96,15 +67,6 @@ export function ProductShell({
   const pathname = usePathname();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const sectionLabel = getSectionLabel(pathname);
-  const hasConcreteActiveTask = activeTaskHref.startsWith("/tasks/") || activeTaskHref.includes("/tasks/");
-  const activeTaskLabel = hasConcreteActiveTask
-    ? "Open active task"
-    : activeTaskHref === "/projects"
-      ? "Browse projects"
-      : activeTaskHref === "/manage-workspace"
-        ? "Manage workspace"
-        : "Open workspace";
   const primaryItems = primaryNav.map((item) => ({
     ...item,
     count:
@@ -231,28 +193,26 @@ export function ProductShell({
               </nav>
             </div>
           ) : null}
+
+          <div className="mt-auto pt-6">
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={isPending}
+              className="nav-item nav-item-idle w-full text-left transition hover:border-[rgba(244,63,94,0.24)] hover:bg-[rgba(244,63,94,0.08)] hover:text-rose-700 disabled:opacity-60"
+            >
+              <span className="inline-flex items-center gap-3">
+                <span className="nav-icon">
+                  <LogOutIcon className="h-4 w-4" />
+                </span>
+                <span>{isPending ? "Signing out..." : "Sign out"}</span>
+              </span>
+            </button>
+            {deployment?.version ? <p className="px-2 pt-3 text-[11px] text-white/42">Version {deployment.version}</p> : null}
+          </div>
         </aside>
 
         <main className="product-main">
-          <div className="product-utilitybar-shell">
-            <div className="product-utilitybar">
-              <div className="utilitybar-location">
-                <span className="utilitybar-location-section">{sectionLabel}</span>
-                {deployment?.version ? <span className="utilitybar-location-section text-[var(--text-dim)]">{deployment.version}</span> : null}
-              </div>
-
-              <div className="utilitybar-controls">
-                <AppButton tone="ghost" className="utilitybar-link-button" disabled={isPending} onClick={handleSignOut}>
-                  {isPending ? "Signing out..." : "Sign out"}
-                </AppButton>
-                <Link href={activeTaskHref}>
-                  <AppButton tone={hasConcreteActiveTask ? "primary" : "secondary"} className="utilitybar-primary-button">
-                    {activeTaskLabel}
-                  </AppButton>
-                </Link>
-              </div>
-            </div>
-          </div>
           <div className="product-content">{children}</div>
         </main>
       </div>
