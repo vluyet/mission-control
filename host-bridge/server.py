@@ -90,81 +90,67 @@ def extract_text(value):
     return None
 
 
-def dispatch_openclaw(agent_id, task_id, prompt, webhook_url=None, webhook_token=None):
-    attempts = [
-        ('/hooks/agent', {
-            'agentId': agent_id,
-            'message': prompt,
-            'wakeMode': 'now',
-            'deliver': False,
-            'thinking': 'medium',
-            'timeoutSeconds': 120,
-            'webhookUrl': webhook_url,
-            'webhookToken': webhook_token
-        }, 'hook', OPENCLAW_HOOK_TOKEN or OPENCLAW_GATEWAY_TOKEN),
-        ('/v1/responses', {
-            'model': f'agent:{agent_id}',
-            'user': f'mission-control-task:{task_id}',
-            'input': prompt
-        }, 'legacy', OPENCLAW_GATEWAY_TOKEN)
-    ]
+def normalize_optional_session_value(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.lower() in {'none', 'null', 'undefined'}:
+        return None
+    return text
 
-    last_error = 'OpenClaw dispatch failed.'
 
-    for path, payload, mode, token in attempts:
-        try:
-            append_bridge_log('openclaw.request', path=path, mode=mode, agentId=agent_id, taskId=task_id, promptPreview=(prompt or '')[:300])
-            result = openclaw_request(path, payload, token=token)
-            result_payload = result.get('result') if mode == 'hook' and isinstance(result, dict) else result
-            final_text = extract_text(result_payload)
+def dispatch_openclaw(agent_id, task_id, prompt, session_key=None, session_id=None, webhook_url=None, webhook_token=None):
+    normalized_session_key = normalize_optional_session_value(session_key)
+    normalized_session_id = normalize_optional_session_value(session_id)
 
-            response_id = None
-            if isinstance(result, dict):
-                response_id = result.get('id') or result.get('runId')
-                if not response_id and isinstance(result.get('result'), dict):
-                    response_id = result['result'].get('responseId') or result['result'].get('runId') or result['result'].get('id') or ((result['result'].get('response') or {}).get('id') if isinstance(result['result'].get('response'), dict) else None)
-            if not response_id and isinstance(result_payload, dict):
-                response_id = result_payload.get('responseId') or result_payload.get('runId') or result_payload.get('id') or ((result_payload.get('response') or {}).get('id') if isinstance(result_payload.get('response'), dict) else None)
+    if normalized_session_id:
+        dispatch_mode = 'session-id'
+        cmd = [
+            'openclaw', 'agent',
+            '--agent', agent_id,
+            '--session-id', normalized_session_id,
+            '--message', prompt,
+            '--json',
+            '--timeout', '120'
+        ]
+    elif normalized_session_key:
+        dispatch_mode = 'to'
+        cmd = [
+            'openclaw', 'agent',
+            '--agent', agent_id,
+            '--to', normalized_session_key,
+            '--message', prompt,
+            '--json',
+            '--timeout', '120'
+        ]
+    else:
+        raise RuntimeError('Dedicated execution session is required for Mission Control dispatch.')
 
-            append_bridge_log('openclaw.response', path=path, mode=mode, agentId=agent_id, taskId=task_id, responseId=response_id, hasFinalText=bool(final_text))
-            return {
-                'accepted': True,
-                'responseId': response_id,
-                'finalText': final_text,
-                'mode': 'async' if not final_text else 'sync',
-                'bridgePath': path,
-                'raw': result
-            }
-        except HTTPError as e:
-            if e.code not in (401, 404):
-                try:
-                    payload = json.loads(e.read().decode('utf-8'))
-                    message = payload.get('error', {}).get('message') or f'OpenClaw request failed ({e.code})'
-                except Exception:
-                    message = f'OpenClaw request failed ({e.code})'
-                append_bridge_log('openclaw.error', path=path, mode=mode, agentId=agent_id, taskId=task_id, status=e.code, message=message)
-                raise RuntimeError(message)
-            last_error = f'OpenClaw request failed ({e.code})'
-            append_bridge_log('openclaw.retryable_error', path=path, mode=mode, agentId=agent_id, taskId=task_id, status=e.code)
-        except URLError as e:
-            append_bridge_log('openclaw.error', path=path, mode=mode, agentId=agent_id, taskId=task_id, message=str(e.reason))
-            raise RuntimeError(str(e.reason))
-
-    cmd = ['openclaw', 'agent', '--agent', agent_id, '--message', prompt, '--json', '--timeout', '120']
     try:
-        append_bridge_log('openclaw.cli_fallback', agentId=agent_id, taskId=task_id, command=' '.join(cmd[:-1] + ['120']))
+        append_bridge_log(
+            'openclaw.cli_dispatch',
+            agentId=agent_id,
+            taskId=task_id,
+            sessionKey=normalized_session_key,
+            sessionId=normalized_session_id,
+            dispatchMode=dispatch_mode,
+            webhook=bool(webhook_url),
+            command=' '.join(cmd)
+        )
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=140, check=True)
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or '').strip()
         stdout = (exc.stdout or '').strip()
-        message = stderr or stdout or last_error
-        append_bridge_log('openclaw.error', mode='cli', agentId=agent_id, taskId=task_id, message=message)
+        message = stderr or stdout or 'OpenClaw dispatch failed.'
+        append_bridge_log('openclaw.error', mode='cli', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, message=message)
         raise RuntimeError(message)
 
     raw = (result.stdout or '').strip()
     start = raw.find('{')
     if start < 0:
-        append_bridge_log('openclaw.error', mode='cli', agentId=agent_id, taskId=task_id, message='openclaw agent returned no JSON payload')
+        append_bridge_log('openclaw.error', mode='cli', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, message='openclaw agent returned no JSON payload')
         raise RuntimeError('openclaw agent returned no JSON payload')
 
     payload = json.loads(raw[start:])
@@ -180,13 +166,41 @@ def dispatch_openclaw(agent_id, task_id, prompt, webhook_url=None, webhook_token
             if isinstance(agent_meta, dict):
                 response_id = agent_meta.get('sessionId')
 
-    append_bridge_log('openclaw.response', mode='cli', agentId=agent_id, taskId=task_id, responseId=response_id, hasFinalText=bool(final_text))
+    if webhook_url:
+        callback_payload = {
+            'event': 'completed',
+            'status': 'completed',
+            'taskId': task_id,
+            'agentId': agent_id,
+            'sessionKey': normalized_session_key,
+            'sessionId': normalized_session_id,
+            'resultText': final_text,
+            'responseId': response_id,
+            'bridgePath': 'cli-session-targeted'
+        }
+        try:
+            headers = {'Content-Type': 'application/json'}
+            if webhook_token:
+                headers['Authorization'] = f'Bearer {webhook_token}'
+            req = Request(webhook_url, data=json.dumps(callback_payload).encode('utf-8'), headers=headers, method='POST')
+            with urlopen(req, timeout=20) as resp:
+                resp.read()
+            append_bridge_log('openclaw.webhook.sent', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, responseId=response_id)
+        except HTTPError as e:
+            append_bridge_log('openclaw.webhook.error', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, status=e.code)
+            raise RuntimeError(f'Mission Control webhook failed ({e.code})')
+        except URLError as e:
+            append_bridge_log('openclaw.webhook.error', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, message=str(e.reason))
+            raise RuntimeError(f'Mission Control webhook failed: {e.reason}')
+
+    append_bridge_log('openclaw.response', mode='cli', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, responseId=response_id, hasFinalText=bool(final_text))
     return {
         'accepted': True,
         'responseId': response_id,
         'finalText': final_text,
-        'mode': 'async' if not final_text else 'sync',
-        'bridgePath': 'cli-fallback',
+        'mode': 'async' if webhook_url else ('async' if not final_text else 'sync'),
+        'bridgePath': 'cli-session-targeted',
+        'dispatchMode': dispatch_mode,
         'raw': payload
     }
 
@@ -353,28 +367,40 @@ class Handler(BaseHTTPRequestHandler):
                 agent_id = str(body.get('agentId', '')).strip()
                 task_id = str(body.get('taskId', '')).strip()
                 prompt = str(body.get('prompt', '')).strip()
+                raw_session_key = body.get('sessionKey')
+                raw_session_id = body.get('sessionId')
+                session_key = normalize_optional_session_value(raw_session_key)
+                session_id = normalize_optional_session_value(raw_session_id)
                 webhook_url = str(body.get('webhookUrl', '')).strip() or None
                 webhook_token = str(body.get('webhookToken', '')).strip() or None
                 if not agent_id or not task_id or not prompt:
                     return response(self, 422, {'ok': False, 'error': {'message': 'agentId, taskId, and prompt are required.'}})
-                append_bridge_log('bridge.dispatch.request', agentId=agent_id, taskId=task_id, webhook=bool(webhook_url), promptPreview=prompt[:300])
-                dispatch = dispatch_openclaw(agent_id, task_id, prompt, webhook_url=webhook_url, webhook_token=webhook_token)
-                append_bridge_log('bridge.dispatch.accepted', agentId=agent_id, taskId=task_id, responseId=dispatch.get('responseId'), mode=dispatch.get('mode'), bridgePath=dispatch.get('bridgePath'))
+                if not session_key and not session_id:
+                    return response(self, 422, {'ok': False, 'error': {'message': 'sessionKey or sessionId is required for isolated Mission Control dispatch.'}})
+                append_bridge_log('bridge.dispatch.request', agentId=agent_id, taskId=task_id, rawSessionKey=raw_session_key, rawSessionId=raw_session_id, sessionKey=session_key, sessionId=session_id, dispatchMode=('session-id' if session_id else 'to'), webhook=bool(webhook_url), promptPreview=prompt[:300])
+                dispatch = dispatch_openclaw(agent_id, task_id, prompt, session_key=session_key, session_id=session_id, webhook_url=webhook_url, webhook_token=webhook_token)
+                append_bridge_log('bridge.dispatch.accepted', agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, responseId=dispatch.get('responseId'), mode=dispatch.get('mode'), bridgePath=dispatch.get('bridgePath'))
                 return response(self, 202, {'ok': True, 'accepted': True, 'result': dispatch})
             if self.path == '/workspace-dispatch':
                 workspace_id = str(body.get('workspaceId', '')).strip()
                 task_id = str(body.get('taskId', '')).strip()
                 prompt = str(body.get('prompt', '')).strip()
+                raw_session_key = body.get('sessionKey')
+                raw_session_id = body.get('sessionId')
+                session_key = normalize_optional_session_value(raw_session_key)
+                session_id = normalize_optional_session_value(raw_session_id)
                 webhook_url = str(body.get('webhookUrl', '')).strip() or None
                 webhook_token = str(body.get('webhookToken', '')).strip() or None
                 if not workspace_id or not task_id or not prompt:
                     return response(self, 422, {'ok': False, 'error': {'message': 'workspaceId, taskId, and prompt are required.'}})
+                if not session_key and not session_id:
+                    return response(self, 422, {'ok': False, 'error': {'message': 'sessionKey or sessionId is required for isolated Mission Control dispatch.'}})
                 agent_id = workspace_links.get(workspace_id)
                 if not agent_id:
                     return response(self, 404, {'ok': False, 'error': {'message': f'No linked agent for workspace: {workspace_id}'}})
-                append_bridge_log('bridge.workspace_dispatch.request', workspaceId=workspace_id, agentId=agent_id, taskId=task_id, webhook=bool(webhook_url))
-                dispatch = dispatch_openclaw(agent_id, task_id, prompt, webhook_url=webhook_url, webhook_token=webhook_token)
-                append_bridge_log('bridge.workspace_dispatch.accepted', workspaceId=workspace_id, agentId=agent_id, taskId=task_id, responseId=dispatch.get('responseId'), mode=dispatch.get('mode'), bridgePath=dispatch.get('bridgePath'))
+                append_bridge_log('bridge.workspace_dispatch.request', workspaceId=workspace_id, agentId=agent_id, taskId=task_id, rawSessionKey=raw_session_key, rawSessionId=raw_session_id, sessionKey=session_key, sessionId=session_id, dispatchMode=('session-id' if session_id else 'to'), webhook=bool(webhook_url))
+                dispatch = dispatch_openclaw(agent_id, task_id, prompt, session_key=session_key, session_id=session_id, webhook_url=webhook_url, webhook_token=webhook_token)
+                append_bridge_log('bridge.workspace_dispatch.accepted', workspaceId=workspace_id, agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, responseId=dispatch.get('responseId'), mode=dispatch.get('mode'), bridgePath=dispatch.get('bridgePath'))
                 return response(self, 202, {'ok': True, 'accepted': True, 'result': {'workspaceId': workspace_id, 'agentId': agent_id, 'response': dispatch}})
             return response(self, 404, {'ok': False, 'error': {'message': 'Not found'}})
         except HTTPError as e:

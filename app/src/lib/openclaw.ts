@@ -247,6 +247,8 @@ export async function dispatchOpenClawTaskRun(input: {
   taskId: string;
   workspaceId: string;
   message: string;
+  sessionKey: string;
+  sessionId?: string | null;
   webhookUrl?: string;
   webhookToken?: string;
 }) : Promise<OpenClawDispatchResult> {
@@ -262,6 +264,8 @@ export async function dispatchOpenClawTaskRun(input: {
       taskId: input.taskId,
       workspaceId: input.workspaceId,
       prompt: input.message,
+      sessionKey: input.sessionKey,
+      sessionId: input.sessionId,
       webhookUrl: input.webhookUrl,
       webhookToken: input.webhookToken,
       source: "mission-control"
