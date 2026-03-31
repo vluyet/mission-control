@@ -23,17 +23,9 @@ export default async function MyTasksPage({ searchParams }: { searchParams?: Pro
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Ownership"
+        eyebrow="Tasks"
         title="My Tasks"
-        description="A unified workspace for work assigned to you and autonomous work currently owned by agents. Filter by timing, status, tag, or layout to focus the day."
-      />
-
-      <MetricStrip
-        items={[
-          { label: "Open tasks", value: `${openItems.length}`, detail: "Across you and active agents", tone: "accent" },
-          { label: "Needs attention", value: `${items.filter((task) => task.status === "In Review" || task.status === "Blocked").length}`, detail: "Review or unblock decisions waiting on you", tone: items.some((task) => task.status === "In Review" || task.status === "Blocked") ? "warning" : "success" },
-          { label: "Agent runs", value: `${items.filter((task) => task.assigneeType === "Agent" && task.status === "In Progress").length}`, detail: "Currently active autonomous work", tone: "neutral" }
-        ]}
+        description="Your work queue across personal and agent-owned tasks."
       />
 
       <TaskViewToolbar basePath="/my-tasks" current={view} includeTags tagOptions={tagOptions} />
@@ -43,44 +35,24 @@ export default async function MyTasksPage({ searchParams }: { searchParams?: Pro
         <BoardGridInteractive
           columns={boardColumns}
           title="Visible work"
-          description="Group the currently visible tasks by status to spot bottlenecks and ownership at a glance."
+          description="Grouped by status."
         />
       ) : attentionItems.length ? (
-        <div className="grid gap-6 xl:grid-cols-[1.05fr_1.4fr]">
-          <FocusQueuePanel items={attentionItems} title="Needs your attention" />
-          <div className="space-y-6">
-            <TaskTable
-              items={reviewItems}
-              title="Needs review"
-              emptyTitle="Nothing needs review in this view"
-              emptyDescription="Review-ready work will surface here when the current filters include it."
-            />
-            <TaskTable
-              items={blockedItems}
-              title="Waiting on you"
-              emptyTitle="No blocked tasks in this view"
-              emptyDescription="Tasks that need human input or a clarifying decision will appear here."
-            />
-            <TaskTable
-              items={staleItems}
-              title="May be stalled"
-              emptyTitle="No stale agent runs in this view"
-              emptyDescription="Quiet agent work only surfaces here when the current filters still include it."
-            />
-            <TaskTable
-              items={remainingItems}
-              title="Everything else"
-              emptyTitle="Only attention items match this view"
-              emptyDescription="Adjust filters or switch to board view to inspect the rest of your workload."
-            />
-          </div>
+        <div className="space-y-6">
+          <FocusQueuePanel items={attentionItems} title="Needs attention" />
+          <TaskTable
+            items={visibleItems}
+            title="All visible tasks"
+            emptyTitle="Nothing matches this view"
+            emptyDescription="Adjust filters or switch to board view."
+          />
         </div>
       ) : (
         <TaskTable
           items={visibleItems}
           title="Visible work"
           emptyTitle="Nothing matches this view"
-          emptyDescription="Adjust filters or switch to board view to inspect the rest of your workload."
+          emptyDescription="Adjust filters or switch to board view."
         />
       )}
     </div>

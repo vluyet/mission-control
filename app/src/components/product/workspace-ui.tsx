@@ -85,13 +85,13 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
       <div>
         <p className="section-eyebrow">{eyebrow}</p>
-        <h1 className="mt-2 text-[clamp(1.9rem,3vw,3rem)] font-semibold tracking-[-0.05em] text-[var(--text-strong)]">
+        <h1 className="mt-1.5 text-[clamp(1.8rem,2.6vw,2.6rem)] font-semibold tracking-[-0.05em] text-[var(--text-strong)]">
           {title}
         </h1>
-        {description ? <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--text-muted)]">{description}</p> : null}
+        {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>
@@ -190,9 +190,8 @@ export function ProjectSnapshotPanel({
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-medium text-[var(--text-muted)]">
-                  {project.completionRate}
+                  {project.status}
                 </span>
-                <StatusBadge value={project.status === "On track" ? "Done" : project.status === "Needs review" ? "In Review" : "Blocked"} />
               </div>
             </Link>
           ))
@@ -220,35 +219,23 @@ export function ProjectGrid({ items }: { items: ProjectSummary[] }) {
         <Link key={project.slug} href={`/projects/${project.slug}`}>
           <Panel className="project-card p-5">
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="section-eyebrow">Project</p>
-                <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text-strong)]">{project.name}</h3>
-                <p className="mt-3 max-w-xl text-sm leading-7 text-[var(--text-muted)]">{project.description}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {project.lifecycle ? (
-                    <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-[var(--text-dim)]">
-                      {project.lifecycle}
-                    </span>
-                  ) : null}
-                  {project.visibility ? (
-                    <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-[var(--text-dim)]">
-                      {project.visibility}
-                    </span>
-                  ) : null}
-                </div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold tracking-[-0.03em] text-[var(--text-strong)]">{project.name}</h3>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--text-muted)]">{project.description}</p>
               </div>
-              <StatusBadge value={project.status === "On track" ? "Done" : project.status === "Needs review" ? "In Review" : "Blocked"} />
+              <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-medium text-[var(--text-muted)]">
+                {project.status}
+              </span>
             </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-5">
+            <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--text-dim)]">
+              {project.lifecycle ? <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-1">{project.lifecycle}</span> : null}
+              {project.visibility ? <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-1">{project.visibility}</span> : null}
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-4">
               <Stat label="Open" value={String(project.open)} />
               <Stat label="Review" value={String(project.review)} />
               <Stat label="Blocked" value={String(project.blocked)} />
-              <Stat label="Done" value={String(project.completed)} />
               <Stat label="Due" value={project.due} />
-            </div>
-            <div className="mt-4 flex items-center justify-between rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-3 text-sm">
-              <span className="text-[var(--text-muted)]">Completion progress</span>
-              <span className="font-semibold text-[var(--text-strong)]">{project.completionRate}</span>
             </div>
           </Panel>
         </Link>

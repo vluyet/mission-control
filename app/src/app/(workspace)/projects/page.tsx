@@ -21,16 +21,17 @@ export default async function ProjectsPage({
       <PageHeader
         eyebrow="Projects"
         title="Projects"
+        description="Active workspaces and their current task load."
         actions={
           <>
             <AppButton tone="secondary" href="/projects">
               Active
             </AppButton>
+            <AppButton tone="secondary" href="/projects?scope=all">
+              All
+            </AppButton>
             <AppButton tone="secondary" href="/projects?scope=archived">
               Archived
-            </AppButton>
-            <AppButton tone="secondary" href="/projects?scope=all">
-              All projects
             </AppButton>
             <AppButton tone="primary" href="/projects/new">
               New project

@@ -105,23 +105,9 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
   return (
     <div className="space-y-5">
-        <Panel className="overflow-hidden">
-          <PanelHeader
-            eyebrow="Guide"
-            title="What lives here"
-            description="Update workspace identity first, then move down into scope, OpenClaw, and credentials only when you need them."
-          />
-          <div className="flex flex-wrap gap-2 px-5 pb-5">
-            <a href="#workspace-settings" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Workspace settings</a>
-            <a href="#workspace-scope" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Scope & links</a>
-            <a href="#workspace-openclaw" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">OpenClaw connection</a>
-            <a href="#workspace-credentials" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Agent credentials</a>
-          </div>
-        </Panel>
-
         <div id="workspace-settings">
         <Panel className="overflow-hidden">
-          <PanelHeader eyebrow="General" title="Workspace settings" description="Keep the workspace small and understandable. Advanced controls are separated below." />
+          <PanelHeader eyebrow="Basics" title="Workspace settings" description="Name, visibility, and shared context." />
           <form onSubmit={handleSubmit} className="grid gap-5 px-5 py-5">
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr),220px]">
               <div>
@@ -172,72 +158,51 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
         </Panel>
         </div>
 
-        {workspace.assets.length ? <WorkspaceAssetsPanel assets={workspace.assets} /> : null}
-
         <div id="workspace-scope">
         <Panel className="overflow-hidden">
-          <PanelHeader eyebrow="Scope" title="Workspace scope" description="A quick read on workspace size, plus the related areas you are most likely to open next." />
-          <div className="grid gap-5 px-5 py-5 xl:grid-cols-[minmax(0,1fr),320px]">
-            <div className="space-y-3">
-              <div className="property-row">
-                <span>Projects</span>
-                <span>{workspace.projectCount}</span>
-              </div>
-              <div className="property-row">
-                <span>Members</span>
-                <span>{workspace.memberCount}</span>
-              </div>
-              <div className="property-row">
-                <span>Humans</span>
-                <span>{workspace.humanCount}</span>
-              </div>
-              <div className="property-row">
-                <span>Agents</span>
-                <span>{workspace.agentCount}</span>
-              </div>
-              <div className="property-row">
-                <span>Workspace files</span>
-                <span>{workspace.workspaceAssetCount}</span>
-              </div>
-              <div className="property-row">
-                <span>Task files</span>
-                <span>{workspace.attachmentCount}</span>
-              </div>
+          <PanelHeader eyebrow="Overview" title="Workspace scope" description="A compact snapshot of the current workspace." />
+          <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
+              <p className="section-eyebrow">Projects</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{workspace.projectCount}</p>
             </div>
-            <div className="rounded-3xl border border-[var(--line)] bg-[var(--surface-subtle)] p-4">
-              <p className="section-eyebrow">Open related areas</p>
-              <div className="mt-3 space-y-3">
-                <Link href="/members" className="quick-link">
-                  <span>Members</span>
-                  <span>Open</span>
-                </Link>
-                <Link href="/projects" className="quick-link">
-                  <span>Projects</span>
-                  <span>Open</span>
-                </Link>
-                <Link href="/queue" className="quick-link">
-                  <span>Agent queue</span>
-                  <span>Open</span>
-                </Link>
-              </div>
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
+              <p className="section-eyebrow">Members</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{workspace.memberCount}</p>
             </div>
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
+              <p className="section-eyebrow">Workspace files</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{workspace.workspaceAssetCount}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 px-5 pb-5">
+            <Link href="/members" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Members</Link>
+            <Link href="/projects" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Projects</Link>
+            <Link href="/queue" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Agent queue</Link>
           </div>
         </Panel>
         </div>
 
-        <div id="workspace-openclaw">
-          <WorkspaceOpenClawPanel integration={workspace.openclaw} />
-        </div>
+        {workspace.assets.length ? <WorkspaceAssetsPanel assets={workspace.assets} /> : null}
 
-        {(workspace.agentCredentials.length || workspace.authEvents.length) ? (
-          <div id="workspace-credentials">
-            <WorkspaceAgentCredentialsPanel
-              agents={workspace.agents}
-              credentials={workspace.agentCredentials}
-              authEvents={workspace.authEvents}
-            />
+        <Panel className="overflow-hidden">
+          <PanelHeader eyebrow="Advanced" title="Runtime and credentials" description="Only needed for OpenClaw integration and agent API access." />
+          <div className="space-y-5 px-5 py-5">
+            <div id="workspace-openclaw">
+              <WorkspaceOpenClawPanel integration={workspace.openclaw} />
+            </div>
+
+            {(workspace.agentCredentials.length || workspace.authEvents.length) ? (
+              <div id="workspace-credentials">
+                <WorkspaceAgentCredentialsPanel
+                  agents={workspace.agents}
+                  credentials={workspace.agentCredentials}
+                  authEvents={workspace.authEvents}
+                />
+              </div>
+            ) : null}
           </div>
-        ) : null}
+        </Panel>
     </div>
   );
 }
