@@ -7,8 +7,8 @@ export async function signIn() {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      email: process.env.OWNER_EMAIL || "owner@northstar.lab",
-      password: process.env.OWNER_PASSWORD || "mission-control-local"
+      email: process.env.MC_OWNER_EMAIL || process.env.OWNER_EMAIL || "owner@northstar.lab",
+      password: process.env.MC_OWNER_PASSWORD || process.env.OWNER_PASSWORD || "mission-control-local"
     }),
     redirect: "manual"
   });

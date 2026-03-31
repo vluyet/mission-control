@@ -7,8 +7,6 @@ export type OpenClawAgentDescriptor = {
 export type OpenClawDispatchResult = {
   responseId: string | null;
   finalText: string | null;
-  sessionId: string | null;
-  sessionKey: string | null;
   accepted: boolean;
   raw: unknown;
 };
@@ -89,125 +87,106 @@ function normalizeAgent(value: unknown): OpenClawAgentDescriptor | null {
   };
 }
 
-export async function fetchOpenClawAgents(input: { baseUrl: string; gatewayToken: string }) {
-  const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const useConnector = baseUrl.includes("openclaw-connector") || /127\.0\.0\.1:18890$/.test(baseUrl) || /localhost:18890$/.test(baseUrl) || /host\.docker\.internal:18890$/.test(baseUrl) || /127\.0\.0\.1:18891$/.test(baseUrl) || /localhost:18891$/.test(baseUrl) || /192\.168\.90\.90:18891$/.test(baseUrl);
+function extractAgentList(value: unknown): unknown[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
 
-  function extractAgentList(value: unknown): unknown[] {
-    if (Array.isArray(value)) {
-      return value;
-    }
-
-    if (!value || typeof value !== "object") {
-      return [];
-    }
-
-    const record = value as Record<string, unknown>;
-
-    if (Array.isArray(record.agents)) {
-      return record.agents;
-    }
-
-    if (record.details && typeof record.details === "object" && Array.isArray((record.details as { agents?: unknown[] }).agents)) {
-      return (record.details as { agents: unknown[] }).agents;
-    }
-
-    if (Array.isArray(record.content)) {
-      for (const entry of record.content) {
-        if (entry && typeof entry === "object" && typeof (entry as { text?: unknown }).text === "string") {
-          try {
-            const parsed = JSON.parse((entry as { text: string }).text) as { agents?: unknown[] };
-            if (Array.isArray(parsed.agents)) {
-              return parsed.agents;
-            }
-          } catch {
-            // ignore text blocks that are not JSON
-          }
-        }
-      }
-    }
-
+  if (!value || typeof value !== "object") {
     return [];
   }
 
-  async function fetchJson(path: string, init: RequestInit) {
-    const response = await fetch(path, { ...init, cache: "no-store" });
-    const payload = (await response.json().catch(() => null)) as
-      | {
-          ok?: boolean;
-          result?: unknown;
-          error?: { message?: string };
+  const record = value as Record<string, unknown>;
+
+  if (Array.isArray(record.agents)) {
+    return record.agents;
+  }
+
+  if (record.details && typeof record.details === "object" && Array.isArray((record.details as { agents?: unknown[] }).agents)) {
+    return (record.details as { agents: unknown[] }).agents;
+  }
+
+  if (Array.isArray(record.content)) {
+    for (const entry of record.content) {
+      if (entry && typeof entry === "object" && typeof (entry as { text?: unknown }).text === "string") {
+        try {
+          const parsed = JSON.parse((entry as { text: string }).text) as { agents?: unknown[] };
+          if (Array.isArray(parsed.agents)) {
+            return parsed.agents;
+          }
+        } catch {
+          // ignore text blocks that are not JSON
         }
-      | null;
-
-    return { response, payload };
-  }
-
-  if (useConnector) {
-    const { response, payload } = await fetchJson(`${baseUrl}/agents`, {
-      method: "GET",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${input.gatewayToken}`
       }
-    });
-
-    if (!response.ok || payload?.ok === false) {
-      const detail = payload?.error?.message || `OpenClaw request failed with status ${response.status}.`;
-      throw new Error(detail);
     }
-
-    return extractAgentList(payload?.result).map(normalizeAgent).filter((agent): agent is OpenClawAgentDescriptor => Boolean(agent));
   }
 
+  return [];
+}
+
+async function fetchJson(path: string, init: RequestInit) {
+  const response = await fetch(path, { ...init, cache: "no-store" });
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        ok?: boolean;
+        result?: unknown;
+        error?: { message?: string };
+      }
+    | null;
+
+  return { response, payload };
+}
+
+function assertBridgeResponse(
+  response: Response,
+  payload:
+    | {
+        ok?: boolean;
+        result?: unknown;
+        error?: { message?: string };
+      }
+    | null
+) {
+  if (!response.ok || payload?.ok === false) {
+    const detail = payload?.error?.message || `OpenClaw bridge request failed with status ${response.status}.`;
+    throw new Error(detail);
+  }
+}
+
+export async function fetchOpenClawAgents(input: { baseUrl: string; gatewayToken: string }) {
+  const baseUrl = normalizeBaseUrl(input.baseUrl);
   const headers = {
     "content-type": "application/json",
     authorization: `Bearer ${input.gatewayToken}`
   };
 
-  const agentsResult = await fetchJson(`${baseUrl}/tools/invoke`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ tool: "agents_list", args: {} })
-  });
+  try {
+    const { response, payload } = await fetchJson(`${baseUrl}/agents`, {
+      method: "GET",
+      headers
+    });
 
-  if (agentsResult.response.ok && agentsResult.payload?.ok !== false) {
-    const directAgents = extractAgentList(agentsResult.payload?.result)
+    assertBridgeResponse(response, payload);
+
+    return extractAgentList(payload?.result)
       .map(normalizeAgent)
       .filter((agent): agent is OpenClawAgentDescriptor => Boolean(agent));
+  } catch (error) {
+    const { response, payload } = await fetchJson(`${baseUrl}/tools/invoke`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ tool: "agents_list", args: {} })
+    });
 
-    if (directAgents.length > 0) {
-      return directAgents;
+    if (!response.ok || payload?.ok === false) {
+      throw error;
     }
+
+    return extractAgentList(payload?.result)
+      .map(normalizeAgent)
+      .filter((agent): agent is OpenClawAgentDescriptor => Boolean(agent));
   }
-
-  const sessionsResult = await fetchJson(`${baseUrl}/tools/invoke`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ tool: "sessions_list", args: {} })
-  });
-
-  if (!sessionsResult.response.ok || sessionsResult.payload?.ok === false) {
-    const detail = sessionsResult.payload?.error?.message || `OpenClaw request failed with status ${sessionsResult.response.status}.`;
-    throw new Error(detail);
-  }
-
-  const sessionRecord = sessionsResult.payload?.result;
-  const sessions = sessionRecord && typeof sessionRecord === "object" && Array.isArray((sessionRecord as { sessions?: unknown[] }).sessions)
-    ? (sessionRecord as { sessions: unknown[] }).sessions
-    : [];
-
-  const agentIds = Array.from(
-    new Set(
-      sessions
-        .map((entry) => (entry && typeof entry === "object" ? parseAgentIdFromSessionKey((entry as Record<string, unknown>).key) : null))
-        .filter((value): value is string => Boolean(value))
-    )
-  );
-
-  return agentIds.map((id) => ({ id, name: guessNameFromId(id), capabilities: ["derived:sessions_list"] }));
 }
-
 
 function extractTextFromPayload(value: unknown): string | null {
   if (typeof value === "string") {
@@ -268,95 +247,42 @@ export async function dispatchOpenClawTaskRun(input: {
   taskId: string;
   workspaceId: string;
   message: string;
-  sessionId?: string | null;
-  sessionKey?: string | null;
   webhookUrl?: string;
   webhookToken?: string;
-}): Promise<OpenClawDispatchResult> {
+}) : Promise<OpenClawDispatchResult> {
   const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const useConnector =
-    baseUrl.includes("openclaw-connector") ||
-    /127\.0\.0\.1:18890$/.test(baseUrl) ||
-    /localhost:18890$/.test(baseUrl) ||
-    /host\.docker\.internal:18890$/.test(baseUrl) ||
-    /127\.0\.0\.1:18891$/.test(baseUrl) ||
-    /localhost:18891$/.test(baseUrl) ||
-    /192\.168\.90\.90:18891$/.test(baseUrl);
-
-  const targetUrl = useConnector ? `${baseUrl}/dispatch` : `${baseUrl}/hooks/agent`;
-  const headers = {
-    "content-type": "application/json",
-    authorization: `Bearer ${input.hookToken ?? input.gatewayToken}`
-  };
-
-  const response = await fetch(targetUrl, {
+  const { response, payload } = await fetchJson(`${baseUrl}/dispatch`, {
     method: "POST",
-    headers,
-    body: JSON.stringify(
-      useConnector
-        ? {
-            agentId: input.agentId,
-            taskId: input.taskId,
-            prompt: input.message,
-            webhookUrl: input.webhookUrl,
-            webhookToken: input.webhookToken
-          }
-        : {
-            agentId: input.agentId,
-            message: input.message,
-          sessionId: input.sessionId ?? undefined,
-          sessionKey: input.sessionKey ?? undefined,
-            wakeMode: "now",
-            deliver: false,
-            thinking: "medium",
-            timeoutSeconds: 120,
-            webhookUrl: input.webhookUrl,
-            webhookToken: input.webhookToken
-          }
-    ),
-    cache: "no-store"
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${input.gatewayToken}`
+    },
+    body: JSON.stringify({
+      agentId: input.agentId,
+      taskId: input.taskId,
+      workspaceId: input.workspaceId,
+      prompt: input.message,
+      webhookUrl: input.webhookUrl,
+      webhookToken: input.webhookToken,
+      source: "mission-control"
+    })
   });
 
-  const payload = (await response.json().catch(() => null)) as
-    | {
-        id?: string;
-        runId?: string;
-        sessionId?: string;
-        sessionKey?: string;
-        accepted?: boolean;
-        result?: unknown;
-        error?: { message?: string };
-        ok?: boolean;
-      }
-    | null;
+  assertBridgeResponse(response, payload);
 
-  if (!response.ok || payload?.ok === false) {
-    const payloadPreview = payload ? JSON.stringify(payload).slice(0, 800) : "null";
-    throw new Error((payload?.error?.message || `OpenClaw dispatch failed with status ${response.status}.`) + ` [status=${response.status} payload=${payloadPreview}]`);
-  }
-
-  const resultPayload = useConnector && payload && typeof payload === "object" ? payload.result ?? payload : payload?.result ?? payload;
+  const result = payload?.result as Record<string, unknown> | undefined;
+  const dispatchPayload = (result?.response ?? result ?? payload) as Record<string, unknown>;
   const responseId =
-    payload?.id ??
-    payload?.runId ??
-    ((resultPayload as { id?: string; responseId?: string; runId?: string } | undefined)?.responseId ??
-      (resultPayload as { id?: string; responseId?: string; runId?: string } | undefined)?.runId ??
-      (resultPayload as { id?: string } | undefined)?.id ??
-      null);
-  const sessionId =
-    payload?.sessionId ??
-    ((resultPayload as { sessionId?: string } | undefined)?.sessionId ?? null);
-  const sessionKey =
-    payload?.sessionKey ??
-    ((resultPayload as { sessionKey?: string } | undefined)?.sessionKey ?? null);
-  const finalText = extractTextFromPayload(resultPayload);
+    (typeof dispatchPayload.responseId === "string" && dispatchPayload.responseId) ||
+    (typeof dispatchPayload.runId === "string" && dispatchPayload.runId) ||
+    (typeof dispatchPayload.id === "string" && dispatchPayload.id) ||
+    null;
+  const finalText = extractTextFromPayload(dispatchPayload);
 
   return {
     responseId,
     finalText,
-    sessionId,
-    sessionKey,
-    accepted: payload?.accepted ?? true,
+    accepted: true,
     raw: payload
   };
 }
