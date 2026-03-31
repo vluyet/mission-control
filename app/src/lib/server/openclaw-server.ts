@@ -220,7 +220,7 @@ function normalizeOpenClawWebhookPayload(payload: unknown) {
     extractOpenClawWebhookText(data?.output ?? null) ||
     extractOpenClawWebhookText(data?.response ?? null) ||
     extractOpenClawWebhookText(record.result ?? null) ||
-    extractOpenClawWebhookText(payload);
+    null;
 
   return {
     event,
@@ -238,7 +238,7 @@ function looksLikeChattyAgentReply(value: string) {
   const patterns = [
     /^here'?s /i,
     /^certainly[,.!\s]/i,
-    /^i (can|will|have|did|found|noticed)\b/i,
+    /^i (can|will|have|did|found|noticed|am|m)\b/i,
     /^based on /i,
     /^to do this/i,
     /^the issue is/i,
@@ -248,10 +248,22 @@ function looksLikeChattyAgentReply(value: string) {
     /^this is /i,
     /^thanks/i,
     /^bridge /i,
+    /^understood[,.!\s]/i,
+    /^good news[,:!\s]/i,
+    /^update[,:!\s]/i,
+    /^current status[,:!\s]/i,
     /tool(s)? available/i,
     /contract/i,
     /endpoint inventory/i,
-    /workflow per task/i
+    /workflow per task/i,
+    /checking the bridge logs/i,
+    /checking the .*logs/i,
+    /inspect(ing)? the logs/i,
+    /monitor(ing)? (the )?task/i,
+    /dispatch (mode|path)/i,
+    /webhook (success|failure|failed|succeeded)/i,
+    /visible chat/i,
+    /openclaw control/i
   ];
 
   return patterns.some((pattern) => pattern.test(text)) || text.length > 900;
@@ -513,47 +525,11 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
       { membershipId: assignee.id, label: assignee.name }
     );
 
-    let commentId: string | null = null;
     if (dispatch.finalText) {
-      const finalComment = normalizeTaskAppFinalComment(dispatch.finalText);
-
-      if (finalComment) {
-        const comment = await createCommentInDb(task.id, {
-          author: assignee.name,
-          role: "Agent",
-          tone: "agent",
-          body: finalComment,
-          membershipId: assignee.id
-        });
-
-        if (comment && "error" in comment) {
-          return { error: "OPENCLAW_COMMENT_WRITE_FAILED", message: "OpenClaw returned a response, but Mission Control could not post it as an agent comment." } as const;
-        }
-
-        if (comment && !("error" in comment)) {
-          commentId = comment.id;
-          await db.task.update({ where: { id: task.id }, data: { status: "review", blockedReason: null } });
-          const latestExecution = await db.taskExecution.findFirst({
-            where: { taskId: task.id },
-            orderBy: { createdAt: "desc" }
-          });
-          if (latestExecution) {
-            await db.taskExecution.update({
-              where: { id: latestExecution.id },
-              data: { status: "done", summary: `Completed by OpenClaw sync response for ${assignee.name}.` }
-            });
-          }
-          await appendExecutionLogInDb(task.id, `AGENT_FINISHED_TASK agent=${assignee.name}`, {
-            membershipId: assignee.id,
-            label: assignee.name
-          });
-        }
-      } else {
-        await appendExecutionLogInDb(task.id, `AGENT_SYNC_TEXT_REJECTED agent=${assignee.name} responseId=${dispatch.responseId ?? "none"}`, {
-          membershipId: assignee.id,
-          label: assignee.name
-        });
-      }
+      await appendExecutionLogInDb(task.id, `OPENCLAW_TRANSPORT_TEXT_IGNORED agent=${assignee.name} responseId=${dispatch.responseId ?? "none"}`, {
+        membershipId: assignee.id,
+        label: assignee.name
+      });
     }
 
     const eventType = options?.triggerCommentBody ? "openclaw.task_redispatched_from_comment" : "openclaw.task_dispatched";
@@ -577,7 +553,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
       sessionKey: normalizedSessionKey,
       sessionId: normalizedSessionId,
       accepted: dispatch.accepted,
-      commentId
+      commentId: null
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "OpenClaw task dispatch failed.";
@@ -748,7 +724,14 @@ export async function handleOpenClawTaskWebhookInDb(taskId: string, payload: unk
   }
 
   if (!finalText) {
-    return { error: "NO_FINAL_TEXT" } as const;
+    await appendExecutionLogInDb(task.id, `AGENT_WEBHOOK_COMPLETED_WITHOUT_FINAL_TEXT agent=${task.assignee.name}`, {
+      membershipId: task.assignee.id,
+      label: task.assignee.name
+    });
+    return {
+      ok: true as const,
+      completedWithoutFinalText: true as const
+    };
   }
 
   const finalComment = normalizeTaskAppFinalComment(finalText);
@@ -763,18 +746,10 @@ export async function handleOpenClawTaskWebhookInDb(taskId: string, payload: unk
     };
   }
 
-  const comment = await createCommentInDb(task.id, {
-    author: task.assignee.name,
-    role: "Agent",
-    tone: "agent",
-    body: finalComment,
-    membershipId: task.assignee.id
+  await appendExecutionLogInDb(task.id, `AGENT_WEBHOOK_TRANSPORT_TEXT_IGNORED agent=${task.assignee.name}`, {
+    membershipId: task.assignee.id,
+    label: task.assignee.name
   });
-
-  if (comment && "error" in comment) {
-    return { error: "OPENCLAW_COMMENT_WRITE_FAILED" } as const;
-  }
-
   await db.task.update({ where: { id: task.id }, data: { status: "review" } });
   await appendExecutionLogInDb(task.id, `AGENT_FINISHED_TASK agent=${task.assignee.name}`, {
     membershipId: task.assignee.id,
@@ -783,6 +758,6 @@ export async function handleOpenClawTaskWebhookInDb(taskId: string, payload: unk
 
   return {
     ok: true as const,
-    commentId: comment && !("error" in comment) ? comment.id : null
+    ignoredFinalText: true as const
   };
 }

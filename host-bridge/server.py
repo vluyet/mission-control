@@ -90,21 +90,37 @@ def extract_text(value):
     return None
 
 
+def normalize_optional_session_value(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.lower() in {'none', 'null', 'undefined'}:
+        return None
+    return text
+
+
 def dispatch_openclaw(agent_id, task_id, prompt, session_key=None, session_id=None, webhook_url=None, webhook_token=None):
-    if session_id:
+    normalized_session_key = normalize_optional_session_value(session_key)
+    normalized_session_id = normalize_optional_session_value(session_id)
+
+    if normalized_session_id:
+        dispatch_mode = 'session-id'
         cmd = [
             'openclaw', 'agent',
             '--agent', agent_id,
-            '--session-id', session_id,
+            '--session-id', normalized_session_id,
             '--message', prompt,
             '--json',
             '--timeout', '120'
         ]
-    elif session_key:
+    elif normalized_session_key:
+        dispatch_mode = 'to'
         cmd = [
             'openclaw', 'agent',
             '--agent', agent_id,
-            '--to', session_key,
+            '--to', normalized_session_key,
             '--message', prompt,
             '--json',
             '--timeout', '120'
@@ -117,8 +133,9 @@ def dispatch_openclaw(agent_id, task_id, prompt, session_key=None, session_id=No
             'openclaw.cli_dispatch',
             agentId=agent_id,
             taskId=task_id,
-            sessionKey=session_key,
-            sessionId=session_id,
+            sessionKey=normalized_session_key,
+            sessionId=normalized_session_id,
+            dispatchMode=dispatch_mode,
             webhook=bool(webhook_url),
             command=' '.join(cmd)
         )
@@ -127,13 +144,13 @@ def dispatch_openclaw(agent_id, task_id, prompt, session_key=None, session_id=No
         stderr = (exc.stderr or '').strip()
         stdout = (exc.stdout or '').strip()
         message = stderr or stdout or 'OpenClaw dispatch failed.'
-        append_bridge_log('openclaw.error', mode='cli', agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, message=message)
+        append_bridge_log('openclaw.error', mode='cli', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, message=message)
         raise RuntimeError(message)
 
     raw = (result.stdout or '').strip()
     start = raw.find('{')
     if start < 0:
-        append_bridge_log('openclaw.error', mode='cli', agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, message='openclaw agent returned no JSON payload')
+        append_bridge_log('openclaw.error', mode='cli', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, message='openclaw agent returned no JSON payload')
         raise RuntimeError('openclaw agent returned no JSON payload')
 
     payload = json.loads(raw[start:])
@@ -155,8 +172,8 @@ def dispatch_openclaw(agent_id, task_id, prompt, session_key=None, session_id=No
             'status': 'completed',
             'taskId': task_id,
             'agentId': agent_id,
-            'sessionKey': session_key,
-            'sessionId': session_id,
+            'sessionKey': normalized_session_key,
+            'sessionId': normalized_session_id,
             'resultText': final_text,
             'responseId': response_id,
             'bridgePath': 'cli-session-targeted'
@@ -168,21 +185,22 @@ def dispatch_openclaw(agent_id, task_id, prompt, session_key=None, session_id=No
             req = Request(webhook_url, data=json.dumps(callback_payload).encode('utf-8'), headers=headers, method='POST')
             with urlopen(req, timeout=20) as resp:
                 resp.read()
-            append_bridge_log('openclaw.webhook.sent', agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, responseId=response_id)
+            append_bridge_log('openclaw.webhook.sent', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, responseId=response_id)
         except HTTPError as e:
-            append_bridge_log('openclaw.webhook.error', agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, status=e.code)
+            append_bridge_log('openclaw.webhook.error', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, status=e.code)
             raise RuntimeError(f'Mission Control webhook failed ({e.code})')
         except URLError as e:
-            append_bridge_log('openclaw.webhook.error', agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, message=str(e.reason))
+            append_bridge_log('openclaw.webhook.error', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, message=str(e.reason))
             raise RuntimeError(f'Mission Control webhook failed: {e.reason}')
 
-    append_bridge_log('openclaw.response', mode='cli', agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, responseId=response_id, hasFinalText=bool(final_text))
+    append_bridge_log('openclaw.response', mode='cli', agentId=agent_id, taskId=task_id, sessionKey=normalized_session_key, sessionId=normalized_session_id, dispatchMode=dispatch_mode, responseId=response_id, hasFinalText=bool(final_text))
     return {
         'accepted': True,
         'responseId': response_id,
         'finalText': final_text,
         'mode': 'async' if webhook_url else ('async' if not final_text else 'sync'),
         'bridgePath': 'cli-session-targeted',
+        'dispatchMode': dispatch_mode,
         'raw': payload
     }
 
@@ -349,15 +367,17 @@ class Handler(BaseHTTPRequestHandler):
                 agent_id = str(body.get('agentId', '')).strip()
                 task_id = str(body.get('taskId', '')).strip()
                 prompt = str(body.get('prompt', '')).strip()
-                session_key = str(body.get('sessionKey', '')).strip() or None
-                session_id = str(body.get('sessionId', '')).strip() or None
+                raw_session_key = body.get('sessionKey')
+                raw_session_id = body.get('sessionId')
+                session_key = normalize_optional_session_value(raw_session_key)
+                session_id = normalize_optional_session_value(raw_session_id)
                 webhook_url = str(body.get('webhookUrl', '')).strip() or None
                 webhook_token = str(body.get('webhookToken', '')).strip() or None
                 if not agent_id or not task_id or not prompt:
                     return response(self, 422, {'ok': False, 'error': {'message': 'agentId, taskId, and prompt are required.'}})
                 if not session_key and not session_id:
                     return response(self, 422, {'ok': False, 'error': {'message': 'sessionKey or sessionId is required for isolated Mission Control dispatch.'}})
-                append_bridge_log('bridge.dispatch.request', agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, webhook=bool(webhook_url), promptPreview=prompt[:300])
+                append_bridge_log('bridge.dispatch.request', agentId=agent_id, taskId=task_id, rawSessionKey=raw_session_key, rawSessionId=raw_session_id, sessionKey=session_key, sessionId=session_id, dispatchMode=('session-id' if session_id else 'to'), webhook=bool(webhook_url), promptPreview=prompt[:300])
                 dispatch = dispatch_openclaw(agent_id, task_id, prompt, session_key=session_key, session_id=session_id, webhook_url=webhook_url, webhook_token=webhook_token)
                 append_bridge_log('bridge.dispatch.accepted', agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, responseId=dispatch.get('responseId'), mode=dispatch.get('mode'), bridgePath=dispatch.get('bridgePath'))
                 return response(self, 202, {'ok': True, 'accepted': True, 'result': dispatch})
@@ -365,8 +385,10 @@ class Handler(BaseHTTPRequestHandler):
                 workspace_id = str(body.get('workspaceId', '')).strip()
                 task_id = str(body.get('taskId', '')).strip()
                 prompt = str(body.get('prompt', '')).strip()
-                session_key = str(body.get('sessionKey', '')).strip() or None
-                session_id = str(body.get('sessionId', '')).strip() or None
+                raw_session_key = body.get('sessionKey')
+                raw_session_id = body.get('sessionId')
+                session_key = normalize_optional_session_value(raw_session_key)
+                session_id = normalize_optional_session_value(raw_session_id)
                 webhook_url = str(body.get('webhookUrl', '')).strip() or None
                 webhook_token = str(body.get('webhookToken', '')).strip() or None
                 if not workspace_id or not task_id or not prompt:
@@ -376,7 +398,7 @@ class Handler(BaseHTTPRequestHandler):
                 agent_id = workspace_links.get(workspace_id)
                 if not agent_id:
                     return response(self, 404, {'ok': False, 'error': {'message': f'No linked agent for workspace: {workspace_id}'}})
-                append_bridge_log('bridge.workspace_dispatch.request', workspaceId=workspace_id, agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, webhook=bool(webhook_url))
+                append_bridge_log('bridge.workspace_dispatch.request', workspaceId=workspace_id, agentId=agent_id, taskId=task_id, rawSessionKey=raw_session_key, rawSessionId=raw_session_id, sessionKey=session_key, sessionId=session_id, dispatchMode=('session-id' if session_id else 'to'), webhook=bool(webhook_url))
                 dispatch = dispatch_openclaw(agent_id, task_id, prompt, session_key=session_key, session_id=session_id, webhook_url=webhook_url, webhook_token=webhook_token)
                 append_bridge_log('bridge.workspace_dispatch.accepted', workspaceId=workspace_id, agentId=agent_id, taskId=task_id, sessionKey=session_key, sessionId=session_id, responseId=dispatch.get('responseId'), mode=dispatch.get('mode'), bridgePath=dispatch.get('bridgePath'))
                 return response(self, 202, {'ok': True, 'accepted': True, 'result': {'workspaceId': workspace_id, 'agentId': agent_id, 'response': dispatch}})
