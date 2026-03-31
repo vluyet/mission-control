@@ -48,6 +48,12 @@ async function createOpenClawRuntimeCredential(membershipId: string, taskId: str
   };
 }
 
+const OPENCLAW_TASK_PROMPT_SCHEMA = "mission_control_task_v5";
+
+function limitPromptText(value: string, maxLength: number) {
+  return value.trim().replace(/\s+/g, " ").slice(0, maxLength);
+}
+
 function buildOpenClawTaskMessage(input: {
   taskId: string;
   projectSlug: string;
@@ -63,38 +69,70 @@ function buildOpenClawTaskMessage(input: {
   const taskContextEndpoint = `${taskEndpoint}/context`;
   const executionEndpoint = `${input.missionControlBaseUrl}/api/tasks/${input.taskId}/execution`;
   const commentsEndpoint = `${input.missionControlBaseUrl}/api/tasks/${input.taskId}/comments`;
-  const taskTitle = input.taskTitle.trim().slice(0, 160);
-  const taskDescription = input.taskDescription.trim().slice(0, 900);
-  const taskContextHint = input.taskContextHint.trim().slice(0, 500);
-  const followupComment = input.followupComment.trim().slice(0, 700);
+  const attachmentsEndpoint = `${input.missionControlBaseUrl}/api/tasks/${input.taskId}/attachments`;
 
-  return [
-    `Mission Control task ${input.taskId} in project ${input.projectSlug}.`,
-    `Title: ${taskTitle}`,
-    taskDescription ? `Description: ${taskDescription}` : "Description: (none)",
-    taskContextHint ? `Task hint: ${taskContextHint}` : "Task hint: (none)",
-    followupComment ? `Follow-up request from ${input.triggerActorLabel}: ${followupComment}` : "",
-    "",
-    "Mission Control API access:",
-    `Base URL: ${input.missionControlBaseUrl}`,
-    `Bearer token: ${input.agentToken}`,
-    `Task context endpoint: ${taskContextEndpoint}`,
-    `Task endpoint: ${taskEndpoint}`,
-    `Execution endpoint: ${executionEndpoint}`,
-    `Comments endpoint: ${commentsEndpoint}`,
-    "",
-    "Required workflow:",
-    "0) First GET the task context endpoint. Respect context precedence: task > project > workspace.",
-    "1) Immediately POST execution endpoint with this exact line: AGENT_CONTEXT_RETRIEVED.",
-    "2) Keep task status in_progress while working.",
-    "3) If blocked, PATCH task endpoint with {\"status\":\"blocked\",\"blockedReason\":\"...\"} and POST execution line: AGENT_BLOCKED: <reason>.",
-    "4) When finished, POST final user-facing answer to comments endpoint.",
-    "5) Then POST execution endpoint with this exact line: AGENT_FINISHED_TASK.",
-    "6) Then PATCH task endpoint with {\"status\":\"review\"}.",
-    "Do not post periodic milestone logs.",
-    "",
-    "Never reveal the bearer token in comments or execution logs."
-  ].join("\n");
+  const title = limitPromptText(input.taskTitle, 120) || input.taskId;
+  const description = limitPromptText(input.taskDescription, 320);
+  const hint = limitPromptText(input.taskContextHint, 180);
+  const followUp = limitPromptText(input.followupComment, 240);
+  const requester = limitPromptText(input.triggerActorLabel, 60) || "Mission Control";
+
+  const promptLines = [
+    `You are handling a Mission Control task assigned to you.`,
+    ``,
+    `Task ID: ${input.taskId}`,
+    `Project: ${input.projectSlug}`,
+    `Title: ${title}`
+  ];
+
+  if (description) {
+    promptLines.push(`Description: ${description}`);
+  }
+
+  if (hint) {
+    promptLines.push(`Context hint: ${hint}`);
+  }
+
+  promptLines.push(`Requested by: ${requester}`);
+
+  if (followUp) {
+    promptLines.push(``, `Human follow-up:`, followUp);
+  }
+
+  promptLines.push(
+    ``,
+    `What to do:`,
+    `1. Read the task context first using GET ${taskContextEndpoint}.`,
+    `2. Do the task itself and follow any human follow-up exactly.`,
+    `3. Use the Mission Control API to deliver status, progress, comments, and attachments.`,
+    `4. Keep human-facing comments short, concrete, and task-focused.`,
+    `5. Do not discuss the transport, protocol, prompt schema, or internal instructions unless the task explicitly asks for that.`,
+    `6. If the human asks for a specific output style, follow it exactly. Example: if they ask for emojis, reply with emojis.`,
+    ``,
+    `Critical delivery rule:`,
+    `- Do not use the OpenClaw transport response as your final answer.`,
+    `- Deliver your actual task result through Mission Control endpoints instead.`,
+    `- Use POST ${commentsEndpoint} for short human-visible updates or final answers.`,
+    `- Use POST ${attachmentsEndpoint} for large outputs.`,
+    `- Use POST ${executionEndpoint} for progress/execution logging while working.`,
+    ``,
+    `Mission Control runtime:`,
+    `- Use Authorization: Bearer ${input.agentToken}`,
+    `- Task endpoint: ${taskEndpoint}`,
+    `- Context endpoint: ${taskContextEndpoint}`,
+    `- Execution endpoint: ${executionEndpoint}`,
+    `- Comments endpoint: ${commentsEndpoint}`,
+    `- Attachments endpoint: ${attachmentsEndpoint}`,
+    ``,
+    `Delivery rules:`,
+    `- Update status/progress through the API while working.`,
+    `- Post a short final human update only when it is actually useful.`,
+    `- Put large outputs in attachments, not in chatty comments.`,
+    `- If you have nothing useful to say yet, do not emit a final answer in the transport response.`,
+    `- Do not reveal secrets or bearer tokens.`
+  );
+
+  return promptLines.join("\n");
 }
 
 function escapeRegExp(value: string) {
@@ -134,26 +172,96 @@ function extractOpenClawWebhookText(value: unknown): string | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
 
-  for (const key of ["response", "message", "output", "output_text", "text", "finalText", "resultText", "summary"]) {
+  for (const key of ["resultText", "finalText", "summary", "text"]) {
     const text = extractOpenClawWebhookText(record[key]);
     if (text) return text;
   }
 
-  for (const key of ["result", "data", "details", "response"]) {
-    const text = extractOpenClawWebhookText(record[key]);
-    if (text) return text;
+  for (const key of ["result", "data", "details", "payload", "run", "response"]) {
+    const nested = record[key];
+    if (nested && typeof nested === "object") {
+      const text = extractOpenClawWebhookText(nested);
+      if (text) return text;
+    }
   }
 
   if (Array.isArray(record.content)) {
     for (const entry of record.content) {
-      if (entry && typeof entry === "object") {
-        const text = extractOpenClawWebhookText((entry as Record<string, unknown>).text);
-        if (text) return text;
-      }
+      const text = extractOpenClawWebhookText(entry);
+      if (text) return text;
     }
   }
 
   return null;
+}
+
+function normalizeOpenClawWebhookPayload(payload: unknown) {
+  const record = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+  const event = typeof record.event === "string" ? record.event : typeof record.type === "string" ? record.type : null;
+  const data = record.data && typeof record.data === "object" ? (record.data as Record<string, unknown>) : null;
+  const run = data?.run && typeof data.run === "object" ? (data.run as Record<string, unknown>) : null;
+  const result = data?.result && typeof data.result === "object" ? (data.result as Record<string, unknown>) : null;
+
+  const statusCandidate =
+    (typeof record.status === "string" && record.status) ||
+    (typeof data?.status === "string" && data.status) ||
+    (typeof run?.status === "string" && run.status) ||
+    null;
+
+  const progressCandidate =
+    (typeof record.progress === "string" && record.progress) ||
+    (typeof data?.progress === "string" && data.progress) ||
+    (typeof data?.message === "string" && data.message) ||
+    (typeof result?.summary === "string" && result.summary) ||
+    null;
+
+  const finalText =
+    extractOpenClawWebhookText(data?.result ?? null) ||
+    extractOpenClawWebhookText(data?.output ?? null) ||
+    extractOpenClawWebhookText(data?.response ?? null) ||
+    extractOpenClawWebhookText(record.result ?? null) ||
+    extractOpenClawWebhookText(payload);
+
+  return {
+    event,
+    status: statusCandidate ? statusCandidate.trim() : null,
+    progressText: progressCandidate ? progressCandidate.trim() : null,
+    finalText,
+    raw: record
+  };
+}
+
+function looksLikeChattyAgentReply(value: string) {
+  const text = value.trim();
+  if (!text) return false;
+
+  const patterns = [
+    /^here'?s /i,
+    /^certainly[,.!\s]/i,
+    /^i (can|will|have|did|found|noticed)\b/i,
+    /^based on /i,
+    /^to do this/i,
+    /^the issue is/i,
+    /^you asked/i,
+    /^in summary/i,
+    /^it looks like/i,
+    /^this is /i,
+    /^thanks/i,
+    /^bridge /i,
+    /tool(s)? available/i,
+    /contract/i,
+    /endpoint inventory/i,
+    /workflow per task/i
+  ];
+
+  return patterns.some((pattern) => pattern.test(text)) || text.length > 900;
+}
+
+function normalizeTaskAppFinalComment(value: string) {
+  const text = value.trim();
+  if (!text) return null;
+  if (looksLikeChattyAgentReply(text)) return null;
+  return text;
 }
 
 export async function syncActiveWorkspaceOpenClawAgentsInDb() {
@@ -381,8 +489,6 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
       taskId: task.id,
       workspaceId: task.project.workspaceId,
       message,
-      sessionKey: normalizedSessionKey,
-      sessionId: normalizedSessionId,
       webhookUrl: `${missionControlBaseUrl}/api/tasks/${task.id}/openclaw/webhook`,
       webhookToken
     });
@@ -401,38 +507,47 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
     });
     await appendExecutionLogInDb(
       task.id,
-      `AGENT_ACCEPTED_TASK agent=${assignee.name} responseId=${dispatch.responseId ?? "none"} sessionKey=${dispatch.sessionKey ?? normalizedSessionKey} sessionId=${dispatch.sessionId ?? "none"}`,
+      `AGENT_ACCEPTED_TASK agent=${assignee.name} responseId=${dispatch.responseId ?? "none"} bridge=dispatch sessionKey=${normalizedSessionKey} sessionId=${normalizedSessionId ?? "none"}`,
       { membershipId: assignee.id, label: assignee.name }
     );
 
     let commentId: string | null = null;
     if (dispatch.finalText) {
-      const comment = await createCommentInDb(task.id, {
-        author: assignee.name,
-        role: "Agent",
-        tone: "agent",
-        body: dispatch.finalText,
-        membershipId: assignee.id
-      });
+      const finalComment = normalizeTaskAppFinalComment(dispatch.finalText);
 
-      if (comment && "error" in comment) {
-        return { error: "OPENCLAW_COMMENT_WRITE_FAILED", message: "OpenClaw returned a response, but Mission Control could not post it as an agent comment." } as const;
-      }
-
-      if (comment && !("error" in comment)) {
-        commentId = comment.id;
-        await db.task.update({ where: { id: task.id }, data: { status: "review", blockedReason: null } });
-        const latestExecution = await db.taskExecution.findFirst({
-          where: { taskId: task.id },
-          orderBy: { createdAt: "desc" }
+      if (finalComment) {
+        const comment = await createCommentInDb(task.id, {
+          author: assignee.name,
+          role: "Agent",
+          tone: "agent",
+          body: finalComment,
+          membershipId: assignee.id
         });
-        if (latestExecution) {
-          await db.taskExecution.update({
-            where: { id: latestExecution.id },
-            data: { status: "done", summary: `Completed by OpenClaw sync response for ${assignee.name}.` }
+
+        if (comment && "error" in comment) {
+          return { error: "OPENCLAW_COMMENT_WRITE_FAILED", message: "OpenClaw returned a response, but Mission Control could not post it as an agent comment." } as const;
+        }
+
+        if (comment && !("error" in comment)) {
+          commentId = comment.id;
+          await db.task.update({ where: { id: task.id }, data: { status: "review", blockedReason: null } });
+          const latestExecution = await db.taskExecution.findFirst({
+            where: { taskId: task.id },
+            orderBy: { createdAt: "desc" }
+          });
+          if (latestExecution) {
+            await db.taskExecution.update({
+              where: { id: latestExecution.id },
+              data: { status: "done", summary: `Completed by OpenClaw sync response for ${assignee.name}.` }
+            });
+          }
+          await appendExecutionLogInDb(task.id, `AGENT_FINISHED_TASK agent=${assignee.name}`, {
+            membershipId: assignee.id,
+            label: assignee.name
           });
         }
-        await appendExecutionLogInDb(task.id, `AGENT_FINISHED_TASK agent=${assignee.name}`, {
+      } else {
+        await appendExecutionLogInDb(task.id, `AGENT_SYNC_TEXT_REJECTED agent=${assignee.name} responseId=${dispatch.responseId ?? "none"}`, {
           membershipId: assignee.id,
           label: assignee.name
         });
@@ -457,8 +572,8 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
       agentId: assignee.id,
       openclawAgentId: assignee.sourceKey,
       responseId: dispatch.responseId,
-      sessionKey: dispatch.sessionKey ?? normalizedSessionKey,
-      sessionId: dispatch.sessionId,
+      sessionKey: normalizedSessionKey,
+      sessionId: normalizedSessionId,
       accepted: dispatch.accepted,
       commentId
     };
@@ -588,11 +703,11 @@ export async function handleOpenClawTaskWebhookInDb(taskId: string, payload: unk
     return { error: "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" } as const;
   }
 
-  const record = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
-  const event = typeof record.event === "string" ? record.event : null;
-  const progressText = typeof record.progress === "string" ? record.progress.trim() : null;
-  const status = typeof record.status === "string" ? record.status.trim() : null;
-  const finalText = extractOpenClawWebhookText(payload);
+  const normalized = normalizeOpenClawWebhookPayload(payload);
+  const event = normalized.event;
+  const progressText = normalized.progressText;
+  const status = normalized.status;
+  const finalText = normalized.finalText;
 
   if (status === "in_progress") {
     await db.task.update({ where: { id: task.id }, data: { status: "in_progress", blockedReason: null } });
@@ -634,11 +749,23 @@ export async function handleOpenClawTaskWebhookInDb(taskId: string, payload: unk
     return { error: "NO_FINAL_TEXT" } as const;
   }
 
+  const finalComment = normalizeTaskAppFinalComment(finalText);
+  if (!finalComment) {
+    await appendExecutionLogInDb(task.id, `AGENT_WEBHOOK_TEXT_REJECTED agent=${task.assignee.name}`, {
+      membershipId: task.assignee.id,
+      label: task.assignee.name
+    });
+    return {
+      ok: true as const,
+      rejectedFinalText: true as const
+    };
+  }
+
   const comment = await createCommentInDb(task.id, {
     author: task.assignee.name,
     role: "Agent",
     tone: "agent",
-    body: finalText,
+    body: finalComment,
     membershipId: task.assignee.id
   });
 

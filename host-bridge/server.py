@@ -2,6 +2,7 @@
 import json
 import os
 import subprocess
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -10,7 +11,29 @@ PORT = int(os.environ.get('MC_OPENCLAW_BRIDGE_PORT', '18891'))
 OPENCLAW_BASE_URL = os.environ.get('OPENCLAW_BASE_URL', 'http://127.0.0.1:18789').rstrip('/')
 OPENCLAW_GATEWAY_TOKEN = os.environ.get('OPENCLAW_GATEWAY_TOKEN', '')
 OPENCLAW_HOOK_TOKEN = os.environ.get('OPENCLAW_HOOK_TOKEN', '').strip()
+BRIDGE_LOG_PATH = os.environ.get('MC_OPENCLAW_BRIDGE_LOG_PATH', '/tmp/mc-openclaw-bridge.log')
 workspace_links = {}
+
+
+def utc_now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def append_bridge_log(event_type, **fields):
+    entry = {
+        'ts': utc_now_iso(),
+        'event': event_type,
+        **fields
+    }
+    try:
+        log_dir = os.path.dirname(BRIDGE_LOG_PATH)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
+        with open(BRIDGE_LOG_PATH, 'a', encoding='utf-8') as handle:
+            handle.write(json.dumps(entry, ensure_ascii=False) + '\n')
+    except Exception:
+        pass
+
 
 def response(handler, status, payload):
     raw = json.dumps(payload).encode('utf-8')
@@ -20,10 +43,12 @@ def response(handler, status, payload):
     handler.end_headers()
     handler.wfile.write(raw)
 
+
 def parse_json(handler):
     length = int(handler.headers.get('Content-Length', '0') or '0')
     raw = handler.rfile.read(length) if length else b''
     return json.loads(raw.decode('utf-8')) if raw else {}
+
 
 def openclaw_request(path, payload=None, token=None):
     headers = {'Content-Type': 'application/json'}
@@ -34,6 +59,7 @@ def openclaw_request(path, payload=None, token=None):
     req = Request(f'{OPENCLAW_BASE_URL}{path}', data=data, headers=headers, method='POST' if payload is not None else 'GET')
     with urlopen(req, timeout=20) as resp:
         return json.loads(resp.read().decode('utf-8'))
+
 
 def extract_text(value):
     if isinstance(value, str):
@@ -63,6 +89,7 @@ def extract_text(value):
                         return text
     return None
 
+
 def dispatch_openclaw(agent_id, task_id, prompt, webhook_url=None, webhook_token=None):
     attempts = [
         ('/hooks/agent', {
@@ -86,6 +113,7 @@ def dispatch_openclaw(agent_id, task_id, prompt, webhook_url=None, webhook_token
 
     for path, payload, mode, token in attempts:
         try:
+            append_bridge_log('openclaw.request', path=path, mode=mode, agentId=agent_id, taskId=task_id, promptPreview=(prompt or '')[:300])
             result = openclaw_request(path, payload, token=token)
             result_payload = result.get('result') if mode == 'hook' and isinstance(result, dict) else result
             final_text = extract_text(result_payload)
@@ -98,11 +126,13 @@ def dispatch_openclaw(agent_id, task_id, prompt, webhook_url=None, webhook_token
             if not response_id and isinstance(result_payload, dict):
                 response_id = result_payload.get('responseId') or result_payload.get('runId') or result_payload.get('id') or ((result_payload.get('response') or {}).get('id') if isinstance(result_payload.get('response'), dict) else None)
 
+            append_bridge_log('openclaw.response', path=path, mode=mode, agentId=agent_id, taskId=task_id, responseId=response_id, hasFinalText=bool(final_text))
             return {
                 'accepted': True,
                 'responseId': response_id,
                 'finalText': final_text,
                 'mode': 'async' if not final_text else 'sync',
+                'bridgePath': path,
                 'raw': result
             }
         except HTTPError as e:
@@ -112,22 +142,29 @@ def dispatch_openclaw(agent_id, task_id, prompt, webhook_url=None, webhook_token
                     message = payload.get('error', {}).get('message') or f'OpenClaw request failed ({e.code})'
                 except Exception:
                     message = f'OpenClaw request failed ({e.code})'
+                append_bridge_log('openclaw.error', path=path, mode=mode, agentId=agent_id, taskId=task_id, status=e.code, message=message)
                 raise RuntimeError(message)
             last_error = f'OpenClaw request failed ({e.code})'
+            append_bridge_log('openclaw.retryable_error', path=path, mode=mode, agentId=agent_id, taskId=task_id, status=e.code)
         except URLError as e:
+            append_bridge_log('openclaw.error', path=path, mode=mode, agentId=agent_id, taskId=task_id, message=str(e.reason))
             raise RuntimeError(str(e.reason))
 
     cmd = ['openclaw', 'agent', '--agent', agent_id, '--message', prompt, '--json', '--timeout', '120']
     try:
+        append_bridge_log('openclaw.cli_fallback', agentId=agent_id, taskId=task_id, command=' '.join(cmd[:-1] + ['120']))
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=140, check=True)
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or '').strip()
         stdout = (exc.stdout or '').strip()
-        raise RuntimeError(stderr or stdout or last_error)
+        message = stderr or stdout or last_error
+        append_bridge_log('openclaw.error', mode='cli', agentId=agent_id, taskId=task_id, message=message)
+        raise RuntimeError(message)
 
     raw = (result.stdout or '').strip()
     start = raw.find('{')
     if start < 0:
+        append_bridge_log('openclaw.error', mode='cli', agentId=agent_id, taskId=task_id, message='openclaw agent returned no JSON payload')
         raise RuntimeError('openclaw agent returned no JSON payload')
 
     payload = json.loads(raw[start:])
@@ -143,13 +180,16 @@ def dispatch_openclaw(agent_id, task_id, prompt, webhook_url=None, webhook_token
             if isinstance(agent_meta, dict):
                 response_id = agent_meta.get('sessionId')
 
+    append_bridge_log('openclaw.response', mode='cli', agentId=agent_id, taskId=task_id, responseId=response_id, hasFinalText=bool(final_text))
     return {
         'accepted': True,
         'responseId': response_id,
         'finalText': final_text,
         'mode': 'async' if not final_text else 'sync',
+        'bridgePath': 'cli-fallback',
         'raw': payload
     }
+
 
 def extract_agent_ids(result):
     if isinstance(result, list):
@@ -193,6 +233,7 @@ def extract_agent_ids(result):
                         pass
     return []
 
+
 def list_sessions_via_cli():
     cmd = ['openclaw', 'gateway', 'call', 'sessions.list', '--params', '{}']
     if OPENCLAW_GATEWAY_TOKEN:
@@ -209,30 +250,75 @@ def list_sessions_via_cli():
         raise RuntimeError('openclaw gateway call sessions.list returned no JSON payload')
     return json.loads(raw[start:])
 
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
+            append_bridge_log('bridge.http', method='GET', path=self.path)
             if self.path == '/health':
-                return response(self, 200, {'ok': True, 'upstreamBaseUrl': OPENCLAW_BASE_URL, 'hasToken': bool(OPENCLAW_GATEWAY_TOKEN), 'linkedWorkspaces': len(workspace_links)})
+                return response(self, 200, {'ok': True, 'upstreamBaseUrl': OPENCLAW_BASE_URL, 'hasToken': bool(OPENCLAW_GATEWAY_TOKEN), 'linkedWorkspaces': len(workspace_links), 'logPath': BRIDGE_LOG_PATH})
             if self.path == '/agents':
+                bridge_agents = []
+                bridge_agent_ids = []
                 try:
                     result = openclaw_request('/tools/invoke', {'tool': 'agents_list', 'args': {}})
-                    return response(self, 200, {'ok': True, 'result': result.get('result')})
+                    bridge_agents = result.get('result') or []
+                    bridge_agent_ids = extract_agent_ids(bridge_agents)
                 except Exception:
+                    bridge_agents = []
+                    bridge_agent_ids = []
+
+                session_agents = []
+                try:
                     result = list_sessions_via_cli()
-                    agent_ids = sorted(set(extract_agent_ids(result)))
-                    agents = [{'id': agent_id, 'name': agent_id, 'capabilities': ['derived:sessions.list']} for agent_id in agent_ids]
-                    return response(self, 200, {'ok': True, 'result': agents})
+                    session_agent_ids = sorted(set(extract_agent_ids(result)))
+                    session_agents = [{'id': agent_id, 'name': agent_id, 'capabilities': ['derived:sessions.list']} for agent_id in session_agent_ids]
+                except Exception:
+                    session_agents = []
+
+                merged = []
+                seen = set()
+                for item in (bridge_agents if isinstance(bridge_agents, list) else []):
+                    if isinstance(item, str):
+                        agent_id = item.strip()
+                        if agent_id and agent_id not in seen:
+                            seen.add(agent_id)
+                            merged.append({'id': agent_id, 'name': agent_id})
+                    elif isinstance(item, dict):
+                        agent_id = (item.get('id') or item.get('agentId') or item.get('key') or item.get('name') or '').strip() if isinstance((item.get('id') or item.get('agentId') or item.get('key') or item.get('name') or ''), str) else ''
+                        if agent_id and agent_id not in seen:
+                            seen.add(agent_id)
+                            merged.append(item)
+
+                for item in session_agents:
+                    agent_id = item.get('id') if isinstance(item, dict) else None
+                    if isinstance(agent_id, str) and agent_id not in seen:
+                        seen.add(agent_id)
+                        merged.append(item)
+
+                append_bridge_log('bridge.agents.result', count=len(merged), bridgeCount=len(bridge_agent_ids), sessionCount=len(session_agents))
+                return response(self, 200, {'ok': True, 'result': merged})
             if self.path == '/workspace-links':
                 return response(self, 200, {'ok': True, 'result': [{'workspaceId': k, 'agentId': v} for k, v in workspace_links.items()]})
+            if self.path == '/logs/recent':
+                limit = 200
+                try:
+                    with open(BRIDGE_LOG_PATH, 'r', encoding='utf-8') as handle:
+                        lines = handle.readlines()[-limit:]
+                    entries = [json.loads(line) for line in lines if line.strip()]
+                except FileNotFoundError:
+                    entries = []
+                return response(self, 200, {'ok': True, 'result': entries})
             return response(self, 404, {'ok': False, 'error': {'message': 'Not found'}})
         except Exception as e:
+            append_bridge_log('bridge.error', method='GET', path=self.path, message=str(e))
             return response(self, 502, {'ok': False, 'error': {'message': str(e)}})
 
     def do_POST(self):
         try:
+            body = parse_json(self)
+            append_bridge_log('bridge.http', method='POST', path=self.path, bodyKeys=sorted(list(body.keys())) if isinstance(body, dict) else [])
             if self.path == '/identity/validate':
-                body = parse_json(self)
                 token = body.get('token')
                 if not token:
                     return response(self, 422, {'ok': False, 'error': {'message': 'token is required.'}})
@@ -248,7 +334,6 @@ class Handler(BaseHTTPRequestHandler):
                     agents = [{'id': agent_id, 'name': agent_id, 'capabilities': ['derived:sessions.list']} for agent_id in agent_ids]
                 return response(self, 200, {'ok': True, 'result': {'valid': True, 'tokenPreview': f'{token[:6]}...', 'agents': agents}})
             if self.path == '/workspace-links':
-                body = parse_json(self)
                 workspace_id = str(body.get('workspaceId', '')).strip()
                 agent_id = str(body.get('agentId', '')).strip()
                 if not workspace_id or not agent_id:
@@ -262,9 +347,9 @@ class Handler(BaseHTTPRequestHandler):
                 if agent_id not in known_agent_ids:
                     return response(self, 404, {'ok': False, 'error': {'message': f'Agent not found: {agent_id}'}})
                 workspace_links[workspace_id] = agent_id
+                append_bridge_log('bridge.workspace_linked', workspaceId=workspace_id, agentId=agent_id)
                 return response(self, 200, {'ok': True, 'result': {'workspaceId': workspace_id, 'agentId': agent_id}})
             if self.path == '/dispatch':
-                body = parse_json(self)
                 agent_id = str(body.get('agentId', '')).strip()
                 task_id = str(body.get('taskId', '')).strip()
                 prompt = str(body.get('prompt', '')).strip()
@@ -272,10 +357,11 @@ class Handler(BaseHTTPRequestHandler):
                 webhook_token = str(body.get('webhookToken', '')).strip() or None
                 if not agent_id or not task_id or not prompt:
                     return response(self, 422, {'ok': False, 'error': {'message': 'agentId, taskId, and prompt are required.'}})
+                append_bridge_log('bridge.dispatch.request', agentId=agent_id, taskId=task_id, webhook=bool(webhook_url), promptPreview=prompt[:300])
                 dispatch = dispatch_openclaw(agent_id, task_id, prompt, webhook_url=webhook_url, webhook_token=webhook_token)
+                append_bridge_log('bridge.dispatch.accepted', agentId=agent_id, taskId=task_id, responseId=dispatch.get('responseId'), mode=dispatch.get('mode'), bridgePath=dispatch.get('bridgePath'))
                 return response(self, 202, {'ok': True, 'accepted': True, 'result': dispatch})
             if self.path == '/workspace-dispatch':
-                body = parse_json(self)
                 workspace_id = str(body.get('workspaceId', '')).strip()
                 task_id = str(body.get('taskId', '')).strip()
                 prompt = str(body.get('prompt', '')).strip()
@@ -286,7 +372,9 @@ class Handler(BaseHTTPRequestHandler):
                 agent_id = workspace_links.get(workspace_id)
                 if not agent_id:
                     return response(self, 404, {'ok': False, 'error': {'message': f'No linked agent for workspace: {workspace_id}'}})
+                append_bridge_log('bridge.workspace_dispatch.request', workspaceId=workspace_id, agentId=agent_id, taskId=task_id, webhook=bool(webhook_url))
                 dispatch = dispatch_openclaw(agent_id, task_id, prompt, webhook_url=webhook_url, webhook_token=webhook_token)
+                append_bridge_log('bridge.workspace_dispatch.accepted', workspaceId=workspace_id, agentId=agent_id, taskId=task_id, responseId=dispatch.get('responseId'), mode=dispatch.get('mode'), bridgePath=dispatch.get('bridgePath'))
                 return response(self, 202, {'ok': True, 'accepted': True, 'result': {'workspaceId': workspace_id, 'agentId': agent_id, 'response': dispatch}})
             return response(self, 404, {'ok': False, 'error': {'message': 'Not found'}})
         except HTTPError as e:
@@ -295,20 +383,25 @@ class Handler(BaseHTTPRequestHandler):
                 message = payload.get('error', {}).get('message') or f'OpenClaw request failed ({e.code})'
             except Exception:
                 message = f'OpenClaw request failed ({e.code})'
+            append_bridge_log('bridge.error', method='POST', path=self.path, status=e.code, message=message)
             return response(self, 502, {'ok': False, 'error': {'message': message}})
         except URLError as e:
+            append_bridge_log('bridge.error', method='POST', path=self.path, message=str(e.reason))
             return response(self, 502, {'ok': False, 'error': {'message': str(e.reason)}})
         except Exception as e:
+            append_bridge_log('bridge.error', method='POST', path=self.path, message=str(e))
             return response(self, 502, {'ok': False, 'error': {'message': str(e)}})
 
     def log_message(self, format, *args):
         return
 
+
 if __name__ == '__main__':
     server = HTTPServer(('0.0.0.0', PORT), Handler)
     print(
         f'mc-openclaw-host-bridge listening on :{PORT}, upstream={OPENCLAW_BASE_URL}, '
-        f'gatewayToken={bool(OPENCLAW_GATEWAY_TOKEN)}, hookToken={bool(OPENCLAW_HOOK_TOKEN)}',
+        f'gatewayToken={bool(OPENCLAW_GATEWAY_TOKEN)}, hookToken={bool(OPENCLAW_HOOK_TOKEN)}, logPath={BRIDGE_LOG_PATH}',
         flush=True
     )
+    append_bridge_log('bridge.started', port=PORT, upstream=OPENCLAW_BASE_URL, hasGatewayToken=bool(OPENCLAW_GATEWAY_TOKEN), hasHookToken=bool(OPENCLAW_HOOK_TOKEN))
     server.serve_forever()

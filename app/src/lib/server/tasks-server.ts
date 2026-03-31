@@ -252,10 +252,32 @@ async function logPermissionDenied(taskId: string, actorId: string | null, actor
 }
 
 async function generateTaskId(projectSlug: string) {
-  const prefix = projectSlug.split("-").map((part) => part[0]?.toUpperCase() ?? "").join("").slice(0, 3) || "TSK";
-  const latest = await db.task.findFirst({ where: { project: { slug: projectSlug } }, orderBy: { createdAt: "desc" }, select: { id: true } });
-  const num = latest?.id.match(/-(\d+)$/)?.[1] ? Number(latest.id.match(/-(\d+)$/)?.[1]) + 1 : 1;
-  return `${prefix}-${String(num).padStart(3, "0")}`;
+  const normalized = projectSlug
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  const prefix = normalized.slice(0, 8) || "TASK";
+  const existing = await db.task.findMany({
+    where: {
+      id: {
+        startsWith: `${prefix}-`
+      }
+    },
+    select: { id: true }
+  });
+
+  let next = 1;
+  for (const item of existing) {
+    const match = item.id.match(/-(\d+)$/);
+    if (!match) continue;
+    const value = Number(match[1]);
+    if (Number.isFinite(value) && value >= next) {
+      next = value + 1;
+    }
+  }
+
+  return `${prefix}-${String(next).padStart(3, "0")}`;
 }
 
 export async function getTaskResourceFromDb(taskId: string) {

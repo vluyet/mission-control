@@ -11,6 +11,12 @@ function startMockOpenClaw() {
     const body = Buffer.concat(chunks).toString("utf8");
     requests.push({ method: req.method, url: req.url, body, auth: req.headers.authorization });
 
+    if (req.method === "GET" && req.url === "/agents") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, result: ["researcher", { id: "builder", capabilities: ["code", "review"] }] }));
+      return;
+    }
+
     if (req.method === "POST" && req.url === "/tools/invoke") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true, result: ["researcher", { id: "builder", capabilities: ["code", "review"] }] }));
