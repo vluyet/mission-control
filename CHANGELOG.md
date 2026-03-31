@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.3 - 2026-03-31
+
+OpenClaw bridge sync and persistent-workspace task dispatch stabilization.
+
+- Fixed Mission Control OpenClaw agent sync so bridge-based discovery correctly surfaces real agents from both direct listing and session-derived sources.
+- Restored correct real-agent visibility for OpenClaw-backed workspaces by aligning the bridge sync path with `main` and `nova` instead of stale test-only agent rows.
+- Hardened OpenClaw compatibility by preferring bridge `GET /agents` while keeping fallback compatibility for older invocation paths.
+- Fixed task ID generation so repeated project/task creation in persistent workspaces no longer collides on `Task.id` uniqueness.
+- Updated OpenClaw integration tests for bridge-first discovery, webhook payload normalization, and persistent-state-safe auth/task flows.
+- Documented the current host-bridge behavior for agent discovery and dispatch debugging.
+
 ## v0.2.2 - 2026-03-26
 
 Task communication and runtime reliability hardening.
