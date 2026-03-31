@@ -14,7 +14,8 @@ export function TaskStatusActions({
   options,
   actorType = "agent",
   title,
-  description
+  description,
+  hideHeader = false
 }: {
   taskId: string;
   currentStatus: string;
@@ -23,6 +24,7 @@ export function TaskStatusActions({
   actorType?: "human" | "agent";
   title?: string;
   description?: string;
+  hideHeader?: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -72,9 +74,9 @@ export function TaskStatusActions({
 
   return (
     <div>
-      <p className="section-eyebrow">{title ?? (actorType === "agent" ? "Agent workflow" : "Human workflow")}</p>
-      <p className="mt-2 text-sm text-[var(--text-muted)]">{stateAwareDescription}</p>
-      <div className="mt-4 flex flex-wrap gap-2">
+      {hideHeader ? null : <p className="section-eyebrow">{title ?? (actorType === "agent" ? "Agent workflow" : "Human workflow")}</p>}
+      {hideHeader ? null : <p className="mt-2 text-sm text-[var(--text-muted)]">{stateAwareDescription}</p>}
+      <div className={`${hideHeader ? "flex flex-col gap-2" : "mt-4 flex flex-wrap gap-2"}`}>
         {options.length ? (
           options.map((option, index) => (
             <button
@@ -83,9 +85,13 @@ export function TaskStatusActions({
               onClick={() => handleTransition(option.value)}
               disabled={isPending}
               className={`rounded-xl border px-3 py-2 text-sm transition disabled:opacity-60 ${
-                index === 0
-                  ? "border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90"
-                  : "border-[var(--line)] bg-[var(--surface-subtle)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]"
+                hideHeader
+                  ? index === 0
+                    ? "w-full border-slate-900 bg-slate-900 text-white hover:opacity-90"
+                    : "w-full border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+                  : index === 0
+                    ? "border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90"
+                    : "border-[var(--line)] bg-[var(--surface-subtle)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]"
               }`}
             >
               {isPending ? "Updating..." : option.label}

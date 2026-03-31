@@ -6,18 +6,14 @@ import type { Comment, TimelineEvent } from "@/lib/demo-data";
 import { TaskCommentComposer } from "@/components/product/task-comment-composer";
 
 function renderMentions(body: string, mentionSuggestions: string[]) {
-  if (!mentionSuggestions.length) {
-    return body;
-  }
+  if (!mentionSuggestions.length) return body;
 
   const matches = mentionSuggestions
     .map((name) => ({ name, token: `@${name}` }))
     .filter((item) => body.includes(item.token))
     .sort((a, b) => b.token.length - a.token.length);
 
-  if (!matches.length) {
-    return body;
-  }
+  if (!matches.length) return body;
 
   const nodes: Array<string | JSX.Element> = [];
   let cursor = 0;
@@ -33,12 +29,10 @@ function renderMentions(body: string, mentionSuggestions: string[]) {
       break;
     }
 
-    if (next.index > cursor) {
-      nodes.push(body.slice(cursor, next.index));
-    }
+    if (next.index > cursor) nodes.push(body.slice(cursor, next.index));
 
     nodes.push(
-      <span key={`${next.token}-${next.index}`} className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-0.5 text-[0.78rem] font-medium text-[var(--accent-strong)]">
+      <span key={`${next.token}-${next.index}`} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[0.78rem] font-medium text-slate-700">
         {next.token}
       </span>
     );
@@ -62,7 +56,7 @@ export function TaskCommentsPanel({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
-  const [activeView, setActiveView] = useState<"comments" | "timeline">("comments");
+  const [activeView, setActiveView] = useState<"comments" | "activity">("comments");
   const [localComments, setLocalComments] = useState<Comment[]>(comments);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -75,11 +69,8 @@ export function TaskCommentsPanel({
   function toggleExpandedComment(commentId: string) {
     setExpandedCommentIds((current) => {
       const next = new Set(current);
-      if (next.has(commentId)) {
-        next.delete(commentId);
-      } else {
-        next.add(commentId);
-      }
+      if (next.has(commentId)) next.delete(commentId);
+      else next.add(commentId);
       return next;
     });
   }
@@ -102,7 +93,6 @@ export function TaskCommentsPanel({
         updated[index] = nextComment;
         return updated;
       }
-
       return [...current, nextComment];
     });
 
@@ -111,152 +101,144 @@ export function TaskCommentsPanel({
   }
 
   return (
-    <div className="space-y-4 px-5 py-4">
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">Panel</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveView("comments")}
-              className={`rounded-full border px-3 py-1 text-xs transition ${
-                activeView === "comments"
-                  ? "border-[var(--accent-strong)] bg-[var(--accent-soft)] text-[var(--text-strong)]"
-                  : "border-[var(--line-strong)] bg-white text-[var(--text-strong)]"
-              }`}
-            >
-              Comments ({localComments.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView("timeline")}
-              className={`rounded-full border px-3 py-1 text-xs transition ${
-                activeView === "timeline"
-                  ? "border-[var(--accent-strong)] bg-[var(--accent-soft)] text-[var(--text-strong)]"
-                  : "border-[var(--line-strong)] bg-white text-[var(--text-strong)]"
-              }`}
-            >
-              Timeline ({timeline.length})
-            </button>
-          </div>
-        </div>
+    <div className="space-y-5 px-5 py-5">
+      <div className="flex w-full gap-2 border-b border-slate-200 pb-4">
+        <button
+          type="button"
+          onClick={() => setActiveView("comments")}
+          className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+            activeView === "comments"
+              ? "border-slate-300 bg-slate-900 text-white"
+              : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          Comments ({localComments.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView("activity")}
+          className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+            activeView === "activity"
+              ? "border-slate-300 bg-slate-900 text-white"
+              : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          Activity ({timeline.length})
+        </button>
       </div>
 
       {activeView === "comments"
         ? localComments.map((comment) => {
-        const isEditing = editingCommentId === comment.id;
-        const isAgentComment = comment.tone === "agent";
-        const isExpanded = expandedCommentIds.has(comment.id);
-        const shouldClamp = isAgentComment && comment.body.length > 320 && !isExpanded;
-        const renderedBody = shouldClamp ? `${comment.body.slice(0, 320)}...` : comment.body;
+            const isEditing = editingCommentId === comment.id;
+            const isAgentComment = comment.tone === "agent";
+            const isExpanded = expandedCommentIds.has(comment.id);
+            const shouldClamp = isAgentComment && comment.body.length > 320 && !isExpanded;
+            const renderedBody = shouldClamp ? `${comment.body.slice(0, 320)}...` : comment.body;
 
-        return (
-          <article
-            key={comment.id}
-            className={`rounded-3xl border p-4 ${
-              isAgentComment
-                ? "border-[var(--line)] bg-[var(--surface-subtle)]"
-                : "border-[var(--line)] bg-white"
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className={`avatar-chip ${comment.tone === "agent" ? "avatar-chip-agent" : ""}`}>
-                  {comment.author.slice(0, 2)}
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-[var(--text-strong)]">{comment.author}</p>
-                  <p className="text-xs text-[var(--text-dim)]">{comment.role}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {comment.editedAt ? (
-                  <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1 text-[11px] uppercase tracking-[0.12em] text-[var(--text-dim)]">
-                    Edited
-                  </span>
-                ) : null}
-                <span className="text-xs text-[var(--text-dim)]">{comment.time}</span>
-              </div>
-            </div>
-
-            {isEditing ? (
-              <div className="mt-4">
-                <TaskCommentComposer
-                  taskId={taskId}
-                  commentId={comment.id}
-                  initialBody={comment.body}
-                  title="Edit comment"
-                  submitLabel="Save changes"
-                  placeholder="Refine the comment without changing the task history model."
-                  mentionSuggestions={sortedMentions}
-                  onSubmitted={upsertComment}
-                  onCancel={() => setEditingCommentId(null)}
-                />
-              </div>
-            ) : (
-              <>
-                <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--text-muted)]">
-                  {renderMentions(renderedBody, sortedMentions)}
-                </div>
-                {isAgentComment && comment.body.length > 320 ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleExpandedComment(comment.id)}
-                    className="mt-2 text-xs font-medium text-[var(--accent-strong)]"
-                  >
-                    {isExpanded ? "Show less" : "Show full agent update"}
-                  </button>
-                ) : null}
-                {comment.tone === "human" ? (
-                  <div className="mt-4 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteComment(comment.id)}
-                      disabled={deletingCommentId === comment.id || isPending}
-                      className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
-                    >
-                      {deletingCommentId === comment.id ? "Deleting..." : "Delete"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingCommentId(comment.id)}
-                      className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-dim)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
-                    >
-                      Edit comment
-                    </button>
+            return (
+              <article key={comment.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${comment.tone === "agent" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-700"}`}>
+                      {comment.author.slice(0, 2)}
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{comment.author}</p>
+                      <p className="text-xs text-slate-500">{comment.role}</p>
+                    </div>
                   </div>
-                ) : null}
-              </>
-            )}
-          </article>
-        );
-      }) : null}
+                  <div className="flex items-center gap-2">
+                    {comment.editedAt ? (
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                        Edited
+                      </span>
+                    ) : null}
+                    <span className="text-xs text-slate-500">{comment.time}</span>
+                  </div>
+                </div>
+
+                {isEditing ? (
+                  <div className="mt-4">
+                    <TaskCommentComposer
+                      taskId={taskId}
+                      commentId={comment.id}
+                      initialBody={comment.body}
+                      title="Edit comment"
+                      submitLabel="Save changes"
+                      placeholder="Refine the comment without changing the task history model."
+                      mentionSuggestions={sortedMentions}
+                      onSubmitted={upsertComment}
+                      onCancel={() => setEditingCommentId(null)}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-slate-600">
+                      {renderMentions(renderedBody, sortedMentions)}
+                    </div>
+                    {isAgentComment && comment.body.length > 320 ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpandedComment(comment.id)}
+                        className="mt-2 text-xs font-medium text-slate-900"
+                      >
+                        {isExpanded ? "Show less" : "Show full agent update"}
+                      </button>
+                    ) : null}
+                    {comment.tone === "human" ? (
+                      <div className="mt-4 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteComment(comment.id)}
+                          disabled={deletingCommentId === comment.id || isPending}
+                          className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
+                        >
+                          {deletingCommentId === comment.id ? "Deleting..." : "Delete"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingCommentId(comment.id)}
+                          className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
+                        >
+                          Edit comment
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </article>
+            );
+          })
+        : null}
 
       {activeView === "comments" && !localComments.length ? (
-        <div className="rounded-2xl border border-dashed border-[var(--line)] bg-white px-4 py-6 text-center text-sm text-[var(--text-muted)]">
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
           No comments yet.
         </div>
       ) : null}
 
-      {activeView === "timeline" ? (
+      {activeView === "activity" ? (
         timeline.length ? (
-          <div className="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-slate-100">
-            <div className="space-y-2 font-mono text-xs leading-6">
+          <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0b1220] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="border-b border-slate-800 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Activity feed
+            </div>
+            <div className="divide-y divide-slate-800">
               {timeline.map((item, index) => (
-                <div key={`${item.taskId}-${item.time}-${index}`} className="break-words text-slate-200">
-                  <p>
-                    <span className="mr-2 text-slate-500">{String(index + 1).padStart(3, "0")}</span>
-                    <span className="mr-2 text-slate-400">[{item.time}]</span>
-                    <span className="text-slate-100">{item.label}</span>
-                  </p>
-                  <p className="pl-14 text-slate-300">{item.detail}</p>
-                </div>
+                <article key={`${item.taskId}-${item.time}-${index}`} className="px-4 py-3 font-mono text-xs leading-5 text-slate-200">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="text-slate-500">[{String(index + 1).padStart(2, "0")}]</span>
+                    <span className="text-cyan-300">{item.time}</span>
+                    <span className="text-emerald-300">{item.label}</span>
+                    <span className="min-w-0 flex-1 truncate text-slate-200">{item.detail}</span>
+                  </div>
+                </article>
               ))}
             </div>
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-[var(--line)] bg-white px-4 py-6 text-center text-sm text-[var(--text-muted)]">
-            No timeline events yet.
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+            No activity yet.
           </div>
         )
       ) : null}

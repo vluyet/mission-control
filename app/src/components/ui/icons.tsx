@@ -162,6 +162,16 @@ export function SettingsIcon({ className }: IconProps) {
   );
 }
 
+export function LogOutIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={cls(className)}>
+      <path d="M14 7V5.5A2.5 2.5 0 0 0 11.5 3h-4A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h4a2.5 2.5 0 0 0 2.5-2.5V17" />
+      <path d="M10 12h10" />
+      <path d="m17 8 4 4-4 4" />
+    </svg>
+  );
+}
+
 export function CalendarIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={cls(className)}>
