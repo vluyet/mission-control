@@ -489,6 +489,8 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
       taskId: task.id,
       workspaceId: task.project.workspaceId,
       message,
+      sessionKey: normalizedSessionKey,
+      sessionId: normalizedSessionId,
       webhookUrl: `${missionControlBaseUrl}/api/tasks/${task.id}/openclaw/webhook`,
       webhookToken
     });
