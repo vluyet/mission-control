@@ -10,21 +10,7 @@ export function MemberDirectory({ items }: { items: Member[] }) {
   return (
     <div className="space-y-4">
       <Panel className="overflow-hidden">
-        <PanelHeader eyebrow="Directory" title="Workspace members" description="A simple list of people and agents in the active workspace." />
-        <div className="grid gap-3 px-5 py-4 xl:grid-cols-3">
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
-            <p className="section-eyebrow">Total</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{items.length}</p>
-          </div>
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
-            <p className="section-eyebrow">Humans</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{humanMembers.length}</p>
-          </div>
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
-            <p className="section-eyebrow">Agents</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{agentMembers.length}</p>
-          </div>
-        </div>
+        <PanelHeader eyebrow="Directory" title="Workspace members" description="People and agents available to take work." />
         {!items.length ? (
           <div className="border-t border-[var(--line)] px-5 py-5">
             <div className="rounded-3xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] p-5">
@@ -37,7 +23,7 @@ export function MemberDirectory({ items }: { items: Member[] }) {
                   href="/manage-workspace"
                   className="inline-flex items-center rounded-full border border-[var(--line)] bg-white px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition hover:border-[var(--line-strong)]"
                 >
-                  Open workspace settings
+                  Manage workspace
                 </Link>
               </div>
             </div>
@@ -83,17 +69,9 @@ export function MemberDirectory({ items }: { items: Member[] }) {
                   )}
                 </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-3">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">Contact</p>
-                    <p className="mt-2 text-sm font-medium text-[var(--text-strong)]">
-                      {member.email ?? "Agent member"}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-3">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">Current load</p>
-                    <p className="mt-2 text-sm font-medium text-[var(--text-strong)]">{member.load}</p>
-                  </div>
+                <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-3 text-sm">
+                  <span className="text-[var(--text-muted)]">Current load</span>
+                  <span className="font-medium text-[var(--text-strong)]">{member.load}</span>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -104,25 +82,6 @@ export function MemberDirectory({ items }: { items: Member[] }) {
                   ))}
                 </div>
 
-                {member.capabilities?.length ? (
-                  <div className="mt-4 border-t border-[var(--line)] pt-4">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">Capabilities</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {member.capabilities.map((item) => (
-                        <span
-                          key={item}
-                          className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-dim)]"
-                        >
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="mt-4 rounded-2xl border border-dashed border-[var(--line)] bg-white/70 px-3 py-3 text-sm text-[var(--text-dim)]">
-                  Advanced member controls live in Settings.
-                </div>
               </div>
             )) : (
               <div className="rounded-3xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] p-5 text-sm text-[var(--text-dim)]">

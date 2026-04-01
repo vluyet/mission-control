@@ -8,10 +8,10 @@ export default async function MembersPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Members"
+        eyebrow="Workspace"
         title="Members"
-        description="People and agents available in the active workspace. Advanced controls live in Settings."
-        actions={<AppButton tone="primary" href="/manage-workspace">Open settings</AppButton>}
+        description="People and agents available in this workspace."
+        actions={<AppButton tone="primary" href="/manage-workspace">Manage workspace</AppButton>}
       />
       <MemberDirectory items={members} />
     </div>
