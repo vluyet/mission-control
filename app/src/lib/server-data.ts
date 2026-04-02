@@ -1485,7 +1485,9 @@ function classifyExecutionLine(line: string) {
   return { label: "Execution updated", detail: trimmed };
 }
 
-export async function appendExecutionLogInDb(taskId: string, line: string, actor?: { membershipId?: string | null; label?: string | null }) {
+type ExecutionLogActor = { membershipId?: string | null; label?: string | null };
+
+export async function appendExecutionLogInDb(taskId: string, line: string, actor?: ExecutionLogActor) {
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {
@@ -1524,21 +1526,16 @@ export async function appendExecutionLogInDb(taskId: string, line: string, actor
         })
       : null;
 
-  const agentId =
-    explicitAgent?.id ??
-    (task.assignee?.kind === "agent" ? task.assignee.id : null) ??
-    task.project.workspace.memberships[0]?.id;
+  const isSystemLogWrite = !actor?.membershipId && Boolean(actor?.label);
+  const fallbackAgent = task.assignee?.kind === "agent" ? task.assignee : task.project.workspace.memberships[0] ?? null;
+  const agent = explicitAgent ?? fallbackAgent;
 
-  if (!agentId) {
+  if (!agent && !isSystemLogWrite) {
     return null;
   }
 
-  const agent = explicitAgent ?? (task.assignee?.kind === "agent" ? task.assignee : task.project.workspace.memberships[0] ?? null);
-
-  if (!agent || !agentHasPermission(agent, "log_execution")) {
-    if (agent) {
-      await logPermissionDenied(taskId, agent.id, agent.name, `${agent.name} attempted to write execution logs without log_execution permission.`);
-    }
+  if (agent && !agentHasPermission(agent, "log_execution") && !isSystemLogWrite) {
+    await logPermissionDenied(taskId, agent.id, agent.name, `${agent.name} attempted to write execution logs without log_execution permission.`);
     return {
       error: "AGENT_PERMISSION_DENIED"
     } as const;
@@ -1549,7 +1546,7 @@ export async function appendExecutionLogInDb(taskId: string, line: string, actor
     (await db.taskExecution.create({
       data: {
         taskId,
-        agentId: agent.id,
+        agentId: agent?.id ?? null,
         status: "running"
       }
     }));
@@ -1562,12 +1559,14 @@ export async function appendExecutionLogInDb(taskId: string, line: string, actor
   });
 
   const event = classifyExecutionLine(line);
+  const actorId = isSystemLogWrite ? null : (agent?.id ?? null);
+  const actorName = actor?.label?.trim() || agent?.name || "System";
 
   await db.taskActivity.create({
     data: {
       taskId,
-      actorId: agentId,
-      actorName: agent.name,
+      actorId,
+      actorName,
       label: event.label,
       detail: event.detail
     }
@@ -1578,6 +1577,10 @@ export async function appendExecutionLogInDb(taskId: string, line: string, actor
     line: log.line,
     time: log.createdAt.toISOString()
   };
+}
+
+export async function appendSystemExecutionLogInDb(taskId: string, line: string, label: string) {
+  return appendExecutionLogInDb(taskId, line, { label });
 }
 
 export async function deleteCommentInDb(taskId: string, commentId: string) {

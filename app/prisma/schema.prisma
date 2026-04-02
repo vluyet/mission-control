@@ -203,11 +203,12 @@ model Task {
   childTasks  Task[]       @relation("TaskHierarchy")
   assignee    Membership?  @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   reviewer    Membership?  @relation("TaskReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
-  comments    Comment[]
-  activity    TaskActivity[]
-  executions  TaskExecution[]
-  watchers    TaskWatcher[]
-  attachments Attachment[]
+  comments         Comment[]
+  activity         TaskActivity[]
+  executions       TaskExecution[]
+  callbackReceipts TaskCallbackReceipt[]
+  watchers         TaskWatcher[]
+  attachments      Attachment[]
 
   @@index([projectId, status])
   @@index([parentTaskId])
@@ -350,3 +351,17 @@ model TaskExecutionLog {
 
   @@index([executionId, createdAt])
 }
+
+model TaskCallbackReceipt {
+  id                String   @id @default(cuid())
+  taskId            String
+  source            String
+  eventType         String
+  bridgeExecutionId String
+  createdAt         DateTime @default(now())
+  task              Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, source, eventType, bridgeExecutionId])
+  @@index([taskId, createdAt])
+}
+
