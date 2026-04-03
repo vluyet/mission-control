@@ -33,7 +33,7 @@ export async function PATCH(request: Request) {
     | null;
 
   if (!body?.baseUrl?.trim()) {
-    return error("OpenClaw base URL is required.", 422, { code: "OPENCLAW_BASE_URL_REQUIRED" });
+    return error("Gateway base URL is required.", 422, { code: "OPENCLAW_BASE_URL_REQUIRED" });
   }
 
   const result = await upsertActiveWorkspaceOpenClawIntegrationInDb({
@@ -48,7 +48,7 @@ export async function PATCH(request: Request) {
   }
 
   if ("error" in result) {
-    return error("OpenClaw gateway token is required.", 422, { code: result.error });
+    return error("Gateway token is required.", 422, { code: result.error });
   }
 
   return ok({ integration: result });
