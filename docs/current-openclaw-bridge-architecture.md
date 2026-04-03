@@ -1,6 +1,6 @@
 # Current Mission Control agent bridge architecture
 
-This document describes the currently implemented local Mission Control bridge architecture for both OpenClaw and Constructor-facing task execution flows.
+This document describes the currently implemented local Mission Control bridge architecture for Constructor-owned task execution and the underlying gateway-backed agent discovery path.
 
 It is a working implementation note, not a stable public API guarantee.
 
@@ -11,10 +11,11 @@ Current Mission Control integration points:
 - `POST /api/tasks/:taskId/openclaw/webhook`
 - `POST /api/tasks/:taskId/constructor/dispatch`
 - `POST /api/tasks/:taskId/constructor/callback`
-- `GET /api/workspaces/current/openclaw`
-- `PATCH /api/workspaces/current/openclaw`
+- `GET /api/workspaces/current/openclaw` (gateway settings compatibility path)
+- `PATCH /api/workspaces/current/openclaw` (gateway settings compatibility path)
 - `GET /api/workspaces/current/constructor`
 - `PATCH /api/workspaces/current/constructor`
+- `POST /api/workspaces/current/constructor/sync`
 
 Current upstream Constructor ingress:
 - `POST ${CONSTRUCTOR_BASE_URL}/source/mission-control/events`
@@ -24,22 +25,17 @@ Default local Constructor base URL when unset in route env:
 
 ## Workspace-managed integration settings
 
-Mission Control now exposes workspace-level integration settings in **Manage Workspace** for:
-- OpenClaw
-- Constructor
+Mission Control now exposes workspace-level integration settings in **Manage Workspace** for Constructor.
 
 Current Constructor workspace settings include:
 - label
 - base URL
 - enabled flag
 - optional callback token storage
-
-Current OpenClaw workspace settings include:
-- label
-- base URL
-- enabled flag
-- gateway token
+- gateway token status visibility
 - last sync status metadata
+
+Gateway connection details are still persisted through the existing workspace OpenClaw integration record underneath, but that is now a compatibility/storage seam rather than the intended product-facing workflow.
 
 These settings are owner-only through workspace APIs.
 

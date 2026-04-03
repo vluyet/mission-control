@@ -279,11 +279,12 @@ export function getAgentContractPayload() {
           "Observer project members can follow work but cannot own tasks."
         ]
       },
-      openclaw_link: {
+      gateway_link: {
         method: "PATCH",
         path: "/api/workspaces/current/openclaw",
         request_shape: ["label?", "baseUrl", "gatewayToken?", "enabled?"],
         notes: [
+          "This compatibility route persists the gateway connection used by Constructor-backed agent discovery.",
           "The gateway token is only written by owner-authenticated clients and is never returned in full.",
           "Leave gatewayToken blank on update to keep the existing saved token."
         ]
