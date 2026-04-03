@@ -5,7 +5,7 @@ import { DEFAULT_WORKSPACE_SLUG, ACTIVE_WORKSPACE_COOKIE_NAME } from "@/lib/work
 import { dispatchOpenClawTaskRun, fetchOpenClawAgents } from "@/lib/openclaw";
 import { appendExecutionLogInDb, createCommentInDb } from "@/lib/server-data";
 
-type OpenClawDispatchOptions = {
+type GatewayDispatchOptions = {
   missionControlBaseUrl?: string | null;
   overrideAssigneeId?: string | null;
   triggerCommentBody?: string | null;
@@ -54,7 +54,7 @@ function limitPromptText(value: string, maxLength: number) {
   return value.trim().replace(/\s+/g, " ").slice(0, maxLength);
 }
 
-function buildOpenClawTaskMessage(input: {
+function buildGatewayTaskMessage(input: {
   taskId: string;
   projectSlug: string;
   taskTitle: string;
@@ -436,7 +436,7 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
   }
 }
 
-export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenClawDispatchOptions) {
+export async function dispatchTaskToOpenClawInDb(taskId: string, options?: GatewayDispatchOptions) {
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {
@@ -479,7 +479,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
   const normalizedSessionKey = options?.sessionKey?.trim() || buildGatewayTaskSessionKey(task.id, assignee.sourceKey);
   const normalizedSessionId = options?.sessionId?.trim() || null;
 
-  const message = buildOpenClawTaskMessage({
+  const message = buildGatewayTaskMessage({
     taskId: task.id,
     projectSlug: task.project.slug,
     taskTitle: task.title,
