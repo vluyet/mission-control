@@ -14,7 +14,6 @@ import {
 import type { ResolvedTaskContext } from "@/lib/context-resolver";
 import { AgentEnabledToggle } from "@/components/product/agent-enabled-toggle";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
-import { TaskOpenClawDispatchButton } from "@/components/product/task-openclaw-dispatch-button";
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { BoardGridInteractive } from "@/components/product/board-grid-interactive";
 import { SavedTaskViews } from "@/components/product/saved-task-views";
