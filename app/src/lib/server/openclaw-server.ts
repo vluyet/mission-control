@@ -526,7 +526,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
     );
 
     if (dispatch.finalText) {
-      await appendExecutionLogInDb(task.id, `OPENCLAW_TRANSPORT_TEXT_IGNORED agent=${assignee.name} responseId=${dispatch.responseId ?? "none"}`, {
+      await appendExecutionLogInDb(task.id, `GATEWAY_TRANSPORT_TEXT_IGNORED agent=${assignee.name} responseId=${dispatch.responseId ?? "none"}`, {
         membershipId: assignee.id,
         label: assignee.name
       });
@@ -548,7 +548,8 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
       taskId: task.id,
       projectSlug: task.project.slug,
       agentId: assignee.id,
-      openclawAgentId: assignee.sourceKey,
+      gatewayAgentId: assignee.sourceKey,
+      agentSourceKey: assignee.sourceKey,
       responseId: dispatch.responseId,
       sessionKey: normalizedSessionKey,
       sessionId: normalizedSessionId,
