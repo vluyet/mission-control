@@ -1,9 +1,15 @@
 import { revalidatePath } from "next/cache";
 import { error, ok } from "@/lib/api-response";
 import { resolveApiActor } from "@/lib/api-auth";
-import { getTaskResourceFromDb } from "@/lib/server-data";
+import { getActiveWorkspaceConstructorIntegration, getTaskResourceFromDb } from "@/lib/server-data";
 
-function getConstructorBaseUrl() {
+async function getConstructorBaseUrl() {
+  const integration = await getActiveWorkspaceConstructorIntegration();
+
+  if (integration?.enabled !== false && integration?.baseUrl?.trim()) {
+    return integration.baseUrl.trim().replace(/\/+$/, "");
+  }
+
   return process.env.CONSTRUCTOR_BASE_URL?.trim() || "http://127.0.0.1:8787";
 }
 
@@ -68,7 +74,7 @@ export async function POST(request: Request, { params }: { params: { taskId: str
 
   const body = (await request.json().catch(() => null)) as { instruction?: string } | null;
   const requestUrl = new URL(request.url);
-  const constructorBaseUrl = getConstructorBaseUrl();
+  const constructorBaseUrl = await getConstructorBaseUrl();
   const missionControlBaseUrl = getMissionControlBaseUrl(requestUrl);
   const taskInfo = task.task;
   const externalTaskId = `mc-task-${taskInfo.id}-${Date.now()}`;

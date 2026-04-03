@@ -44,7 +44,10 @@ async function loadRouteModule() {
   );
   await fs.writeFile(
     path.join(outdir, "stubs", "server-data.mjs"),
-    'export async function getTaskResourceFromDb(taskId) {\n' +
+    'export async function getActiveWorkspaceConstructorIntegration() {\n' +
+      '  return globalThis.__constructorIntegration ?? null;\n' +
+      '}\n' +
+      'export async function getTaskResourceFromDb(taskId) {\n' +
       '  return {\n' +
       '    task: {\n' +
       '      id: taskId,\n' +
@@ -77,6 +80,13 @@ test("constructor dispatch route sends Mission Control contract envelope", async
 
   process.env.CONSTRUCTOR_BASE_URL = "http://127.0.0.1:9898";
   process.env.MISSION_CONTROL_BASE_URL = "http://127.0.0.1:3000";
+  globalThis.__constructorIntegration = {
+    id: "ctor-1",
+    label: "Primary Constructor",
+    baseUrl: "http://127.0.0.1:9999",
+    enabled: true,
+    callbackTokenConfigured: false
+  };
 
   globalThis.fetch = async (url, init = {}) => {
     requests.push({ url, init });
@@ -115,7 +125,7 @@ test("constructor dispatch route sends Mission Control contract envelope", async
     assert.equal(payload?.data?.dispatch?.executionState, "queued");
 
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].url, "http://127.0.0.1:9898/source/mission-control/events");
+    assert.equal(requests[0].url, "http://127.0.0.1:9999/source/mission-control/events");
     assert.equal(requests[0].init.method, "POST");
     assert.equal(requests[0].init.headers["content-type"], "application/json");
 
@@ -147,6 +157,7 @@ test("constructor dispatch route sends Mission Control contract envelope", async
     assert.equal(envelope.payload.timeoutPolicy.callbackTimeoutMs, 10000);
   } finally {
     globalThis.fetch = originalFetch;
+    delete globalThis.__constructorIntegration;
     if (previousConstructorBaseUrl === undefined) delete process.env.CONSTRUCTOR_BASE_URL;
     else process.env.CONSTRUCTOR_BASE_URL = previousConstructorBaseUrl;
     if (previousMissionControlBaseUrl === undefined) delete process.env.MISSION_CONTROL_BASE_URL;
