@@ -135,7 +135,7 @@ export async function POST(request: Request, { params }: { params: { taskId: str
       cache: "no-store"
     });
   } catch {
-    return error("Constructor v2 is unreachable.", 502, {
+    return error("Constructor is unreachable.", 502, {
       code: "CONSTRUCTOR_UNREACHABLE",
       constructorBaseUrl
     });
@@ -154,7 +154,7 @@ export async function POST(request: Request, { params }: { params: { taskId: str
 
   if (!upstreamResponse.ok || !upstreamJson?.accepted) {
     return error(
-      upstreamJson?.rejection?.reason ?? upstreamJson?.message ?? "Constructor v2 rejected the task.",
+      upstreamJson?.rejection?.reason ?? upstreamJson?.message ?? "Constructor rejected the task.",
       upstreamResponse.ok ? 422 : 502,
       {
         code: upstreamJson?.rejection?.code ?? "CONSTRUCTOR_DISPATCH_FAILED",
@@ -178,7 +178,7 @@ export async function POST(request: Request, { params }: { params: { taskId: str
         bridgeExecutionId: upstreamJson.bridgeExecutionId,
         externalTaskId: upstreamJson.externalTaskId ?? externalTaskId,
         executionState: upstreamJson.executionState ?? "queued",
-        message: upstreamJson.message ?? "Task accepted by Constructor v2. Mission Control will post the final answer to task comments after the callback arrives."
+        message: upstreamJson.message ?? "Task accepted by Constructor. Mission Control will post the final answer to task comments after the callback arrives."
       }
     },
     { status: 202 }

@@ -23,10 +23,12 @@ export {
   updateWorkspaceRoleInDb
 } from "@/lib/server/members-server";
 export {
+  getActiveWorkspaceConstructorIntegration,
   getActiveWorkspaceOpenClawIntegration,
   getWorkspaceManagementDataForUi,
   getWorkspaceShellDataForUi,
   updateActiveWorkspaceInDb,
+  upsertActiveWorkspaceConstructorIntegrationInDb,
   upsertActiveWorkspaceOpenClawIntegrationInDb
 } from "@/lib/server/workspace-server";
 import {

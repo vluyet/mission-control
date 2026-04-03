@@ -223,7 +223,7 @@ export async function getWorkspaceManagementDataForUi() {
     return null;
   }
 
-  const [workspace, openclawIntegration, taskAttachmentsCount, workspaceAssetsCount, humanCount, agentCount, credentials, authEvents] = await Promise.all([
+  const [workspace, openclawIntegration, constructorIntegration, taskAttachmentsCount, workspaceAssetsCount, humanCount, agentCount, credentials, authEvents] = await Promise.all([
     db.workspace.findFirst({
       where: { id: activeWorkspace.id },
       include: {
@@ -236,6 +236,7 @@ export async function getWorkspaceManagementDataForUi() {
       }
     }),
     db.workspaceOpenClawIntegration.findUnique({ where: { workspaceId: activeWorkspace.id } }),
+    db.workspaceConstructorIntegration.findUnique({ where: { workspaceId: activeWorkspace.id } }),
     db.attachment.count({ where: { task: { project: { workspaceId: activeWorkspace.id } } } }),
     db.workspaceAsset.count({ where: { workspaceId: activeWorkspace.id } }),
     db.membership.count({ where: { workspaceId: activeWorkspace.id, enabled: true, kind: "human" } }),
@@ -291,6 +292,15 @@ export async function getWorkspaceManagementDataForUi() {
             lastSyncError: openclawIntegration.lastSyncError ?? null
           }
         : null,
+      constructor: constructorIntegration
+        ? {
+            id: constructorIntegration.id,
+            label: constructorIntegration.label ?? "",
+            baseUrl: constructorIntegration.baseUrl,
+            enabled: constructorIntegration.enabled,
+            callbackTokenConfigured: Boolean(constructorIntegration.callbackToken)
+          }
+        : null,
       agentCredentials: credentials.map(mapAgentCredential),
       authEvents: authEvents.map(mapAuthEvent)
     }
@@ -343,6 +353,72 @@ export async function updateActiveWorkspaceInDb(payload: {
     name: workspace.name,
     visibility: workspace.visibility,
     context: workspace.context
+  };
+}
+
+export async function getActiveWorkspaceConstructorIntegration() {
+  const activeWorkspace = await getActiveWorkspaceRecord();
+
+  if (!activeWorkspace) {
+    return null;
+  }
+
+  const integration = await db.workspaceConstructorIntegration.findUnique({
+    where: { workspaceId: activeWorkspace.id }
+  });
+
+  if (!integration) {
+    return null;
+  }
+
+  return {
+    id: integration.id,
+    label: integration.label ?? "",
+    baseUrl: integration.baseUrl,
+    enabled: integration.enabled,
+    callbackTokenConfigured: Boolean(integration.callbackToken)
+  };
+}
+
+export async function upsertActiveWorkspaceConstructorIntegrationInDb(payload: {
+  label?: string;
+  baseUrl: string;
+  callbackToken?: string;
+  enabled?: boolean;
+}) {
+  const activeWorkspace = await getActiveWorkspaceRecord();
+
+  if (!activeWorkspace) {
+    return null;
+  }
+
+  const existing = await db.workspaceConstructorIntegration.findUnique({
+    where: { workspaceId: activeWorkspace.id }
+  });
+
+  const integration = await db.workspaceConstructorIntegration.upsert({
+    where: { workspaceId: activeWorkspace.id },
+    update: {
+      label: payload.label?.trim() || null,
+      baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
+      callbackToken: payload.callbackToken?.trim() ? payload.callbackToken.trim() : existing?.callbackToken ?? null,
+      enabled: payload.enabled ?? existing?.enabled ?? true
+    },
+    create: {
+      workspaceId: activeWorkspace.id,
+      label: payload.label?.trim() || null,
+      baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
+      callbackToken: payload.callbackToken?.trim() || null,
+      enabled: payload.enabled ?? true
+    }
+  });
+
+  return {
+    id: integration.id,
+    label: integration.label ?? "",
+    baseUrl: integration.baseUrl,
+    enabled: integration.enabled,
+    callbackTokenConfigured: Boolean(integration.callbackToken)
   };
 }
 

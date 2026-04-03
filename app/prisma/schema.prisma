@@ -90,8 +90,22 @@ model Workspace {
   assets      WorkspaceAsset[]
   authEvents  AuthEvent[]
   openclawIntegration WorkspaceOpenClawIntegration?
+  constructorIntegration WorkspaceConstructorIntegration?
 }
 
+model WorkspaceConstructorIntegration {
+  id             String    @id @default(cuid())
+  workspaceId     String    @unique
+  label          String?
+  baseUrl        String
+  enabled        Boolean   @default(true)
+  callbackToken  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, updatedAt])
+}
 
 model WorkspaceOpenClawIntegration {
   id             String    @id @default(cuid())

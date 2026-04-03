@@ -47,7 +47,7 @@ function formatCallbackComment(event: Record<string, unknown>) {
 
   if (eventType === "execution.completed") {
     return [
-      "Constructor v2 final answer",
+      "Constructor final answer",
       bridgeExecutionId ? `Bridge execution: ${bridgeExecutionId}` : null,
       externalTaskId ? `External task: ${externalTaskId}` : null,
       resultText ? "" : null,
@@ -57,7 +57,7 @@ function formatCallbackComment(event: Record<string, unknown>) {
 
   if (eventType === "execution.failed") {
     return [
-      "Constructor v2 execution failed",
+      "Constructor execution failed",
       bridgeExecutionId ? `Bridge execution: ${bridgeExecutionId}` : null,
       externalTaskId ? `External task: ${externalTaskId}` : null,
       "",
@@ -67,7 +67,7 @@ function formatCallbackComment(event: Record<string, unknown>) {
 
   if (eventType === "execution.timed_out") {
     return [
-      "Constructor v2 execution timed out",
+      "Constructor execution timed out",
       bridgeExecutionId ? `Bridge execution: ${bridgeExecutionId}` : null,
       externalTaskId ? `External task: ${externalTaskId}` : null
     ].filter(Boolean).join("\n");
@@ -75,14 +75,14 @@ function formatCallbackComment(event: Record<string, unknown>) {
 
   if (eventType === "execution.canceled") {
     return [
-      "Constructor v2 execution canceled",
+      "Constructor execution canceled",
       bridgeExecutionId ? `Bridge execution: ${bridgeExecutionId}` : null,
       externalTaskId ? `External task: ${externalTaskId}` : null
     ].filter(Boolean).join("\n");
   }
 
   return [
-    "Constructor v2 terminal update",
+    "Constructor terminal update",
     bridgeExecutionId ? `Bridge execution: ${bridgeExecutionId}` : null,
     externalTaskId ? `External task: ${externalTaskId}` : null,
     resultText ? "" : null,
@@ -98,15 +98,15 @@ function getCallbackTaskPatch(event: Record<string, unknown>): Prisma.TaskUpdate
   }
 
   if (eventType === "execution.failed") {
-    return { status: TaskStatus.blocked, blockedReason: "Constructor v2 execution failed." };
+    return { status: TaskStatus.blocked, blockedReason: "Constructor execution failed." };
   }
 
   if (eventType === "execution.timed_out") {
-    return { status: TaskStatus.blocked, blockedReason: "Constructor v2 execution timed out." };
+    return { status: TaskStatus.blocked, blockedReason: "Constructor execution timed out." };
   }
 
   if (eventType === "execution.canceled") {
-    return { status: TaskStatus.blocked, blockedReason: "Constructor v2 execution was canceled." };
+    return { status: TaskStatus.blocked, blockedReason: "Constructor execution was canceled." };
   }
 
   return null;
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await appendSystemExecutionLogInDb(
       taskId,
       `CONSTRUCTOR_CALLBACK_DUPLICATE_IGNORED event=${eventType}${bridgeExecutionId ? ` bridgeExecutionId=${bridgeExecutionId}` : ""}`,
-      "Constructor v2"
+      "Constructor"
     );
 
     return NextResponse.json({ ok: true, duplicate: true });
@@ -183,11 +183,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   await appendSystemExecutionLogInDb(
     taskId,
     `CONSTRUCTOR_CALLBACK_RECEIVED event=${eventType}${bridgeExecutionId ? ` bridgeExecutionId=${bridgeExecutionId}` : ""}`,
-    "Constructor v2"
+    "Constructor"
   );
 
   const comment = await createCommentInDb(taskId, {
-    author: "Constructor v2",
+    author: "Constructor",
     role: "Agent",
     tone: "agent",
     body: commentBody
