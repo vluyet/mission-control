@@ -294,7 +294,7 @@ export function getAgentContractPayload() {
         path: "/api/workspaces/current/constructor/sync",
         response_shape: ["integration", "agents[]"],
         notes: [
-          "Mission Control calls the OpenClaw gateway tools invoke API with agents_list.",
+          "Mission Control calls the linked gateway agent discovery flow for the active workspace.",
           "Synced agents are created or updated as workspace agent members from the gateway-backed sync source used by Constructor."
         ]
       },
@@ -420,11 +420,11 @@ export function getAgentContractPayload() {
       gateway_task_dispatch_compat: {
         method: "POST",
         path: "/api/tasks/:taskId/openclaw/dispatch",
-        response_shape: ["dispatch.taskId", "dispatch.openclawAgentId", "dispatch.responseId?"],
+        response_shape: ["dispatch.taskId", "dispatch.agentId", "dispatch.responseId?"],
         notes: [
           "Owner-authenticated only.",
           "This is a compatibility bridge route retained while the Constructor-owned product flow still reuses the underlying gateway dispatch seam.",
-          "Dispatch uses the linked OpenClaw `/hooks/agent` endpoint with the assigned `agentId`.",
+          "Dispatch uses the linked gateway agent hook endpoint with the assigned `agentId`.",
           "Mission Control writes the final human-facing response back into task comments as the assigned agent."
         ]
       },
