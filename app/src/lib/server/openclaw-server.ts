@@ -572,7 +572,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
   }
 }
 
-export async function triggerOpenClawMentionDispatchInDb(
+export async function triggerGatewayMentionDispatchInDb(
   taskId: string,
   input: {
     commentBody: string;
@@ -665,7 +665,7 @@ export async function triggerOpenClawMentionDispatchInDb(
   };
 }
 
-export async function handleOpenClawTaskWebhookInDb(taskId: string, payload: unknown) {
+export async function handleGatewayTaskWebhookInDb(taskId: string, payload: unknown) {
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {

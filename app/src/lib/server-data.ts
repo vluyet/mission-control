@@ -12,8 +12,8 @@ import type { ActivityFeedItem, AttachmentRecord, ContextBlock, Member, Metric, 
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 export {
   dispatchTaskToOpenClawInDb,
-  triggerOpenClawMentionDispatchInDb,
-  handleOpenClawTaskWebhookInDb,
+  triggerGatewayMentionDispatchInDb,
+  handleGatewayTaskWebhookInDb,
   syncActiveWorkspaceOpenClawAgentsInDb
 } from "@/lib/server/openclaw-server";
 export {

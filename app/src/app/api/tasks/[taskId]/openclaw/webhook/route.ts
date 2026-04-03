@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleOpenClawTaskWebhookInDb } from "@/lib/server/openclaw-server";
+import { handleGatewayTaskWebhookInDb } from "@/lib/server/openclaw-server";
 
 function getExpectedToken() {
   return process.env.OPENCLAW_WEBHOOK_TOKEN?.trim() || process.env.MISSION_CONTROL_OPENCLAW_WEBHOOK_TOKEN?.trim() || "";
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { taskId } = await params;
   const payload = await request.json().catch(() => null);
-  const result = await handleOpenClawTaskWebhookInDb(taskId, payload);
+  const result = await handleGatewayTaskWebhookInDb(taskId, payload);
 
   if (result && "error" in result) {
     const status = result.error === "TASK_NOT_FOUND" ? 404 : result.error === "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" ? 409 : 422;
