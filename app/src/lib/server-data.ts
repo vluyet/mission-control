@@ -24,6 +24,7 @@ export {
 } from "@/lib/server/members-server";
 export {
   getActiveWorkspaceConstructorIntegration,
+  getActiveWorkspaceConstructorIntegrationRecord,
   getActiveWorkspaceOpenClawIntegration,
   getWorkspaceManagementDataForUi,
   getWorkspaceShellDataForUi,

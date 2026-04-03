@@ -356,16 +356,20 @@ export async function updateActiveWorkspaceInDb(payload: {
   };
 }
 
-export async function getActiveWorkspaceConstructorIntegration() {
+export async function getActiveWorkspaceConstructorIntegrationRecord() {
   const activeWorkspace = await getActiveWorkspaceRecord();
 
   if (!activeWorkspace) {
     return null;
   }
 
-  const integration = await db.workspaceConstructorIntegration.findUnique({
+  return db.workspaceConstructorIntegration.findUnique({
     where: { workspaceId: activeWorkspace.id }
   });
+}
+
+export async function getActiveWorkspaceConstructorIntegration() {
+  const integration = await getActiveWorkspaceConstructorIntegrationRecord();
 
   if (!integration) {
     return null;
@@ -396,19 +400,23 @@ export async function upsertActiveWorkspaceConstructorIntegrationInDb(payload: {
     where: { workspaceId: activeWorkspace.id }
   });
 
+  const callbackToken = payload.callbackToken === undefined
+    ? existing?.callbackToken ?? null
+    : payload.callbackToken.trim() || null;
+
   const integration = await db.workspaceConstructorIntegration.upsert({
     where: { workspaceId: activeWorkspace.id },
     update: {
       label: payload.label?.trim() || null,
       baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
-      callbackToken: payload.callbackToken?.trim() ? payload.callbackToken.trim() : existing?.callbackToken ?? null,
+      callbackToken,
       enabled: payload.enabled ?? existing?.enabled ?? true
     },
     create: {
       workspaceId: activeWorkspace.id,
       label: payload.label?.trim() || null,
       baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
-      callbackToken: payload.callbackToken?.trim() || null,
+      callbackToken,
       enabled: payload.enabled ?? true
     }
   });

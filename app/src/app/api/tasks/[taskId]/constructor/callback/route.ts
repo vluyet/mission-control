@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { TaskStatus } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { appendSystemExecutionLogInDb, createCommentInDb, getTaskResourceFromDb } from "@/lib/server-data";
+import {
+  appendSystemExecutionLogInDb,
+  createCommentInDb,
+  getActiveWorkspaceConstructorIntegrationRecord,
+  getTaskResourceFromDb
+} from "@/lib/server-data";
 
 function extractResultText(payload: unknown): string | null {
   if (typeof payload === "string") {
@@ -112,6 +117,17 @@ function getCallbackTaskPatch(event: Record<string, unknown>): Prisma.TaskUpdate
   return null;
 }
 
+function getBearerToken(request: NextRequest) {
+  const authorization = request.headers.get("authorization") || "";
+
+  if (!authorization.toLowerCase().startsWith("bearer ")) {
+    return null;
+  }
+
+  const token = authorization.slice("Bearer ".length).trim();
+  return token || null;
+}
+
 async function claimCallbackReceipt(taskId: string, source: string, eventType: string, bridgeExecutionId: string | null) {
   if (!bridgeExecutionId) {
     return { claimed: true as const };
@@ -148,6 +164,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (!task) {
     return NextResponse.json({ ok: false, error: { message: "Task not found" } }, { status: 404 });
+  }
+
+  const integration = await getActiveWorkspaceConstructorIntegrationRecord();
+  const expectedToken = integration?.callbackToken?.trim() || null;
+
+  if (expectedToken) {
+    const token = getBearerToken(request);
+
+    if (token !== expectedToken) {
+      return NextResponse.json({ ok: false, error: { message: "Constructor callback unauthorized" } }, { status: 401 });
+    }
   }
 
   const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;

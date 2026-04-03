@@ -46,6 +46,20 @@ export async function signIn() {
   return cookie;
 }
 
+export async function upsertWorkspaceConstructorIntegration(cookie, body) {
+  const response = await fetch(`${baseUrl}/api/workspaces/current/constructor`, {
+    method: "PATCH",
+    headers: {
+      ...(cookie ? { cookie } : {}),
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  const payload = await response.json().catch(() => null);
+  return { response, payload };
+}
+
 export async function json(path, { method = "GET", cookie, body } = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
