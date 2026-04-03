@@ -25,12 +25,12 @@ export async function POST(request: Request, { params }: { params: { taskId: str
     const code = String(result.error);
     const status = code === "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" || code === "OPENCLAW_NOT_CONFIGURED" ? 422 : 502;
     const messageMap: Record<string, string> = {
-      TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT: "Task must be assigned to an OpenClaw-backed agent before dispatch.",
-      OPENCLAW_NOT_CONFIGURED: "OpenClaw is not configured for this workspace.",
-      OPENCLAW_DISPATCH_FAILED: result.message ?? "OpenClaw dispatch failed.",
-      OPENCLAW_COMMENT_WRITE_FAILED: result.message ?? "OpenClaw responded, but Mission Control could not write the task comment."
+      TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT: "Task must be assigned to a gateway-backed agent before dispatch.",
+      OPENCLAW_NOT_CONFIGURED: "Gateway dispatch is not configured for this workspace.",
+      OPENCLAW_DISPATCH_FAILED: result.message ?? "Gateway dispatch failed.",
+      OPENCLAW_COMMENT_WRITE_FAILED: result.message ?? "Gateway dispatch succeeded, but Mission Control could not write the task comment."
     };
-    return error(messageMap[code] ?? "OpenClaw dispatch failed.", status, { code });
+    return error(messageMap[code] ?? "Gateway dispatch failed.", status, { code });
   }
 
   revalidatePath(`/tasks/${params.taskId}`);
@@ -40,5 +40,5 @@ export async function POST(request: Request, { params }: { params: { taskId: str
   }
   revalidatePath(`/my-tasks`);
   revalidatePath(`/queue`);
-  return ok({ dispatch: result, message: "Task dispatched to OpenClaw and marked in progress." }, { status: 202 });
+  return ok({ dispatch: result, message: "Task dispatched through the gateway and marked in progress." }, { status: 202 });
 }
