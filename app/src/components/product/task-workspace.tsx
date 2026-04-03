@@ -6,7 +6,6 @@ import { MessageIcon, PaperclipIcon, PulseIcon } from "@/components/ui/icons";
 import { Panel, PanelHeader, PriorityBadge, StatusBadge } from "@/components/ui/primitives";
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
-import { TaskOpenClawDispatchButton } from "@/components/product/task-openclaw-dispatch-button";
 import { TaskConstructorDispatchCard } from "@/components/product/task-constructor-dispatch-card";
 
 function MetadataItem({
@@ -67,16 +66,16 @@ function AgentDispatchBlock({
   task,
   latestExecutionLine,
   latestUpdatedAt,
-  openClawState,
-  openClawFreshness,
+  agentState,
+  agentFreshness,
   accentClass,
   executionFeed
 }: {
   task: TaskRecord;
   latestExecutionLine?: string | null;
   latestUpdatedAt?: string;
-  openClawState: string;
-  openClawFreshness: string;
+  agentState: string;
+  agentFreshness: string;
   accentClass: string;
   executionFeed: string[];
 }) {
@@ -87,14 +86,14 @@ function AgentDispatchBlock({
         <div className="relative flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-900">Dispatch and state</p>
-            <p className="mt-1 text-xs text-slate-600">Compact controls for the current agent task run.</p>
+            <p className="mt-1 text-xs text-slate-600">Constructor is the active runtime path for this task.</p>
           </div>
           <span className={`rounded-full border px-2.5 py-1 text-xs backdrop-blur-sm ${accentClass}`}>
-            {openClawState}
+            {agentState}
           </span>
         </div>
         <div className="relative mt-4">
-          <TaskOpenClawDispatchButton taskId={task.id} currentStatus={task.status} />
+          <TaskConstructorDispatchCard taskId={task.id} taskTitle={task.title} executionFeed={executionFeed} />
         </div>
       </div>
 
@@ -104,10 +103,8 @@ function AgentDispatchBlock({
           <p className="text-sm font-semibold">Current signal</p>
         </div>
         <p className="mt-3 text-sm leading-6 text-slate-600">{latestExecutionLine ?? "No agent log yet."}</p>
-        <p className="mt-3 text-xs text-slate-500">{latestUpdatedAt ? `${openClawFreshness} · updated ${latestUpdatedAt}` : openClawFreshness}</p>
+        <p className="mt-3 text-xs text-slate-500">{latestUpdatedAt ? `${agentFreshness} · updated ${latestUpdatedAt}` : agentFreshness}</p>
       </div>
-
-      <TaskConstructorDispatchCard taskId={task.id} taskTitle={task.title} executionFeed={executionFeed} />
 
       <TaskStatusActions
         taskId={task.id}
@@ -154,8 +151,8 @@ export function TaskWorkspace({
   compact?: boolean;
 }) {
   const agentHealth = getAgentRunHealth(task, executionMeta?.latestUpdatedAt ?? task.updatedAt);
-  const openClawFreshness = agentHealth.detail;
-  const openClawState = agentHealth.label;
+  const agentFreshness = agentHealth.detail;
+  const agentState = agentHealth.label;
   const latestExecutionLine = executionFeed[executionFeed.length - 1] ?? null;
 
   return (
@@ -221,8 +218,8 @@ export function TaskWorkspace({
                 task={task}
                 latestExecutionLine={latestExecutionLine}
                 latestUpdatedAt={executionMeta?.latestUpdatedAt}
-                openClawState={openClawState}
-                openClawFreshness={openClawFreshness}
+                agentState={agentState}
+                agentFreshness={agentFreshness}
                 accentClass={agentHealth.accentClass}
                 executionFeed={executionFeed}
               />

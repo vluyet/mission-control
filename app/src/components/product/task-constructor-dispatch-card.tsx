@@ -143,7 +143,7 @@ export function TaskConstructorDispatchCard({
         <div>
           <p className="text-sm font-semibold text-slate-900">Send task via Constructor</p>
           <p className="mt-1 text-xs leading-5 text-slate-600">
-            Run the Constructor-based answer generation flow alongside the existing Dispatch button.
+            Run the Constructor-based answer generation flow for this task.
             Mission Control posts the terminal result into task comments from the Constructor callback.
           </p>
         </div>
@@ -175,9 +175,8 @@ export function TaskConstructorDispatchCard({
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs leading-5 text-slate-600">
           <p className="font-semibold text-slate-800">Operator note</p>
           <ul className="mt-2 list-disc space-y-1 pl-4">
-            <li>This does not replace the legacy OpenClaw dispatch flow yet.</li>
-            <li>Use it to exercise the Constructor ingestion and callback flow end to end.</li>
-            <li>The OpenClaw agent only generates a final answer from the provided task context.</li>
+            <li>Use this to exercise the Constructor ingestion and callback flow end to end.</li>
+            <li>Constructor should generate a final answer from the provided task context.</li>
             <li>Mission Control writes that final answer into task comments after the callback arrives.</li>
           </ul>
         </div>

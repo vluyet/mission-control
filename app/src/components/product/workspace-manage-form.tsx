@@ -8,7 +8,6 @@ import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 import { WorkspaceAssetsPanel } from "@/components/product/workspace-assets-panel";
 import { WorkspaceAgentCredentialsPanel } from "@/components/product/workspace-agent-credentials-panel";
 import { WorkspaceConstructorPanel } from "@/components/product/workspace-constructor-panel";
-import { WorkspaceOpenClawPanel } from "@/components/product/workspace-openclaw-panel";
 
 type WorkspaceManageValues = {
   name: string;
@@ -41,16 +40,6 @@ type WorkspaceManageValues = {
     detail: string;
     time: string;
   }[];
-  openclaw: {
-    id: string;
-    label: string;
-    baseUrl: string;
-    enabled: boolean;
-    tokenConfigured: boolean;
-    lastSyncAt: string | null;
-    lastSyncStatus: string | null;
-    lastSyncError: string | null;
-  } | null;
   constructor: {
     id: string;
     label: string;
@@ -194,14 +183,10 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
         {workspace.assets.length ? <WorkspaceAssetsPanel assets={workspace.assets} /> : null}
 
         <Panel className="overflow-hidden">
-          <PanelHeader eyebrow="Advanced" title="Runtime and credentials" description="Only needed for OpenClaw integration and agent API access." />
+          <PanelHeader eyebrow="Advanced" title="Constructor runtime" description="Only needed for Constructor integration and agent API access." />
           <div className="space-y-5 px-5 py-5">
             <div id="workspace-constructor">
               <WorkspaceConstructorPanel integration={workspace.constructor} />
-            </div>
-
-            <div id="workspace-openclaw">
-              <WorkspaceOpenClawPanel integration={workspace.openclaw} />
             </div>
 
             {(workspace.agentCredentials.length || workspace.authEvents.length) ? (
