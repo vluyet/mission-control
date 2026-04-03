@@ -48,7 +48,7 @@ async function createOpenClawRuntimeCredential(membershipId: string, taskId: str
   };
 }
 
-const OPENCLAW_TASK_PROMPT_SCHEMA = "mission_control_task_v5";
+const GATEWAY_TASK_PROMPT_SCHEMA = "mission_control_task_v5";
 
 function limitPromptText(value: string, maxLength: number) {
   return value.trim().replace(/\s+/g, " ").slice(0, maxLength);
@@ -139,8 +139,8 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildTaskAgentSessionKey(taskId: string, openclawAgentId: string) {
-  const safeAgentId = openclawAgentId.replace(/[^a-zA-Z0-9_.:-]+/g, "-");
+function buildGatewayTaskSessionKey(taskId: string, gatewayAgentId: string) {
+  const safeAgentId = gatewayAgentId.replace(/[^a-zA-Z0-9_.:-]+/g, "-");
   return `hook:mission-control:task:${taskId}:agent:${safeAgentId}`;
 }
 
@@ -476,7 +476,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
 
   const runtimeCredential = await createOpenClawRuntimeCredential(assignee.id, task.id);
   const missionControlBaseUrl = options?.missionControlBaseUrl?.replace(/\/+$/, "") || "http://127.0.0.1:3001";
-  const normalizedSessionKey = options?.sessionKey?.trim() || buildTaskAgentSessionKey(task.id, assignee.sourceKey);
+  const normalizedSessionKey = options?.sessionKey?.trim() || buildGatewayTaskSessionKey(task.id, assignee.sourceKey);
   const normalizedSessionId = options?.sessionId?.trim() || null;
 
   const message = buildOpenClawTaskMessage({
@@ -634,7 +634,7 @@ export async function triggerGatewayMentionDispatchInDb(
     overrideAssigneeId: firstMatch.id,
     triggerCommentBody: body,
     triggerActorLabel: input.actorLabel,
-    sessionKey: buildTaskAgentSessionKey(taskId, firstMatch.sourceKey)
+    sessionKey: buildGatewayTaskSessionKey(taskId, firstMatch.sourceKey)
   });
 
   if (!dispatchResult) {
