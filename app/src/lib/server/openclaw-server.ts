@@ -155,7 +155,7 @@ function findMentionIndex(body: string, candidate: string) {
   return match?.index ?? -1;
 }
 
-function extractOpenClawWebhookText(value: unknown): string | null {
+function extractGatewayWebhookText(value: unknown): string | null {
   if (typeof value === "string") {
     const text = value.trim();
     return text || null;
@@ -163,7 +163,7 @@ function extractOpenClawWebhookText(value: unknown): string | null {
 
   if (Array.isArray(value)) {
     for (const entry of value) {
-      const text = extractOpenClawWebhookText(entry);
+      const text = extractGatewayWebhookText(entry);
       if (text) return text;
     }
     return null;
@@ -173,21 +173,21 @@ function extractOpenClawWebhookText(value: unknown): string | null {
   const record = value as Record<string, unknown>;
 
   for (const key of ["resultText", "finalText", "summary", "text"]) {
-    const text = extractOpenClawWebhookText(record[key]);
+    const text = extractGatewayWebhookText(record[key]);
     if (text) return text;
   }
 
   for (const key of ["result", "data", "details", "payload", "run", "response"]) {
     const nested = record[key];
     if (nested && typeof nested === "object") {
-      const text = extractOpenClawWebhookText(nested);
+      const text = extractGatewayWebhookText(nested);
       if (text) return text;
     }
   }
 
   if (Array.isArray(record.content)) {
     for (const entry of record.content) {
-      const text = extractOpenClawWebhookText(entry);
+      const text = extractGatewayWebhookText(entry);
       if (text) return text;
     }
   }
@@ -195,7 +195,7 @@ function extractOpenClawWebhookText(value: unknown): string | null {
   return null;
 }
 
-function normalizeOpenClawWebhookPayload(payload: unknown) {
+function normalizeGatewayWebhookPayload(payload: unknown) {
   const record = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
   const event = typeof record.event === "string" ? record.event : typeof record.type === "string" ? record.type : null;
   const data = record.data && typeof record.data === "object" ? (record.data as Record<string, unknown>) : null;
@@ -216,10 +216,10 @@ function normalizeOpenClawWebhookPayload(payload: unknown) {
     null;
 
   const finalText =
-    extractOpenClawWebhookText(data?.result ?? null) ||
-    extractOpenClawWebhookText(data?.output ?? null) ||
-    extractOpenClawWebhookText(data?.response ?? null) ||
-    extractOpenClawWebhookText(record.result ?? null) ||
+    extractGatewayWebhookText(data?.result ?? null) ||
+    extractGatewayWebhookText(data?.output ?? null) ||
+    extractGatewayWebhookText(data?.response ?? null) ||
+    extractGatewayWebhookText(record.result ?? null) ||
     null;
 
   return {
@@ -682,7 +682,7 @@ export async function handleGatewayTaskWebhookInDb(taskId: string, payload: unkn
     return { error: "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" } as const;
   }
 
-  const normalized = normalizeOpenClawWebhookPayload(payload);
+  const normalized = normalizeGatewayWebhookPayload(payload);
   const event = normalized.event;
   const progressText = normalized.progressText;
   const status = normalized.status;

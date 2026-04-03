@@ -10,11 +10,11 @@ const outdir = path.resolve('/tmp/mission-control-openclaw-webhook-tests');
 
 async function loadHelpers() {
   const raw = await fs.readFile(source, 'utf8');
-  const extractStart = raw.indexOf('function extractOpenClawWebhookText');
+  const extractStart = raw.indexOf('function extractGatewayWebhookText');
   const looksStart = raw.indexOf('function looksLikeChattyAgentReply');
-  const normalizeStart = raw.indexOf('function normalizeOpenClawWebhookPayload');
+  const normalizeStart = raw.indexOf('function normalizeGatewayWebhookPayload');
   const dispatchStart = raw.indexOf('export async function dispatchTaskToOpenClawInDb');
-  const snippet = `${raw.slice(extractStart, dispatchStart)}\nexport { extractOpenClawWebhookText, normalizeOpenClawWebhookPayload, normalizeTaskAppFinalComment };`;
+  const snippet = `${raw.slice(extractStart, dispatchStart)}\nexport { extractGatewayWebhookText, normalizeGatewayWebhookPayload, normalizeTaskAppFinalComment };`;
   const transpiled = ts.transpileModule(snippet, {
     compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
     fileName: source
@@ -25,8 +25,8 @@ async function loadHelpers() {
   return import(`${pathToFileURL(outfile).href}?t=${Date.now()}`);
 }
 
-test('normalizeOpenClawWebhookPayload reads documented finished event envelope', async () => {
-  const { normalizeOpenClawWebhookPayload } = await loadHelpers();
+test('normalizeGatewayWebhookPayload reads documented finished event envelope', async () => {
+  const { normalizeGatewayWebhookPayload } = await loadHelpers();
   const payload = {
     event: 'run.finished',
     data: {
@@ -38,15 +38,15 @@ test('normalizeOpenClawWebhookPayload reads documented finished event envelope',
     }
   };
 
-  const normalized = normalizeOpenClawWebhookPayload(payload);
+  const normalized = normalizeGatewayWebhookPayload(payload);
   assert.equal(normalized.event, 'run.finished');
   assert.equal(normalized.status, 'completed');
   assert.equal(normalized.progressText, null);
   assert.equal(normalized.finalText, 'Short task update.');
 });
 
-test('normalizeOpenClawWebhookPayload keeps backward compatibility with current bridge payloads', async () => {
-  const { normalizeOpenClawWebhookPayload } = await loadHelpers();
+test('normalizeGatewayWebhookPayload keeps backward compatibility with current bridge payloads', async () => {
+  const { normalizeGatewayWebhookPayload } = await loadHelpers();
   const payload = {
     event: 'completed',
     status: 'completed',
@@ -56,7 +56,7 @@ test('normalizeOpenClawWebhookPayload keeps backward compatibility with current 
     }
   };
 
-  const normalized = normalizeOpenClawWebhookPayload(payload);
+  const normalized = normalizeGatewayWebhookPayload(payload);
   assert.equal(normalized.event, 'completed');
   assert.equal(normalized.status, 'completed');
   assert.equal(normalized.finalText, 'Task done.');
