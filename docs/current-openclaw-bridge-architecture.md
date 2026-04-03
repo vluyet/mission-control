@@ -7,10 +7,10 @@ It is a working implementation note, not a stable public API guarantee.
 ## Scope
 
 Current Mission Control integration points:
-- `POST /api/tasks/:taskId/openclaw/dispatch`
-- `POST /api/tasks/:taskId/openclaw/webhook`
 - `POST /api/tasks/:taskId/constructor/dispatch`
 - `POST /api/tasks/:taskId/constructor/callback`
+- `POST /api/tasks/:taskId/openclaw/dispatch` (gateway dispatch compatibility path)
+- `POST /api/tasks/:taskId/openclaw/webhook` (gateway webhook compatibility path)
 - `GET /api/workspaces/current/openclaw` (gateway settings compatibility path)
 - `PATCH /api/workspaces/current/openclaw` (gateway settings compatibility path)
 - `GET /api/workspaces/current/constructor`
@@ -40,6 +40,10 @@ Gateway connection details are still persisted through the existing workspace Op
 These settings are owner-only through workspace APIs.
 
 ## Constructor dispatch behavior
+
+The intended product-facing dispatch entrypoint is Constructor.
+
+The older `/api/tasks/:taskId/openclaw/dispatch` route is still retained as an internal/compatibility bridge while Mission Control continues to reuse the existing gateway-backed dispatch seam underneath.
 
 When an owner dispatches a task through the Constructor UI card, Mission Control:
 1. loads the task resource and recent comments
@@ -186,8 +190,7 @@ These writes use the system path and do not depend on agent membership lookup.
 ## Current limitations
 
 - this document describes the working local implementation, not a stable public API
-- the dispatch route still resolves `CONSTRUCTOR_BASE_URL` from route environment, not yet from saved workspace settings
-- Constructor callback token storage exists in workspace settings, but callback request verification is not yet enforced in the callback route
+- compatibility gateway routes still exist under `/api/tasks/:taskId/openclaw/*` and `/api/workspaces/current/openclaw` while the Constructor-owned flow reuses the older gateway seam underneath
 - in-flight Constructor execution polling is not wired into Mission Control UI yet
 
 ## Validation notes

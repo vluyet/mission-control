@@ -156,7 +156,7 @@ export function getAgentDocsPayload() {
       {
         method: "POST",
         path: "/api/tasks/:taskId/openclaw/dispatch",
-        purpose: "Dispatch a task assigned to an OpenClaw-backed agent through the linked OpenClaw gateway."
+        purpose: "Compatibility bridge route for gateway-backed task dispatch under the Constructor-owned product flow."
       },
       {
         method: "GET",
@@ -417,14 +417,15 @@ export function getAgentContractPayload() {
         path: "/api/attachments/:attachmentId",
         response_shape: ["binary file response"]
       },
-      openclaw_task_dispatch: {
+      gateway_task_dispatch_compat: {
         method: "POST",
         path: "/api/tasks/:taskId/openclaw/dispatch",
         response_shape: ["dispatch.taskId", "dispatch.openclawAgentId", "dispatch.responseId?"],
         notes: [
           "Owner-authenticated only.",
+          "This is a compatibility bridge route retained while the Constructor-owned product flow still reuses the underlying gateway dispatch seam.",
           "Dispatch uses the linked OpenClaw `/hooks/agent` endpoint with the assigned `agentId`.",
-          "The first-pass integration asks OpenClaw for a single final human-facing answer and Mission Control writes that response back into task comments as the assigned agent."
+          "Mission Control writes the final human-facing response back into task comments as the assigned agent."
         ]
       },
       task_comments: {

@@ -1,26 +1,26 @@
-# OpenClaw Task Dispatch Implementation Spec
+# Gateway Task Dispatch Compatibility Spec
 
 ## Objective
-Make Mission Control -> OpenClaw task dispatching feel immediate, transparent, and async-first while keeping backend/API traffic and token usage efficient.
+Document the retained gateway-backed task dispatch compatibility path while Constructor remains the intended Mission Control product flow.
 
 ## Product requirements
 
 ### Dispatch UX
-- Clicking **Dispatch to OpenClaw** must show feedback immediately.
-- The button must enter a sending state (`Dispatching...`) and avoid duplicate clicks.
+- Any retained compatibility trigger for gateway-backed dispatch must show feedback immediately.
+- The trigger must enter a sending state (`Dispatching...`) and avoid duplicate clicks.
 - On acceptance, the user must see a clear confirmation message without waiting for the task to finish.
-- If the task is already active, the button should be disabled and explain that OpenClaw is already running.
+- If the task is already active, the compatibility trigger should be disabled and explain that gateway-backed work is already running.
 
 ### Backend behavior
 - Dispatch is asynchronous by contract.
-- Dispatch success must not depend on immediate final text from OpenClaw.
-- Backend must return `202 Accepted` once OpenClaw accepts the run.
+- Dispatch success must not depend on immediate final text from the gateway-backed agent run.
+- Backend must return `202 Accepted` once the gateway-backed run is accepted.
 - On acceptance, the task must be persisted as `in_progress` immediately.
 - On completion, the task must move to `review`.
 - On blocked runs, task should move to `blocked` when explicitly reported.
 
 ### Transparency
-- The task page must expose a dedicated OpenClaw activity area.
+- The task page must expose a dedicated execution activity area for the retained compatibility flow.
 - Activity area must show:
   - current agent state (`Idle`, `Live`, `Blocked`, `Completed`)
   - freshness of latest update
@@ -49,6 +49,8 @@ Make Mission Control -> OpenClaw task dispatching feel immediate, transparent, a
 ### Dispatch endpoint
 `POST /api/tasks/:taskId/openclaw/dispatch`
 
+This route is a compatibility bridge. Constructor-owned dispatch should use `POST /api/tasks/:taskId/constructor/dispatch`.
+
 Success:
 - HTTP `202`
 - payload includes `accepted`, `responseId`, optional `message`
@@ -60,6 +62,8 @@ Effects on success:
 
 ### Webhook endpoint
 `POST /api/tasks/:taskId/openclaw/webhook`
+
+This route is a compatibility bridge for the older gateway-backed dispatch path.
 
 Supported event intents:
 - `progress`
@@ -76,14 +80,14 @@ Effects:
 ## UI states
 
 ### Dispatch button states
-- Idle: `Dispatch to OpenClaw`
+- Idle: compatibility-trigger specific
 - Sending: `Dispatching...`
-- Active/locked: `OpenClaw running`
+- Active/locked: gateway-backed run active
 
 ### Inline dispatch messages
-- Sending: `Sending task to OpenClaw...`
-- Accepted: `Task dispatched to OpenClaw and marked in progress.`
-- Running: `Task is already in progress. Live updates will appear below.`
+- Sending: gateway-backed dispatch in progress
+- Accepted: task dispatched and marked in progress
+- Running: task is already in progress
 - Failure: backend-provided error text when available
 
 ## Acceptance criteria
