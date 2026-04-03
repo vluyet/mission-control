@@ -532,7 +532,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
       });
     }
 
-    const eventType = options?.triggerCommentBody ? "openclaw.task_redispatched_from_comment" : "openclaw.task_dispatched";
+    const eventType = options?.triggerCommentBody ? "gateway.task_redispatched_from_comment" : "gateway.task_dispatched";
     await db.authEvent.create({
       data: {
         workspaceId: task.project.workspaceId,
@@ -557,14 +557,14 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: OpenC
       commentId: null
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "OpenClaw task dispatch failed.";
+    const message = err instanceof Error ? err.message : "Gateway task dispatch failed.";
     await db.authEvent.create({
       data: {
         workspaceId: task.project.workspaceId,
         membershipId: assignee.id,
         actorType: "owner",
         actorLabel: options?.triggerActorLabel?.trim() || getOwnerAuthConfig().email,
-        eventType: "openclaw.task_dispatch_failed",
+        eventType: "gateway.task_dispatch_failed",
         detail: message
       }
     });
