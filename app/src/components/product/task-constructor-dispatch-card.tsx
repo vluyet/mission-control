@@ -12,12 +12,72 @@ type SendResult = {
   message?: string;
 };
 
+function getConstructorSignal(executionFeed: string[]) {
+  const constructorLines = executionFeed.filter((line) => /constructor/i.test(line));
+  const latestLine = constructorLines[constructorLines.length - 1] ?? null;
+
+  if (!latestLine) {
+    return {
+      tone: "slate" as const,
+      label: "No Constructor activity yet",
+      detail: "Dispatch a task to see Constructor execution and callback updates here."
+    };
+  }
+
+  if (latestLine.includes("CONSTRUCTOR_CALLBACK_DUPLICATE_IGNORED")) {
+    return {
+      tone: "amber" as const,
+      label: "Callback already processed",
+      detail: latestLine
+    };
+  }
+
+  if (latestLine.includes("CONSTRUCTOR_CALLBACK_RECEIVED")) {
+    return {
+      tone: "emerald" as const,
+      label: "Callback received",
+      detail: latestLine
+    };
+  }
+
+  if (/dispatch failed|unauthorized|error/i.test(latestLine)) {
+    return {
+      tone: "rose" as const,
+      label: "Constructor needs attention",
+      detail: latestLine
+    };
+  }
+
+  return {
+    tone: "blue" as const,
+    label: "Dispatch in progress",
+    detail: latestLine
+  };
+}
+
+function getSignalClasses(tone: "slate" | "blue" | "emerald" | "amber" | "rose") {
+  switch (tone) {
+    case "blue":
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    case "emerald":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "amber":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "rose":
+      return "border-rose-200 bg-rose-50 text-rose-700";
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-600";
+  }
+}
+
 export function TaskConstructorDispatchCard({
   taskId,
-  taskTitle
+  taskTitle,
+  executionFeed = []
 }: {
   taskId: string;
   taskTitle: string;
+  executionFeed?: string[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -26,6 +86,8 @@ export function TaskConstructorDispatchCard({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SendResult | null>(null);
+
+  const constructorSignal = useMemo(() => getConstructorSignal(executionFeed), [executionFeed]);
 
   const effectiveInstruction = useMemo(() => {
     const trimmed = instructions.trim();
@@ -103,6 +165,12 @@ export function TaskConstructorDispatchCard({
             placeholder="Optional override. Keep it self-contained: ask for a final answer only, not direct Mission Control actions."
           />
         </label>
+
+        <div className={`rounded-xl border px-3 py-3 text-xs leading-5 ${getSignalClasses(constructorSignal.tone)}`}>
+          <p className="font-semibold">Latest Constructor signal</p>
+          <p className="mt-2 text-sm font-medium">{constructorSignal.label}</p>
+          <p className="mt-1 break-words">{constructorSignal.detail}</p>
+        </div>
 
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs leading-5 text-slate-600">
           <p className="font-semibold text-slate-800">Operator note</p>

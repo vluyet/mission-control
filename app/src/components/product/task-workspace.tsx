@@ -69,7 +69,8 @@ function AgentDispatchBlock({
   latestUpdatedAt,
   openClawState,
   openClawFreshness,
-  accentClass
+  accentClass,
+  executionFeed
 }: {
   task: TaskRecord;
   latestExecutionLine?: string | null;
@@ -77,6 +78,7 @@ function AgentDispatchBlock({
   openClawState: string;
   openClawFreshness: string;
   accentClass: string;
+  executionFeed: string[];
 }) {
   return (
     <div className="space-y-3">
@@ -105,7 +107,7 @@ function AgentDispatchBlock({
         <p className="mt-3 text-xs text-slate-500">{latestUpdatedAt ? `${openClawFreshness} · updated ${latestUpdatedAt}` : openClawFreshness}</p>
       </div>
 
-      <TaskConstructorDispatchCard taskId={task.id} taskTitle={task.title} />
+      <TaskConstructorDispatchCard taskId={task.id} taskTitle={task.title} executionFeed={executionFeed} />
 
       <TaskStatusActions
         taskId={task.id}
@@ -222,6 +224,7 @@ export function TaskWorkspace({
                 openClawState={openClawState}
                 openClawFreshness={openClawFreshness}
                 accentClass={agentHealth.accentClass}
+                executionFeed={executionFeed}
               />
             </SidebarSection>
           ) : null}
