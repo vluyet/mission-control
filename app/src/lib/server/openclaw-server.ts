@@ -288,7 +288,7 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
   });
 
   if (!integration || !integration.enabled) {
-    return { error: "OPENCLAW_NOT_CONFIGURED" } as const;
+    return { error: "GATEWAY_SYNC_NOT_CONFIGURED" } as const;
   }
 
   try {
@@ -388,8 +388,8 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
         workspaceId: activeWorkspace.id,
         actorType: "owner",
         actorLabel: getOwnerAuthConfig().email,
-        eventType: "openclaw.sync_succeeded",
-        detail: `Synced ${agents.length} OpenClaw agent${agents.length === 1 ? "" : "s"}`
+        eventType: "gateway.sync_succeeded",
+        detail: `Synced ${agents.length} Constructor agent${agents.length === 1 ? "" : "s"}`
       }
     });
 
@@ -407,7 +407,7 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
       agents
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "OpenClaw sync failed.";
+    const message = err instanceof Error ? err.message : "Gateway agent sync failed.";
 
     const updatedIntegration = await db.workspaceOpenClawIntegration.update({
       where: { workspaceId: activeWorkspace.id },
@@ -423,13 +423,13 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
         workspaceId: activeWorkspace.id,
         actorType: "owner",
         actorLabel: getOwnerAuthConfig().email,
-        eventType: "openclaw.sync_failed",
+        eventType: "gateway.sync_failed",
         detail: message
       }
     });
 
     return {
-      error: "OPENCLAW_SYNC_FAILED",
+      error: "GATEWAY_SYNC_FAILED",
       message,
       integration: updatedIntegration
     } as const;

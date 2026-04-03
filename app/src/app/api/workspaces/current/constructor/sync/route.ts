@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   }
 
   if ("error" in result) {
-    if (result.error === "OPENCLAW_NOT_CONFIGURED") {
+    if (result.error === "GATEWAY_SYNC_NOT_CONFIGURED") {
       return error("Gateway agent sync is not configured for this workspace.", 409, { code: result.error });
     }
 

@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   }
 
   if ("error" in result) {
-    return error(result.message ?? "OpenClaw sync failed.", result.error === "OPENCLAW_NOT_CONFIGURED" ? 422 : 502, {
+    return error(result.message ?? "Gateway agent sync failed.", result.error === "GATEWAY_SYNC_NOT_CONFIGURED" ? 422 : 502, {
       code: result.error
     });
   }
