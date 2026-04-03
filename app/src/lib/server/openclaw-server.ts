@@ -291,9 +291,17 @@ export async function syncActiveWorkspaceOpenClawAgentsInDb() {
     return { error: "GATEWAY_SYNC_NOT_CONFIGURED" } as const;
   }
 
+  const constructorIntegration = await db.workspaceConstructorIntegration.findUnique({
+    where: { workspaceId: activeWorkspace.id }
+  });
+
+  const syncBaseUrl = constructorIntegration?.enabled && constructorIntegration.baseUrl
+    ? constructorIntegration.baseUrl
+    : integration.baseUrl;
+
   try {
     const agents = await fetchOpenClawAgents({
-      baseUrl: integration.baseUrl,
+      baseUrl: syncBaseUrl,
       gatewayToken: integration.gatewayToken
     });
 
@@ -456,13 +464,18 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: Gatew
           workspaceId: task.project.workspaceId,
           kind: "agent",
           enabled: true,
-          sourceSystem: "openclaw"
+          sourceSystem: { in: ["openclaw", "constructor_manual"] }
         }
       })
     : null;
   const assignee = requestedAssignee ?? task.assignee;
 
-  if (!assignee || assignee.kind !== "agent" || assignee.sourceSystem !== "openclaw" || !assignee.sourceKey) {
+  if (
+    !assignee ||
+    assignee.kind !== "agent" ||
+    !["openclaw", "constructor_manual"].includes(assignee.sourceSystem ?? "") ||
+    !assignee.sourceKey
+  ) {
     return { error: "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" } as const;
   }
 
@@ -678,7 +691,11 @@ export async function handleGatewayTaskWebhookInDb(taskId: string, payload: unkn
     return { error: "TASK_NOT_FOUND" } as const;
   }
 
-  if (!task.assignee || task.assignee.kind !== "agent" || task.assignee.sourceSystem !== "openclaw") {
+  if (
+    !task.assignee ||
+    task.assignee.kind !== "agent" ||
+    !["openclaw", "constructor_manual"].includes(task.assignee.sourceSystem ?? "")
+  ) {
     return { error: "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" } as const;
   }
 
