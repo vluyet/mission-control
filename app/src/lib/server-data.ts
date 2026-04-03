@@ -1155,14 +1155,16 @@ export async function createCommentInDb(taskId: string, payload: {
     ? await db.membership.findUnique({
         where: { id: payload.membershipId }
       })
-    : await db.membership.findFirst({
-        where: {
-          workspaceId: task.project.workspaceId,
-          name: payload.author
-        }
-      });
-  const authorName = membership?.name ?? defaultHumanMembership?.name ?? payload.author;
-  const authorRole = membership?.roleLabel ?? defaultHumanMembership?.roleLabel ?? payload.role;
+    : payload.tone === "human"
+      ? await db.membership.findFirst({
+          where: {
+            workspaceId: task.project.workspaceId,
+            name: payload.author
+          }
+        })
+      : null;
+  const authorName = membership?.name ?? (payload.membershipId ? defaultHumanMembership?.name : null) ?? payload.author;
+  const authorRole = membership?.roleLabel ?? (payload.membershipId ? defaultHumanMembership?.roleLabel : null) ?? payload.role;
 
   if (payload.tone === "agent" && membership?.kind === "agent" && !agentHasPermission(membership, "comment")) {
     await logPermissionDenied(taskId, membership.id, membership.name, `${membership.name} attempted to post a comment without comment permission.`);

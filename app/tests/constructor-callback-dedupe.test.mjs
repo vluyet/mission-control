@@ -92,6 +92,8 @@ test("constructor callback retries do not create duplicate task comments", async
   );
 
   assert.equal(constructorComments.length, 1);
+  assert.equal(constructorComments[0]?.author, "Constructor v2");
+  assert.equal(constructorComments[0]?.role, "Agent");
   assert.match(constructorComments[0]?.body ?? "", /Constructor v2 final answer/);
   assert.match(constructorComments[0]?.body ?? "", /Ship the callback result once\./);
   assert.match(constructorComments[0]?.body ?? "", new RegExp(callbackPayload.bridgeExecutionId));
