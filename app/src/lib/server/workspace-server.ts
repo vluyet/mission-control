@@ -278,7 +278,8 @@ export async function getWorkspaceManagementDataForUi() {
           name: member.name,
           enabled: member.enabled,
           capabilities: member.capabilities,
-          sourceSystem: member.sourceSystem ?? undefined
+          sourceSystem: member.sourceSystem ?? undefined,
+          sourceKey: member.sourceKey ?? undefined
         })),
       openclaw: openclawIntegration
         ? {
@@ -447,6 +448,66 @@ export async function upsertActiveWorkspaceConstructorIntegrationInDb(payload: {
     lastSyncAt: openclawIntegration?.lastSyncAt ? openclawIntegration.lastSyncAt.toISOString() : null,
     lastSyncStatus: openclawIntegration?.lastSyncStatus ?? null,
     lastSyncError: openclawIntegration?.lastSyncError ?? null
+  };
+}
+
+export async function addManualWorkspaceAgentInDb(payload: {
+  name: string;
+  agentId: string;
+  capabilities?: string[];
+}) {
+  const activeWorkspace = await getActiveWorkspaceRecord();
+
+  if (!activeWorkspace) {
+    return null;
+  }
+
+  const normalizedAgentId = payload.agentId.trim();
+  const normalizedName = payload.name.trim();
+
+  if (!normalizedAgentId || !normalizedName) {
+    return { error: "INVALID_AGENT_INPUT" } as const;
+  }
+
+  const capabilities = Array.from(new Set((payload.capabilities ?? []).map((item) => item.trim()).filter(Boolean)));
+
+  const membership = await db.membership.upsert({
+    where: {
+      workspaceId_sourceSystem_sourceKey: {
+        workspaceId: activeWorkspace.id,
+        sourceSystem: "constructor_manual",
+        sourceKey: normalizedAgentId
+      }
+    },
+    update: {
+      name: normalizedName,
+      roleLabel: "Agent",
+      kind: "agent",
+      enabled: true,
+      capabilities,
+      agentPermissions: ["comment", "change_status", "log_execution"]
+    },
+    create: {
+      workspaceId: activeWorkspace.id,
+      name: normalizedName,
+      kind: "agent",
+      roleLabel: "Agent",
+      workspaceRole: "member",
+      enabled: true,
+      sourceSystem: "constructor_manual",
+      sourceKey: normalizedAgentId,
+      capabilities,
+      agentPermissions: ["comment", "change_status", "log_execution"]
+    }
+  });
+
+  return {
+    id: membership.id,
+    name: membership.name,
+    enabled: membership.enabled,
+    capabilities: membership.capabilities,
+    sourceSystem: membership.sourceSystem,
+    sourceKey: membership.sourceKey
   };
 }
 
