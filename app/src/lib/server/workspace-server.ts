@@ -298,7 +298,11 @@ export async function getWorkspaceManagementDataForUi() {
             label: constructorIntegration.label ?? "",
             baseUrl: constructorIntegration.baseUrl,
             enabled: constructorIntegration.enabled,
-            callbackTokenConfigured: Boolean(constructorIntegration.callbackToken)
+            callbackTokenConfigured: Boolean(constructorIntegration.callbackToken),
+            gatewayTokenConfigured: Boolean(openclawIntegration?.gatewayToken),
+            lastSyncAt: openclawIntegration?.lastSyncAt ? openclawIntegration.lastSyncAt.toISOString() : null,
+            lastSyncStatus: openclawIntegration?.lastSyncStatus ?? null,
+            lastSyncError: openclawIntegration?.lastSyncError ?? null
           }
         : null,
       agentCredentials: credentials.map(mapAgentCredential),
@@ -375,12 +379,20 @@ export async function getActiveWorkspaceConstructorIntegration() {
     return null;
   }
 
+  const openclawIntegration = await db.workspaceOpenClawIntegration.findUnique({
+    where: { workspaceId: integration.workspaceId }
+  });
+
   return {
     id: integration.id,
     label: integration.label ?? "",
     baseUrl: integration.baseUrl,
     enabled: integration.enabled,
-    callbackTokenConfigured: Boolean(integration.callbackToken)
+    callbackTokenConfigured: Boolean(integration.callbackToken),
+    gatewayTokenConfigured: Boolean(openclawIntegration?.gatewayToken),
+    lastSyncAt: openclawIntegration?.lastSyncAt ? openclawIntegration.lastSyncAt.toISOString() : null,
+    lastSyncStatus: openclawIntegration?.lastSyncStatus ?? null,
+    lastSyncError: openclawIntegration?.lastSyncError ?? null
   };
 }
 
@@ -421,12 +433,20 @@ export async function upsertActiveWorkspaceConstructorIntegrationInDb(payload: {
     }
   });
 
+  const openclawIntegration = await db.workspaceOpenClawIntegration.findUnique({
+    where: { workspaceId: integration.workspaceId }
+  });
+
   return {
     id: integration.id,
     label: integration.label ?? "",
     baseUrl: integration.baseUrl,
     enabled: integration.enabled,
-    callbackTokenConfigured: Boolean(integration.callbackToken)
+    callbackTokenConfigured: Boolean(integration.callbackToken),
+    gatewayTokenConfigured: Boolean(openclawIntegration?.gatewayToken),
+    lastSyncAt: openclawIntegration?.lastSyncAt ? openclawIntegration.lastSyncAt.toISOString() : null,
+    lastSyncStatus: openclawIntegration?.lastSyncStatus ?? null,
+    lastSyncError: openclawIntegration?.lastSyncError ?? null
   };
 }
 

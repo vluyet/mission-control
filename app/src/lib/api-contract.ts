@@ -66,17 +66,17 @@ export function getAgentDocsPayload() {
       {
         method: "GET",
         path: "/api/workspaces/current/openclaw",
-        purpose: "Read the active workspace OpenClaw gateway link and sync state."
+        purpose: "Read the active workspace gateway link and sync state used by Constructor-backed agent discovery."
       },
       {
         method: "PATCH",
         path: "/api/workspaces/current/openclaw",
-        purpose: "Create or update the OpenClaw gateway link for the active workspace."
+        purpose: "Create or update the workspace gateway link used by Constructor-backed agent discovery."
       },
       {
         method: "POST",
-        path: "/api/workspaces/current/openclaw/sync",
-        purpose: "Discover OpenClaw agents over the gateway API and sync them into workspace members."
+        path: "/api/workspaces/current/constructor/sync",
+        purpose: "Discover available agents through the configured gateway connection and sync them into workspace members for Constructor use."
       },
       {
         method: "GET",
@@ -288,13 +288,13 @@ export function getAgentContractPayload() {
           "Leave gatewayToken blank on update to keep the existing saved token."
         ]
       },
-      openclaw_sync: {
+      constructor_sync: {
         method: "POST",
-        path: "/api/workspaces/current/openclaw/sync",
+        path: "/api/workspaces/current/constructor/sync",
         response_shape: ["integration", "agents[]"],
         notes: [
           "Mission Control calls the OpenClaw gateway tools invoke API with agents_list.",
-          "Synced agents are created or updated as workspace agent members with sourceSystem=openclaw."
+          "Synced agents are created or updated as workspace agent members from the gateway-backed sync source used by Constructor."
         ]
       },
       member_update: {

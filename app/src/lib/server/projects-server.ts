@@ -101,6 +101,18 @@ function slugify(value: string) {
     .slice(0, 48);
 }
 
+async function getConstructorSyncedAgentMemberships(workspaceId: string) {
+  return db.membership.findMany({
+    where: {
+      workspaceId,
+      kind: "agent",
+      enabled: true,
+      sourceSystem: { in: ["openclaw"] }
+    },
+    select: { id: true }
+  });
+}
+
 export async function getProjectsForUi(options?: {
   includeArchived?: boolean;
   visibilityMembershipId?: string | null;
@@ -235,14 +247,11 @@ export async function createProjectInDb(payload: {
     });
   }
 
-  const enabledOpenClawAgents = await db.membership.findMany({
-    where: { workspaceId: workspace.id, kind: "agent", sourceSystem: "openclaw", enabled: true },
-    select: { id: true }
-  });
+  const constructorSyncedAgents = await getConstructorSyncedAgentMemberships(workspace.id);
 
-  if (enabledOpenClawAgents.length) {
+  if (constructorSyncedAgents.length) {
     await db.projectMembership.createMany({
-      data: enabledOpenClawAgents.map((membership) => ({
+      data: constructorSyncedAgents.map((membership) => ({
         projectId: project.id,
         membershipId: membership.id,
         role: "member" as const

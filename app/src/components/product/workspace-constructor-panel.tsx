@@ -10,13 +10,20 @@ type ConstructorState = {
   baseUrl: string;
   enabled: boolean;
   callbackTokenConfigured: boolean;
+  gatewayTokenConfigured: boolean;
+  lastSyncAt: string | null;
+  lastSyncStatus: string | null;
+  lastSyncError: string | null;
 } | null;
 
 export function WorkspaceConstructorPanel({ integration }: { integration: ConstructorState }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<"save" | "sync" | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isSyncing, startSyncTransition] = useTransition();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,6 +43,8 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
 
     setError(null);
     setSaved(null);
+    setSyncMessage(null);
+    setLastAction("save");
 
     const response = await fetch("/api/workspaces/current/constructor", {
       method: "PATCH",
@@ -52,6 +61,28 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
 
     setSaved("Constructor settings saved.");
     startTransition(() => router.refresh());
+  }
+
+  async function handleSync() {
+    setError(null);
+    setSaved(null);
+    setSyncMessage(null);
+    setLastAction("sync");
+
+    const response = await fetch("/api/workspaces/current/constructor/sync", {
+      method: "POST"
+    });
+
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      setError(result?.error?.message ?? "Constructor agent sync failed.");
+      return;
+    }
+
+    const count = Array.isArray(result?.data?.agents) ? result.data.agents.length : 0;
+    setSyncMessage(`Synced ${count} Constructor agent${count === 1 ? "" : "s"}.`);
+    startSyncTransition(() => router.refresh());
   }
 
   return (
@@ -89,7 +120,10 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
 
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-secondary)] px-4 py-3 text-sm text-[var(--text-dim)]">
           <div className="property-row"><span>Callback token saved</span><span>{integration?.callbackTokenConfigured ? "Yes" : "No"}</span></div>
-          <div className="property-row"><span>Status</span><span>{integration?.enabled === false ? "Disabled" : integration?.baseUrl ? "Configured" : "Not configured"}</span></div>
+          <div className="property-row"><span>Gateway token saved</span><span>{integration?.gatewayTokenConfigured ? "Yes" : "No"}</span></div>
+          <div className="property-row"><span>Last sync</span><span>{integration?.lastSyncAt ? new Date(integration.lastSyncAt).toLocaleString() : "Never"}</span></div>
+          <div className="property-row"><span>Status</span><span>{integration?.lastSyncStatus ?? (integration?.enabled === false ? "Disabled" : integration?.baseUrl ? "Configured" : "Not configured")}</span></div>
+          {integration?.lastSyncError ? <p className="mt-3 text-rose-600">{integration.lastSyncError}</p> : null}
         </div>
 
         <div className="flex flex-col gap-3">
@@ -98,15 +132,22 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
               <span className="text-rose-600">{error}</span>
             ) : saved ? (
               <span className="text-emerald-600">{saved}</span>
-            ) : isPending ? (
+            ) : syncMessage ? (
+              <span className="text-emerald-600">{syncMessage}</span>
+            ) : isPending && lastAction === "save" ? (
               <span className="text-[var(--text-muted)]">Saving Constructor settings and refreshing workspace settings…</span>
+            ) : isSyncing && lastAction === "sync" ? (
+              <span className="text-[var(--text-muted)]">Syncing available Constructor agents and refreshing the member list…</span>
             ) : (
-              <span className="text-[var(--text-dim)]">Manage the Constructor endpoint used for Mission Control task dispatch.</span>
+              <span className="text-[var(--text-dim)]">Manage the Constructor endpoint used for Mission Control task dispatch and sync available agents through the configured gateway connection.</span>
             )}
           </div>
           <div className="flex flex-wrap gap-3">
             <AppButton type="submit" tone="primary" className={isPending ? "opacity-70" : ""}>
               {isPending ? "Saving..." : "Save Constructor settings"}
+            </AppButton>
+            <AppButton type="button" tone="secondary" onClick={handleSync} disabled={isSyncing || isPending}>
+              {isSyncing ? "Syncing..." : "Sync agents"}
             </AppButton>
           </div>
         </div>

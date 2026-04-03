@@ -39,7 +39,7 @@ function startMockOpenClaw() {
   });
 }
 
-test("owner can save OpenClaw settings and sync discovered agents", async () => {
+test("owner can save gateway settings and sync Constructor agents", async () => {
   const cookie = await signIn();
   const mock = await startMockOpenClaw();
 
@@ -59,7 +59,7 @@ test("owner can save OpenClaw settings and sync discovered agents", async () => 
     assert.equal(save.payload?.data?.integration?.baseUrl, mock.baseUrl);
     assert.equal(save.payload?.data?.integration?.tokenConfigured, true);
 
-    const sync = await json("/api/workspaces/current/openclaw/sync", {
+    const sync = await json("/api/workspaces/current/constructor/sync", {
       method: "POST",
       cookie
     });

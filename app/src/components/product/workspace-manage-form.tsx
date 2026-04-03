@@ -46,6 +46,10 @@ type WorkspaceManageValues = {
     baseUrl: string;
     enabled: boolean;
     callbackTokenConfigured: boolean;
+    gatewayTokenConfigured: boolean;
+    lastSyncAt: string | null;
+    lastSyncStatus: string | null;
+    lastSyncError: string | null;
   } | null;
 };
 
