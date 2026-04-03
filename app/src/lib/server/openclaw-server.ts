@@ -110,7 +110,7 @@ function buildOpenClawTaskMessage(input: {
     `6. If the human asks for a specific output style, follow it exactly. Example: if they ask for emojis, reply with emojis.`,
     ``,
     `Critical delivery rule:`,
-    `- Do not use the OpenClaw transport response as your final answer.`,
+    `- Do not use the gateway transport response as your final answer.`,
     `- Deliver your actual task result through Mission Control endpoints instead.`,
     `- Use POST ${commentsEndpoint} for short human-visible updates or final answers.`,
     `- Use POST ${attachmentsEndpoint} for large outputs.`,
@@ -695,7 +695,7 @@ export async function handleGatewayTaskWebhookInDb(taskId: string, payload: unkn
   if (status === "blocked" || event === "blocked") {
     await db.task.update({
       where: { id: task.id },
-      data: { status: "blocked", blockedReason: progressText || "OpenClaw reported the task as blocked." }
+      data: { status: "blocked", blockedReason: progressText || "Gateway execution reported the task as blocked." }
     });
   }
 
@@ -714,7 +714,7 @@ export async function handleGatewayTaskWebhookInDb(taskId: string, payload: unkn
   }
 
   if (event === "failed") {
-    await appendExecutionLogInDb(task.id, `OpenClaw reported failure for ${task.assignee.name}.${progressText ? ` ${progressText}` : ""}`.trim(), {
+    await appendExecutionLogInDb(task.id, `Gateway execution reported failure for ${task.assignee.name}.${progressText ? ` ${progressText}` : ""}`.trim(), {
       membershipId: task.assignee.id,
       label: task.assignee.name
     });
