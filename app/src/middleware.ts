@@ -7,7 +7,12 @@ function isPublicPath(pathname: string) {
 }
 
 function isPublicApi(pathname: string) {
-  return pathname === "/api/auth/sign-in" || pathname === "/api/auth/sign-out" || pathname === "/api/health";
+  return (
+    pathname === "/api/auth/sign-in" ||
+    pathname === "/api/auth/sign-out" ||
+    pathname === "/api/health" ||
+    /^\/api\/tasks\/[^/]+\/constructor\/callback$/.test(pathname)
+  );
 }
 
 function isStaticAsset(pathname: string) {

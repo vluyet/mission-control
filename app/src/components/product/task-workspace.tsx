@@ -7,6 +7,7 @@ import { Panel, PanelHeader, PriorityBadge, StatusBadge } from "@/components/ui/
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
 import { TaskOpenClawDispatchButton } from "@/components/product/task-openclaw-dispatch-button";
+import { TaskConstructorDispatchCard } from "@/components/product/task-constructor-dispatch-card";
 
 function MetadataItem({
   label,
@@ -103,6 +104,8 @@ function AgentDispatchBlock({
         <p className="mt-3 text-sm leading-6 text-slate-600">{latestExecutionLine ?? "No agent log yet."}</p>
         <p className="mt-3 text-xs text-slate-500">{latestUpdatedAt ? `${openClawFreshness} · updated ${latestUpdatedAt}` : openClawFreshness}</p>
       </div>
+
+      <TaskConstructorDispatchCard taskId={task.id} taskTitle={task.title} />
 
       <TaskStatusActions
         taskId={task.id}
