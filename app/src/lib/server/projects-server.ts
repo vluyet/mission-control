@@ -101,13 +101,13 @@ function slugify(value: string) {
     .slice(0, 48);
 }
 
-async function getConstructorSyncedAgentMemberships(workspaceId: string) {
+async function getConstructorDispatchableAgentMemberships(workspaceId: string) {
   return db.membership.findMany({
     where: {
       workspaceId,
       kind: "agent",
       enabled: true,
-      sourceSystem: { in: ["openclaw"] }
+      sourceSystem: { in: ["openclaw", "constructor_manual"] }
     },
     select: { id: true }
   });
@@ -247,11 +247,11 @@ export async function createProjectInDb(payload: {
     });
   }
 
-  const constructorSyncedAgents = await getConstructorSyncedAgentMemberships(workspace.id);
+  const constructorDispatchableAgents = await getConstructorDispatchableAgentMemberships(workspace.id);
 
-  if (constructorSyncedAgents.length) {
+  if (constructorDispatchableAgents.length) {
     await db.projectMembership.createMany({
-      data: constructorSyncedAgents.map((membership) => ({
+      data: constructorDispatchableAgents.map((membership) => ({
         projectId: project.id,
         membershipId: membership.id,
         role: "member" as const
