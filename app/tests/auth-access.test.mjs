@@ -6,6 +6,18 @@ function cookiePair(setCookieHeader) {
   return setCookieHeader?.split(";")[0] ?? null;
 }
 
+test("project creation requires authentication", async () => {
+  const projectCreate = await json("/api/projects", {
+    method: "POST",
+    body: {
+      name: "Unauthorized project"
+    }
+  });
+
+  assert.equal(projectCreate.response.status, 401);
+  assert.equal(projectCreate.payload?.error?.details?.code, "UNAUTHENTICATED");
+});
+
 test("owner can create a project and first task from the current workspace state", async () => {
   const cookie = await signIn();
 

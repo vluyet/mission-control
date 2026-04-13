@@ -1,8 +1,21 @@
 import { error, ok } from "@/lib/api-response";
 import { createProjectInDb } from "@/lib/server-data";
 import { logAppEvent } from "@/lib/logger";
+import { resolveApiActor } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
+  const auth = await resolveApiActor(request);
+
+  if (!auth.ok) {
+    return error(auth.message, auth.status, { code: auth.error });
+  }
+
+  if (auth.actor.type !== "owner") {
+    return error("Owner access required.", 403, {
+      code: "OWNER_ACCESS_REQUIRED"
+    });
+  }
+
   const body = (await request.json().catch(() => null)) as
     | {
         name?: string;
