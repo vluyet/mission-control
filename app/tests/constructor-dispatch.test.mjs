@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs/promises";
-import ts from "/opt/mission-control/app/node_modules/typescript/lib/typescript.js";
-import { pathToFileURL } from "node:url";
+import ts from "typescript";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const routeSource = path.resolve("/opt/mission-control/app/src/app/api/tasks/[taskId]/constructor/dispatch/route.ts");
+const appDir = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+const routeSource = path.join(appDir, "src/app/api/tasks/[taskId]/constructor/dispatch/route.ts");
 const outdir = path.resolve("/tmp/mission-control-constructor-dispatch-tests");
 
 async function loadRouteModule() {

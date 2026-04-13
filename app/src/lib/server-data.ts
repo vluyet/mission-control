@@ -1548,6 +1548,17 @@ export async function appendExecutionLogInDb(taskId: string, line: string, actor
   const isSystemLogWrite = !actor?.membershipId && Boolean(actor?.label);
   const fallbackAgent = task.assignee?.kind === "agent" ? task.assignee : task.project.workspace.memberships[0] ?? null;
   const agent = explicitAgent ?? fallbackAgent;
+  const executionMember =
+    agent ??
+    (isSystemLogWrite
+      ? await db.membership.findFirst({
+          where: {
+            workspaceId: task.project.workspaceId,
+            enabled: true
+          },
+          orderBy: { createdAt: "asc" }
+        })
+      : null);
 
   if (!agent && !isSystemLogWrite) {
     return null;
@@ -1565,7 +1576,7 @@ export async function appendExecutionLogInDb(taskId: string, line: string, actor
     (await db.taskExecution.create({
       data: {
         taskId,
-        agentId: agent?.id ?? null,
+        agentId: executionMember?.id ?? agent?.id,
         status: "running"
       }
     }));

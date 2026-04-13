@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3 - 2026-04-13
+
+Constructor-only runtime release and CI hardening.
+
+- Removed the remaining OpenClaw compatibility routes, bridge services, connector code, and dedicated tests from the active runtime.
+- Dropped stored OpenClaw workspace linkage from the schema and added a cleanup migration for stale OpenClaw-linked data.
+- Rewrote the current operator and API docs around the Constructor public API as the only supported external runtime.
+- Renamed the active Constructor settings regression to match the current product surface and removed the retired OpenClaw-only regression coverage.
+- Wrapped Prisma CLI scripts with root env loading so host `npm run test:migrations`, `npm run db:deploy`, and `npm run ci:check` no longer fail on missing `DATABASE_URL`.
+- Stopped the host build from ingesting stale `.next-dev` route types during production builds after route removals.
+
 ## v0.2.3 - 2026-03-31
 
 OpenClaw bridge sync and persistent-workspace task dispatch stabilization.

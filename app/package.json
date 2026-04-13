@@ -1,6 +1,6 @@
 {
   "name": "mission-control-app",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "private": true,
   "prisma": {
     "seed": "node prisma/seed.mjs"
@@ -11,7 +11,7 @@
     "start": "NEXT_DIST_DIR=.next-build node scripts/with-root-env.mjs next start -H 0.0.0.0",
     "db:bootstrap": "node scripts/bootstrap-db.mjs",
     "lint": "next lint",
-    "test:migrations": "prisma validate && prisma migrate status",
+    "test:migrations": "node scripts/with-root-env.mjs ./node_modules/.bin/prisma validate && node scripts/with-root-env.mjs ./node_modules/.bin/prisma migrate status",
     "test:smoke": "node scripts/with-root-env.mjs node --test tests/smoke-routes.test.mjs",
     "test:activity": "node scripts/with-root-env.mjs node --test tests/activity-events.test.mjs",
     "test:auth": "node scripts/with-root-env.mjs node --test tests/auth-access.test.mjs",
@@ -19,12 +19,12 @@
     "test": "npm run test:smoke && npm run test:activity && npm run test:auth && npm run test:constructor",
     "ci:check": "npm run test:migrations && npm run test && npm run build",
     "postinstall": "prisma generate",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio",
-    "db:seed": "prisma db seed",
-    "db:reset": "prisma migrate reset --force"
+    "db:generate": "node scripts/with-root-env.mjs ./node_modules/.bin/prisma generate",
+    "db:migrate": "node scripts/with-root-env.mjs ./node_modules/.bin/prisma migrate dev",
+    "db:deploy": "node scripts/with-root-env.mjs ./node_modules/.bin/prisma migrate deploy",
+    "db:studio": "node scripts/with-root-env.mjs ./node_modules/.bin/prisma studio",
+    "db:seed": "node scripts/with-root-env.mjs ./node_modules/.bin/prisma db seed",
+    "db:reset": "node scripts/with-root-env.mjs ./node_modules/.bin/prisma migrate reset --force"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -2,6 +2,11 @@
 
 ## 2026-04-13
 
+### Release prep for v0.3
+
+- Corrected stale repo version metadata so README, changelog, and release artifacts point at the new `v0.3` release.
+- Wrapped Prisma CLI scripts with root env loading so host CI and release-time migration commands resolve `DATABASE_URL` consistently.
+
 ### Remove legacy OpenClaw runtime footprint
 
 - Deleted the remaining OpenClaw compatibility routes, bridge code, connector code, and dedicated tests.

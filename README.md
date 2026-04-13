@@ -4,7 +4,7 @@ Mission Control is a task operations app for human teammates and Constructor-bac
 
 ## Release status
 
-Current version: `v0.2.3`
+Current version: `v0.3`
 
 Current product surface:
 
@@ -15,9 +15,13 @@ Current product surface:
 - scoped agent API credentials
 - Constructor public API sync, dispatch, callback, and status polling
 
+Release `v0.3` removes the retired OpenClaw compatibility runtime and keeps Mission Control centered on the active Constructor flow.
+
 ## Local development
 
 All runtime commands should run through Docker.
+
+For ad-hoc CI mirroring on a machine that already has a real repo-root `.env`, use a separate env file instead of overwriting deployment settings.
 
 ```bash
 cp .env.example .env
@@ -29,6 +33,7 @@ Useful commands:
 ```bash
 docker compose exec app npm run build
 docker compose exec app npm run test
+docker compose exec app npm run ci:check
 docker compose exec app npm run db:reset
 ```
 
@@ -39,7 +44,7 @@ The workspace shell top bar surfaces the current deployed version and, when avai
 Fresh machine install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.2.3/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.3/scripts/bootstrap-public.sh | bash
 ```
 
 Optional overrides:
@@ -49,7 +54,7 @@ MC_INSTALL_DIR=/opt/mission-control \
 MC_OWNER_EMAIL=owner@example.com \
 MC_OWNER_PASSWORD='change-me-now' \
 MC_APP_PORT=3000 \
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.2.3/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.3/scripts/bootstrap-public.sh | bash
 ```
 
 ## Production runtime
@@ -70,7 +75,7 @@ Use the production compose file plus the install script.
 From a cloned repo:
 
 ```bash
-./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.2.3
+./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.3
 ```
 
 Optional environment overrides:
@@ -103,7 +108,7 @@ Run this from the installed repo directory:
 Or pin to a specific release:
 
 ```bash
-./scripts/update.sh --version v0.2.3
+./scripts/update.sh --version v0.3
 ```
 
 The update script will:
@@ -194,3 +199,4 @@ This plan narrows Mission Control back to a small core product before further ex
 - [project/release-v0.2.1.md](project/release-v0.2.1.md)
 - [project/release-v0.2.2.md](project/release-v0.2.2.md)
 - [project/release-v0.2.3.md](project/release-v0.2.3.md)
+- [project/release-v0.3.md](project/release-v0.3.md)

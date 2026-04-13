@@ -11,24 +11,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare env
-        run: cp .env.example .env
+      - name: Prepare CI env
+        run: |
+          cp .env.example .env.ci
+          printf '\nDB_PORT=5433\n' >> .env.ci
 
       - name: Start stack
-        run: docker compose up -d --build --wait db app
+        run: docker compose --env-file .env.ci up -d --build --wait db app
 
       - name: Reset database
-        run: docker compose exec -T app npm run db:reset
+        run: docker compose --env-file .env.ci exec -T app npm run db:reset
 
       - name: Migration check
-        run: docker compose exec -T app npm run test:migrations
+        run: docker compose --env-file .env.ci exec -T app npm run test:migrations
 
       - name: Smoke and activity tests
-        run: docker compose exec -T app npm run test
+        run: docker compose --env-file .env.ci exec -T app npm run test
 
       - name: Production build
-        run: docker compose exec -T app npm run build
+        run: docker compose --env-file .env.ci exec -T app npm run build
 
       - name: Stop stack
         if: always()
-        run: docker compose down -v
+        run: |
+          docker compose --env-file .env.ci down -v
+          rm -f .env.ci
