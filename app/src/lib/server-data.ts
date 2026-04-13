@@ -18,10 +18,13 @@ export {
   updateWorkspaceRoleInDb
 } from "@/lib/server/members-server";
 export {
+  createWorkspaceInDb,
+  deleteWorkspaceInDb,
   getActiveWorkspaceConstructorIntegration,
   getActiveWorkspaceConstructorIntegrationRecord,
   getWorkspaceManagementDataForUi,
   getWorkspaceShellDataForUi,
+  moveProjectToWorkspaceInDb,
   updateActiveWorkspaceInDb,
   upsertActiveWorkspaceConstructorIntegrationInDb
 } from "@/lib/server/workspace-server";

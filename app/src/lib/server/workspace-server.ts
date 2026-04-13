@@ -7,6 +7,7 @@ import type {
   WorkspaceOption,
   WorkspaceSummary
 } from "@/lib/demo-data";
+import { getOwnerAuthConfig } from "@/lib/auth";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
 async function getActiveWorkspaceSlug() {
@@ -144,6 +145,89 @@ function mapAuthEvent(event: {
   };
 }
 
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}
+
+async function buildUniqueWorkspaceSlug(name: string) {
+  const baseSlug = slugify(name) || "workspace";
+  let slug = baseSlug;
+  let index = 2;
+
+  while (await db.workspace.findFirst({ where: { slug } })) {
+    slug = `${baseSlug}-${index}`;
+    index += 1;
+  }
+
+  return slug;
+}
+
+async function buildUniqueProjectSlug(targetWorkspaceId: string, baseValue: string) {
+  const baseSlug = slugify(baseValue) || "project";
+  let slug = baseSlug;
+  let index = 2;
+
+  while (await db.project.findFirst({ where: { workspaceId: targetWorkspaceId, slug } })) {
+    slug = `${baseSlug}-${index}`;
+    index += 1;
+  }
+
+  return slug;
+}
+
+async function getOwnerUser() {
+  const ownerEmail = getOwnerAuthConfig().email;
+
+  return db.user.upsert({
+    where: { email: ownerEmail },
+    update: {},
+    create: {
+      email: ownerEmail,
+      displayName: "Workspace Owner"
+    }
+  });
+}
+
+async function getDefaultHumanMembership(workspaceId: string) {
+  const ownerEmail = getOwnerAuthConfig().email;
+
+  return (
+    (await db.membership.findFirst({
+      where: {
+        workspaceId,
+        kind: "human",
+        enabled: true,
+        OR: [{ user: { email: ownerEmail } }, { userId: { not: null } }]
+      },
+      orderBy: { createdAt: "asc" }
+    })) ??
+    (await db.membership.findFirst({
+      where: {
+        workspaceId,
+        kind: "human",
+        enabled: true
+      },
+      orderBy: { createdAt: "asc" }
+    }))
+  );
+}
+
+async function getConstructorDispatchableAgentMemberships(workspaceId: string) {
+  return db.membership.findMany({
+    where: {
+      workspaceId,
+      kind: "agent",
+      enabled: true,
+      sourceSystem: "constructor"
+    },
+    select: { id: true }
+  });
+}
+
 export async function getWorkspaceShellDataForUi() {
   const [activeWorkspace, workspaces] = await Promise.all([
     getActiveWorkspaceRecord(),
@@ -223,7 +307,7 @@ export async function getWorkspaceManagementDataForUi() {
     return null;
   }
 
-  const [workspace, constructorIntegration, taskAttachmentsCount, workspaceAssetsCount, humanCount, agentCount, credentials, authEvents] = await Promise.all([
+  const [workspace, constructorIntegration, taskAttachmentsCount, workspaceAssetsCount, humanCount, agentCount, credentials, authEvents, allWorkspaces, projects] = await Promise.all([
     db.workspace.findFirst({
       where: { id: activeWorkspace.id },
       include: {
@@ -245,7 +329,21 @@ export async function getWorkspaceManagementDataForUi() {
       include: { membership: { select: { name: true } } },
       orderBy: { createdAt: "desc" }
     }),
-    db.authEvent.findMany({ where: { workspaceId: activeWorkspace.id }, orderBy: { createdAt: "desc" }, take: 8 })
+    db.authEvent.findMany({ where: { workspaceId: activeWorkspace.id }, orderBy: { createdAt: "desc" }, take: 8 }),
+    db.workspace.findMany({
+      orderBy: { createdAt: "asc" },
+      include: {
+        memberships: { where: { enabled: true }, select: { id: true } },
+        projects: { where: { status: "active" }, select: { id: true } }
+      }
+    }),
+    db.project.findMany({
+      where: { workspaceId: activeWorkspace.id },
+      orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+      include: {
+        tasks: { select: { id: true } }
+      }
+    })
   ]);
 
   if (!workspace) {
@@ -296,8 +394,186 @@ export async function getWorkspaceManagementDataForUi() {
           }
         : null,
       agentCredentials: credentials.map(mapAgentCredential),
-      authEvents: authEvents.map(mapAuthEvent)
+      authEvents: authEvents.map(mapAuthEvent),
+      canDelete: allWorkspaces.length > 1,
+      workspaces: allWorkspaces.map((item) => ({
+        slug: item.slug,
+        name: item.name,
+        visibility: item.visibility,
+        memberCount: item.memberships.length,
+        projectCount: item.projects.length,
+        isActive: item.id === workspace.id
+      })),
+      projects: projects.map((project) => ({
+        slug: project.slug,
+        name: project.name,
+        status: project.status,
+        taskCount: project.tasks.length
+      }))
     }
+  };
+}
+
+export async function createWorkspaceInDb(payload: {
+  name: string;
+  visibility?: "personal" | "shared";
+}) {
+  const name = payload.name.trim();
+
+  if (!name) {
+    return null;
+  }
+
+  const [slug, owner] = await Promise.all([buildUniqueWorkspaceSlug(name), getOwnerUser()]);
+
+  const workspace = await db.workspace.create({
+    data: {
+      name,
+      slug,
+      visibility: payload.visibility ?? "personal",
+      context: {
+        title: "Workspace context",
+        summary: "",
+        bullets: []
+      },
+      memberships: {
+        create: {
+          userId: owner.id,
+          name: owner.displayName,
+          kind: "human",
+          workspaceRole: "owner",
+          email: owner.email,
+          roleLabel: "Owner",
+          capabilities: [],
+          agentPermissions: [],
+          enabled: true
+        }
+      }
+    }
+  });
+
+  return {
+    id: workspace.id,
+    slug: workspace.slug,
+    name: workspace.name,
+    visibility: workspace.visibility
+  };
+}
+
+export async function moveProjectToWorkspaceInDb(projectSlug: string, targetWorkspaceSlug: string) {
+  const activeWorkspace = await getActiveWorkspaceRecord();
+
+  if (!activeWorkspace) {
+    return { error: "WORKSPACE_NOT_FOUND" } as const;
+  }
+
+  const [project, targetWorkspace] = await Promise.all([
+    db.project.findFirst({
+      where: { workspaceId: activeWorkspace.id, slug: projectSlug },
+      include: { workspace: true }
+    }),
+    db.workspace.findFirst({ where: { slug: targetWorkspaceSlug } })
+  ]);
+
+  if (!project) {
+    return { error: "PROJECT_NOT_FOUND" } as const;
+  }
+
+  if (!targetWorkspace) {
+    return { error: "TARGET_WORKSPACE_NOT_FOUND" } as const;
+  }
+
+  if (targetWorkspace.id === project.workspaceId) {
+    return { error: "TARGET_WORKSPACE_SAME" } as const;
+  }
+
+  const [targetOwnerMembership, constructorAgents, nextSlug] = await Promise.all([
+    getDefaultHumanMembership(targetWorkspace.id),
+    getConstructorDispatchableAgentMemberships(targetWorkspace.id),
+    buildUniqueProjectSlug(targetWorkspace.id, project.slug)
+  ]);
+
+  await db.$transaction(async (tx) => {
+    await tx.project.update({
+      where: { id: project.id },
+      data: {
+        workspaceId: targetWorkspace.id,
+        slug: nextSlug
+      }
+    });
+
+    await tx.projectMembership.deleteMany({ where: { projectId: project.id } });
+    await tx.task.updateMany({ where: { projectId: project.id }, data: { assigneeId: null, reviewerId: null } });
+
+    if (targetOwnerMembership) {
+      await tx.projectMembership.create({
+        data: {
+          projectId: project.id,
+          membershipId: targetOwnerMembership.id,
+          role: "lead"
+        }
+      });
+    }
+
+    if (constructorAgents.length) {
+      await tx.projectMembership.createMany({
+        data: constructorAgents.map((membership) => ({
+          projectId: project.id,
+          membershipId: membership.id,
+          role: "member" as const
+        })),
+        skipDuplicates: true
+      });
+    }
+  });
+
+  return {
+    project: {
+      slug: nextSlug,
+      name: project.name,
+      workspaceSlug: targetWorkspace.slug,
+      workspaceName: targetWorkspace.name
+    }
+  };
+}
+
+export async function deleteWorkspaceInDb(workspaceSlug: string) {
+  const [workspace, allWorkspaces] = await Promise.all([
+    db.workspace.findFirst({
+      where: { slug: workspaceSlug },
+      include: {
+        projects: { select: { id: true } },
+        memberships: { select: { id: true } }
+      }
+    }),
+    db.workspace.findMany({ orderBy: { createdAt: "asc" } })
+  ]);
+
+  if (!workspace) {
+    return { error: "WORKSPACE_NOT_FOUND" } as const;
+  }
+
+  if (allWorkspaces.length <= 1) {
+    return { error: "LAST_WORKSPACE" } as const;
+  }
+
+  const fallbackWorkspace = allWorkspaces.find((item) => item.id !== workspace.id);
+
+  await db.workspace.delete({ where: { id: workspace.id } });
+
+  return {
+    deletedWorkspace: {
+      slug: workspace.slug,
+      name: workspace.name,
+      projectCount: workspace.projects.length,
+      memberCount: workspace.memberships.length
+    },
+    fallbackWorkspace: fallbackWorkspace
+      ? {
+          slug: fallbackWorkspace.slug,
+          name: fallbackWorkspace.name
+        }
+      : null
   };
 }
 

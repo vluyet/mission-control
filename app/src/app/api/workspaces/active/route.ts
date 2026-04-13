@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { error, ok } from "@/lib/api-response";
+import { resolveApiActor } from "@/lib/api-auth";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, getActiveWorkspaceCookieOptions } from "@/lib/workspace-session";
 
 type WorkspaceBody = {
@@ -8,6 +9,18 @@ type WorkspaceBody = {
 };
 
 export async function POST(request: Request) {
+  const auth = await resolveApiActor(request);
+
+  if (!auth.ok) {
+    return error(auth.message, auth.status, { code: auth.error });
+  }
+
+  if (auth.actor.type !== "owner") {
+    return error("Owner access required.", 403, {
+      code: "OWNER_ACCESS_REQUIRED"
+    });
+  }
+
   const body = (await request.json().catch(() => null)) as WorkspaceBody | null;
 
   if (!body?.slug) {
