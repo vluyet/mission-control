@@ -173,36 +173,33 @@ export function BoardGridInteractive({
                   className={`board-card cursor-grab ${draggedCardId === card.id ? "opacity-60" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <Link href={`/tasks/${card.id}`} className="text-sm font-semibold leading-6 text-[var(--text-strong)] hover:text-[var(--accent-strong)]">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PriorityBadge value={card.priority} />
+                        <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[11px] text-[var(--text-dim)]">
+                          Due {card.eta}
+                        </span>
+                        {card.childCount ? (
+                          <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[11px] text-[var(--text-dim)]">
+                            {card.childCount} subtasks
+                          </span>
+                        ) : null}
+                      </div>
+                      <Link href={`/tasks/${card.id}`} className="block text-sm font-semibold leading-6 text-[var(--text-strong)] hover:text-[var(--accent-strong)]">
                         {card.title}
                       </Link>
-                      {card.parentTaskTitle ? (
-                        <p className="mt-1 text-xs text-[var(--text-dim)]">Subtask of {card.parentTaskTitle}</p>
-                      ) : null}
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-dim)]">
+                        <span>{card.assignee}</span>
+                        {card.parentTaskTitle ? <span>• Subtask of {card.parentTaskTitle}</span> : null}
+                      </div>
                     </div>
                     <span className="text-[var(--text-dim)]">
                       <DotsIcon className="h-4 w-4" />
                     </span>
                   </div>
-                  <div className="mt-3 text-xs text-[var(--text-dim)]">{card.project}</div>
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <PriorityBadge value={card.priority} />
-                    <span className="rounded-full border border-[var(--line)] px-2.5 py-1 text-xs text-[var(--text-dim)]">
-                      ETA {card.eta}
-                    </span>
-                    <span className="rounded-full border border-[var(--line)] px-2.5 py-1 text-xs text-[var(--text-dim)]">
-                      {card.effort}
-                    </span>
-                    {card.childCount ? (
-                      <span className="rounded-full border border-[var(--line)] px-2.5 py-1 text-xs text-[var(--text-dim)]">
-                        {card.childCount} subtasks
-                      </span>
-                    ) : null}
-                  </div>
                   {card.tags?.length ? (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {card.tags.slice(0, 3).map((tag) => (
+                      {card.tags.slice(0, 2).map((tag) => (
                         <span key={tag} className="rounded-full bg-[var(--surface-subtle)] px-2 py-1 text-[11px] text-[var(--text-dim)]">
                           {tag}
                         </span>
@@ -210,9 +207,12 @@ export function BoardGridInteractive({
                     </div>
                   ) : null}
                   <div className="mt-4 flex items-center justify-between border-t border-[var(--line)] pt-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <span className="avatar-chip">{card.assignee.slice(0, 2)}</span>
-                      <span className="text-sm text-[var(--text-muted)]">{card.assignee}</span>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm text-[var(--text-muted)]">{card.assignee}</div>
+                        <div className="truncate text-[11px] text-[var(--text-dim)]">{card.project}</div>
+                      </div>
                     </div>
                     <span className="drag-pill">Drag</span>
                   </div>
