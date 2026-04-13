@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { signIn, json } from "./helpers.mjs";
 
-function startMockOpenClaw() {
+function startMockConstructor() {
   const requests = [];
   const server = http.createServer(async (req, res) => {
     const chunks = [];
@@ -11,15 +11,27 @@ function startMockOpenClaw() {
     const body = Buffer.concat(chunks).toString("utf8");
     requests.push({ method: req.method, url: req.url, body, auth: req.headers.authorization });
 
-    if (req.method === "GET" && req.url === "/agents") {
+    if (req.method === "GET" && req.url === "/api/v1/agents") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, result: ["researcher", { id: "builder", capabilities: ["code", "review"] }] }));
-      return;
-    }
-
-    if (req.method === "POST" && req.url === "/tools/invoke") {
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, result: ["researcher", { id: "builder", capabilities: ["code", "review"] }] }));
+      res.end(JSON.stringify({
+        items: [
+          {
+            id: "agent-research",
+            name: "Research Agent",
+            description: "Focused on research tasks",
+            source: "gateway",
+            isDefault: false
+          },
+          {
+            id: "agent-main",
+            name: "Main Agent",
+            description: "General-purpose agent",
+            source: "config",
+            isDefault: true
+          }
+        ],
+        defaultAgentId: "agent-main"
+      }));
       return;
     }
 
@@ -39,25 +51,25 @@ function startMockOpenClaw() {
   });
 }
 
-test("owner can save gateway settings and sync Constructor agents", async () => {
+test("owner can save Constructor settings and sync Constructor agents through the public API", async () => {
   const cookie = await signIn();
-  const mock = await startMockOpenClaw();
+  const mock = await startMockConstructor();
 
   try {
-    const save = await json("/api/workspaces/current/openclaw", {
+    const save = await json("/api/workspaces/current/constructor", {
       method: "PATCH",
       cookie,
       body: {
-        label: "Local OpenClaw",
+        label: "Local Constructor",
         baseUrl: mock.baseUrl,
-        gatewayToken: "test-token",
+        apiToken: "test-token",
         enabled: true
       }
     });
 
     assert.equal(save.response.status, 200);
     assert.equal(save.payload?.data?.integration?.baseUrl, mock.baseUrl);
-    assert.equal(save.payload?.data?.integration?.tokenConfigured, true);
+    assert.equal(save.payload?.data?.integration?.apiTokenConfigured, true);
 
     const sync = await json("/api/workspaces/current/constructor/sync", {
       method: "POST",
@@ -72,8 +84,8 @@ test("owner can save gateway settings and sync Constructor agents", async () => 
     assert.equal(workspace.response.status, 200);
     const agents = workspace.payload?.data?.workspace?.agents ?? [];
     assert.equal(agents.length >= 2, true);
-    assert.equal(agents.some((agent) => agent.sourceSystem === "openclaw" && agent.name === "Researcher"), true);
-    assert.equal(agents.some((agent) => agent.sourceSystem === "openclaw" && agent.name === "Builder"), true);
+    assert.equal(agents.some((agent) => agent.sourceSystem === "constructor" && agent.name === "Research Agent"), true);
+    assert.equal(agents.some((agent) => agent.sourceSystem === "constructor" && agent.name === "Main Agent"), true);
   } finally {
     mock.server.close();
   }

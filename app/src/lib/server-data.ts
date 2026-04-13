@@ -16,6 +16,7 @@ export {
   handleGatewayTaskWebhookInDb,
   syncActiveWorkspaceOpenClawAgentsInDb
 } from "@/lib/server/openclaw-server";
+export { syncActiveWorkspaceConstructorAgentsInDb } from "@/lib/server/constructor-server";
 export {
   getMembersForUi,
   updateAgentPermissionsInDb,
@@ -404,7 +405,7 @@ function mapTaskRecord(task: {
   project: { slug: string; name: string };
   parentTask?: { id: string; title: string } | null;
   childTasks?: { id: string }[];
-  assignee: { name: string; kind: string; capabilities: string[]; enabled: boolean; agentPermissions: string[] } | null;
+  assignee: { name: string; kind: string; sourceSystem: string | null; capabilities: string[]; enabled: boolean; agentPermissions: string[] } | null;
   reviewer?: { name: string } | null;
 }): TaskRecord {
   return {
@@ -417,6 +418,7 @@ function mapTaskRecord(task: {
     priority: formatPriority(task.priority),
     assignee: task.assignee?.name ?? "Unassigned",
     assigneeType: task.assignee?.kind === "agent" ? "Agent" : "Human",
+    assigneeSourceSystem: task.assignee?.sourceSystem ?? null,
     reviewer: task.reviewer?.name ?? undefined,
     due: formatShortDate(task.dueDate),
     startDate: formatShortDate(task.startDate),
@@ -1466,6 +1468,26 @@ export async function updateCommentInDb(taskId: string, commentId: string, body:
 
 function classifyExecutionLine(line: string) {
   const trimmed = line.trim();
+
+  if (trimmed.startsWith("CONSTRUCTOR_DISPATCH_ACCEPTED")) {
+    return { label: "Constructor dispatch accepted", detail: trimmed };
+  }
+
+  if (trimmed.startsWith("CONSTRUCTOR_DISPATCH_FAILED")) {
+    return { label: "Constructor dispatch failed", detail: trimmed };
+  }
+
+  if (trimmed.startsWith("CONSTRUCTOR_STATUS")) {
+    return { label: "Constructor status updated", detail: trimmed };
+  }
+
+  if (trimmed.startsWith("CONSTRUCTOR_CALLBACK_RECEIVED")) {
+    return { label: "Constructor callback received", detail: trimmed };
+  }
+
+  if (trimmed.startsWith("CONSTRUCTOR_CALLBACK_DUPLICATE_IGNORED")) {
+    return { label: "Constructor callback duplicate ignored", detail: trimmed };
+  }
 
   if (trimmed.startsWith("TASK_DISPATCHED")) {
     return { label: "Task dispatched", detail: trimmed };

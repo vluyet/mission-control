@@ -84,6 +84,7 @@ export type TaskRecord = {
   priority: "Low" | "Medium" | "High" | "Urgent";
   assignee: string;
   assigneeType: "Human" | "Agent";
+  assigneeSourceSystem?: string | null;
   reviewer?: string;
   due: string;
   startDate: string;

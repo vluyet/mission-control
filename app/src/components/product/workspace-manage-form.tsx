@@ -8,7 +8,6 @@ import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 import { WorkspaceAssetsPanel } from "@/components/product/workspace-assets-panel";
 import { WorkspaceAgentCredentialsPanel } from "@/components/product/workspace-agent-credentials-panel";
 import { WorkspaceConstructorPanel } from "@/components/product/workspace-constructor-panel";
-import { WorkspaceManualAgentsPanel } from "@/components/product/workspace-manual-agents-panel";
 
 type WorkspaceManageValues = {
   name: string;
@@ -46,8 +45,10 @@ type WorkspaceManageValues = {
     label: string;
     baseUrl: string;
     enabled: boolean;
+    apiToken: string | null;
+    callbackToken: string | null;
+    apiTokenConfigured: boolean;
     callbackTokenConfigured: boolean;
-    gatewayTokenConfigured: boolean;
     lastSyncAt: string | null;
     lastSyncStatus: string | null;
     lastSyncError: string | null;
@@ -186,11 +187,6 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
         </div>
 
         {workspace.assets.length ? <WorkspaceAssetsPanel assets={workspace.assets} /> : null}
-
-        <div id="workspace-agents">
-          <WorkspaceManualAgentsPanel agents={workspace.agents} />
-        </div>
-
         <Panel className="overflow-hidden">
           <PanelHeader eyebrow="Advanced" title="Constructor runtime" description="Only needed for Constructor integration and agent API access." />
           <div className="space-y-5 px-5 py-5">

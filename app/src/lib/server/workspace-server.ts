@@ -299,11 +299,13 @@ export async function getWorkspaceManagementDataForUi() {
             label: constructorIntegration.label ?? "",
             baseUrl: constructorIntegration.baseUrl,
             enabled: constructorIntegration.enabled,
+            apiToken: constructorIntegration.apiToken ?? null,
+            callbackToken: constructorIntegration.callbackToken ?? null,
+            apiTokenConfigured: Boolean(constructorIntegration.apiToken) || Boolean(process.env.CONSTRUCTOR_API_TOKEN?.trim()),
             callbackTokenConfigured: Boolean(constructorIntegration.callbackToken),
-            gatewayTokenConfigured: Boolean(openclawIntegration?.gatewayToken),
-            lastSyncAt: openclawIntegration?.lastSyncAt ? openclawIntegration.lastSyncAt.toISOString() : null,
-            lastSyncStatus: openclawIntegration?.lastSyncStatus ?? null,
-            lastSyncError: openclawIntegration?.lastSyncError ?? null
+            lastSyncAt: constructorIntegration.lastSyncAt ? constructorIntegration.lastSyncAt.toISOString() : null,
+            lastSyncStatus: constructorIntegration.lastSyncStatus ?? null,
+            lastSyncError: constructorIntegration.lastSyncError ?? null
           }
         : null,
       agentCredentials: credentials.map(mapAgentCredential),
@@ -380,26 +382,25 @@ export async function getActiveWorkspaceConstructorIntegration() {
     return null;
   }
 
-  const openclawIntegration = await db.workspaceOpenClawIntegration.findUnique({
-    where: { workspaceId: integration.workspaceId }
-  });
-
   return {
     id: integration.id,
     label: integration.label ?? "",
     baseUrl: integration.baseUrl,
     enabled: integration.enabled,
+    apiToken: integration.apiToken ?? null,
+    callbackToken: integration.callbackToken ?? null,
+    apiTokenConfigured: Boolean(integration.apiToken) || Boolean(process.env.CONSTRUCTOR_API_TOKEN?.trim()),
     callbackTokenConfigured: Boolean(integration.callbackToken),
-    gatewayTokenConfigured: Boolean(openclawIntegration?.gatewayToken),
-    lastSyncAt: openclawIntegration?.lastSyncAt ? openclawIntegration.lastSyncAt.toISOString() : null,
-    lastSyncStatus: openclawIntegration?.lastSyncStatus ?? null,
-    lastSyncError: openclawIntegration?.lastSyncError ?? null
+    lastSyncAt: integration.lastSyncAt ? integration.lastSyncAt.toISOString() : null,
+    lastSyncStatus: integration.lastSyncStatus ?? null,
+    lastSyncError: integration.lastSyncError ?? null
   };
 }
 
 export async function upsertActiveWorkspaceConstructorIntegrationInDb(payload: {
   label?: string;
   baseUrl: string;
+  apiToken?: string;
   callbackToken?: string;
   enabled?: boolean;
 }) {
@@ -416,12 +417,16 @@ export async function upsertActiveWorkspaceConstructorIntegrationInDb(payload: {
   const callbackToken = payload.callbackToken === undefined
     ? existing?.callbackToken ?? null
     : payload.callbackToken.trim() || null;
+  const apiToken = payload.apiToken === undefined
+    ? existing?.apiToken ?? null
+    : payload.apiToken.trim() || null;
 
   const integration = await db.workspaceConstructorIntegration.upsert({
     where: { workspaceId: activeWorkspace.id },
     update: {
       label: payload.label?.trim() || null,
       baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
+      apiToken,
       callbackToken,
       enabled: payload.enabled ?? existing?.enabled ?? true
     },
@@ -429,13 +434,10 @@ export async function upsertActiveWorkspaceConstructorIntegrationInDb(payload: {
       workspaceId: activeWorkspace.id,
       label: payload.label?.trim() || null,
       baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
+      apiToken,
       callbackToken,
       enabled: payload.enabled ?? true
     }
-  });
-
-  const openclawIntegration = await db.workspaceOpenClawIntegration.findUnique({
-    where: { workspaceId: integration.workspaceId }
   });
 
   return {
@@ -443,71 +445,13 @@ export async function upsertActiveWorkspaceConstructorIntegrationInDb(payload: {
     label: integration.label ?? "",
     baseUrl: integration.baseUrl,
     enabled: integration.enabled,
+    apiToken: integration.apiToken ?? null,
+    callbackToken: integration.callbackToken ?? null,
+    apiTokenConfigured: Boolean(integration.apiToken) || Boolean(process.env.CONSTRUCTOR_API_TOKEN?.trim()),
     callbackTokenConfigured: Boolean(integration.callbackToken),
-    gatewayTokenConfigured: Boolean(openclawIntegration?.gatewayToken),
-    lastSyncAt: openclawIntegration?.lastSyncAt ? openclawIntegration.lastSyncAt.toISOString() : null,
-    lastSyncStatus: openclawIntegration?.lastSyncStatus ?? null,
-    lastSyncError: openclawIntegration?.lastSyncError ?? null
-  };
-}
-
-export async function addManualWorkspaceAgentInDb(payload: {
-  name: string;
-  agentId: string;
-  capabilities?: string[];
-}) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
-
-  if (!activeWorkspace) {
-    return null;
-  }
-
-  const normalizedAgentId = payload.agentId.trim();
-  const normalizedName = payload.name.trim();
-
-  if (!normalizedAgentId || !normalizedName) {
-    return { error: "INVALID_AGENT_INPUT" } as const;
-  }
-
-  const capabilities = Array.from(new Set((payload.capabilities ?? []).map((item) => item.trim()).filter(Boolean)));
-
-  const membership = await db.membership.upsert({
-    where: {
-      workspaceId_sourceSystem_sourceKey: {
-        workspaceId: activeWorkspace.id,
-        sourceSystem: "constructor_manual",
-        sourceKey: normalizedAgentId
-      }
-    },
-    update: {
-      name: normalizedName,
-      roleLabel: "Agent",
-      kind: "agent",
-      enabled: true,
-      capabilities,
-      agentPermissions: ["comment", "change_status", "log_execution"]
-    },
-    create: {
-      workspaceId: activeWorkspace.id,
-      name: normalizedName,
-      kind: "agent",
-      roleLabel: "Agent",
-      workspaceRole: "member",
-      enabled: true,
-      sourceSystem: "constructor_manual",
-      sourceKey: normalizedAgentId,
-      capabilities,
-      agentPermissions: ["comment", "change_status", "log_execution"]
-    }
-  });
-
-  return {
-    id: membership.id,
-    name: membership.name,
-    enabled: membership.enabled,
-    capabilities: membership.capabilities,
-    sourceSystem: membership.sourceSystem,
-    sourceKey: membership.sourceKey
+    lastSyncAt: integration.lastSyncAt ? integration.lastSyncAt.toISOString() : null,
+    lastSyncStatus: integration.lastSyncStatus ?? null,
+    lastSyncError: integration.lastSyncError ?? null
   };
 }
 

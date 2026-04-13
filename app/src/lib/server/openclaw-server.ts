@@ -464,7 +464,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: Gatew
           workspaceId: task.project.workspaceId,
           kind: "agent",
           enabled: true,
-          sourceSystem: { in: ["openclaw", "constructor_manual"] }
+          sourceSystem: "openclaw"
         }
       })
     : null;
@@ -473,7 +473,7 @@ export async function dispatchTaskToOpenClawInDb(taskId: string, options?: Gatew
   if (
     !assignee ||
     assignee.kind !== "agent" ||
-    !["openclaw", "constructor_manual"].includes(assignee.sourceSystem ?? "") ||
+    assignee.sourceSystem !== "openclaw" ||
     !assignee.sourceKey
   ) {
     return { error: "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" } as const;
@@ -694,7 +694,7 @@ export async function handleGatewayTaskWebhookInDb(taskId: string, payload: unkn
   if (
     !task.assignee ||
     task.assignee.kind !== "agent" ||
-    !["openclaw", "constructor_manual"].includes(task.assignee.sourceSystem ?? "")
+    task.assignee.sourceSystem !== "openclaw"
   ) {
     return { error: "TASK_NOT_ASSIGNED_TO_OPENCLAW_AGENT" } as const;
   }

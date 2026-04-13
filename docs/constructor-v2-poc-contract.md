@@ -8,10 +8,13 @@ It is intentionally narrower than the older OpenClaw bridge docs. It documents t
 
 Current Mission Control integration points:
 - `POST /api/tasks/:taskId/constructor/dispatch`
+- `GET /api/tasks/:taskId/constructor/status`
 - `POST /api/tasks/:taskId/constructor/callback`
 
 Current upstream Constructor ingress:
-- `POST ${CONSTRUCTOR_BASE_URL}/source/mission-control/events`
+- `GET ${CONSTRUCTOR_BASE_URL}/api/v1/agents`
+- `POST ${CONSTRUCTOR_BASE_URL}/api/v1/tasks`
+- `GET ${CONSTRUCTOR_BASE_URL}/api/v1/tasks/:bridgeExecutionId`
 
 Default local base URL when unset:
 - `CONSTRUCTOR_BASE_URL=http://127.0.0.1:8787`
@@ -20,63 +23,71 @@ Default local base URL when unset:
 
 When an owner dispatches a task through the Constructor v2 UI card, Mission Control:
 1. loads the task resource and recent comments
-2. builds a compact instruction-only envelope for Constructor
-3. generates a task-scoped callback URL back into Mission Control
-4. sends a `task.execute` event to Constructor
-5. returns `202 Accepted` if Constructor accepts and persists the execution
+2. resolves `targetAgent` from the assigned Constructor agent or the synced default Constructor agent
+3. builds a final-answer-oriented instruction payload for Constructor
+4. generates a task-scoped callback URL back into Mission Control
+5. sends a public API task request to Constructor
+6. returns `202 Accepted` if Constructor accepts and persists the execution
 
 Current request shape sent upstream:
 
 ```json
 {
-  "version": "v1",
-  "source": "mission-control",
-  "eventType": "task.execute",
-  "eventId": "evt-...",
-  "idempotencyKey": "idem-...",
-  "traceId": "trace-...",
-  "occurredAt": "2026-04-02T20:00:00.000Z",
-  "payload": {
-    "externalTaskId": "mc-task-<taskId>-<timestamp>",
-    "targetAgent": "main",
-    "instruction": "Task: ...",
-    "context": {
-      "missionControl": {
-        "taskId": "..."
-      },
-      "poc": {
-        "mode": "constructor-v2",
-        "expectedDelivery": "return final answer through Constructor callback so Mission Control can post the task comment"
-      }
-    },
-    "metadata": {
-      "origin": "mission-control-ui",
+  "externalTaskId": "mc-task-<taskId>-<timestamp>",
+  "idempotencyKey": "mc-task-<taskId>-<timestamp>",
+  "targetAgent": "constructor-default",
+  "instruction": "Task: ...",
+  "context": {
+    "missionControl": {
       "taskId": "...",
-      "poc": true
+      "title": "...",
+      "status": "...",
+      "priority": "...",
+      "assignee": null,
+      "project": "...",
+      "projectSlug": "...",
+      "due": null
     },
-    "routingHints": {},
-    "callback": {
-      "required": true,
-      "url": "https://mission-control.example/api/tasks/<taskId>/constructor/callback"
-    },
-    "retryPolicy": {
-      "maxDispatchAttempts": 5,
-      "maxCallbackAttempts": 5
-    },
-    "timeoutPolicy": {
-      "executionTimeoutMs": 300000,
-      "dispatchTimeoutMs": 30000,
-      "callbackTimeoutMs": 10000
+    "constructor": {
+      "mode": "mission-control-dispatch",
+      "expectedDelivery": "return final answer through Constructor callback so Mission Control can post the task comment"
     }
+  },
+  "metadata": {
+    "origin": "mission-control-ui",
+    "taskId": "...",
+    "integration": "constructor"
+  },
+  "routingHints": {},
+  "callback": {
+    "required": true,
+    "url": "https://mission-control.example/api/tasks/<taskId>/constructor/callback"
+  },
+  "retryPolicy": {
+    "maxDispatchAttempts": 5,
+    "maxCallbackAttempts": 5
+  },
+  "timeoutPolicy": {
+    "executionTimeoutMs": 300000,
+    "dispatchTimeoutMs": 30000,
+    "callbackTimeoutMs": 10000
   }
 }
 ```
+
+Required public API fields supplied by Mission Control:
+- `externalTaskId`
+- `idempotencyKey`
+- `targetAgent`
+- `instruction`
+
+Mission Control also sends optional execution context, metadata, callback instructions, retry policy, and timeout policy with each request.
 
 ### Important design choice
 
 This Constructor v2 POC is intentionally different from the older OpenClaw bridge path.
 
-Mission Control currently tells Constructor/OpenClaw:
+Mission Control currently tells Constructor:
 - do **not** call Mission Control APIs directly during execution
 - do **not** post comments directly
 - return only final answer text through the Constructor terminal callback
@@ -99,7 +110,20 @@ Expected success shape:
 }
 ```
 
-Mission Control returns `202` to the UI with the normalized dispatch payload.
+Mission Control returns `202` to the UI with the normalized dispatch payload, including the resolved `targetAgent` and whether the request was deduplicated.
+
+## In-flight status polling
+
+While a Constructor-assigned task is `In Progress`, Mission Control now polls Constructor's public task lookup route using the accepted `bridgeExecutionId` captured at dispatch time.
+
+Current polling behavior:
+- reads the latest Constructor execution summary from `GET /api/v1/tasks/:bridgeExecutionId`
+- appends a deduplicated `CONSTRUCTOR_STATUS ...` execution log line when the upstream execution state changes
+- keeps the local task in `In Progress` while Constructor reports `queued`, `dispatching`, or `running`
+- promotes the task to `In Review` when Constructor reports `completed`, even before the terminal callback lands
+- marks the task `Blocked` when Constructor reports `failed`, `timed_out`, or `canceled`
+
+Terminal callbacks remain the path that writes the visible final comment into task discussion.
 
 ## Callback behavior
 
@@ -124,6 +148,8 @@ Current comment behavior:
 - failed callbacks prefer `payload.error.*` text
 - if no useful final text exists, Mission Control writes a fallback comment explaining that the callback was terminal but lacked a result payload
 
+Constructor's current public API does not sign callbacks. Mission Control therefore accepts unsigned Constructor callbacks and treats any returned callback token as saved configuration only, not an enforced runtime check.
+
 ## Callback idempotency
 
 Mission Control now enforces durable callback deduplication with `TaskCallbackReceipt`.
@@ -146,6 +172,8 @@ This was regression-tested locally with:
 ## Logging behavior
 
 Mission Control appends execution log lines for:
+- dispatch accepted
+- dispatch failed
 - callback received
 - duplicate callback ignored
 
@@ -155,8 +183,6 @@ For Constructor webhook/system callbacks, those log writes now use a system-leve
 
 - this doc describes the local POC contract, not a stable public API
 - the dispatch route currently generates a fresh `externalTaskId` per dispatch attempt
-- callback authentication/signing is not implemented here yet
-- in-flight polling against Constructor admin APIs is not wired into the Mission Control UI yet
 
 ## Validation notes
 

@@ -161,6 +161,25 @@ export async function fetchOpenClawAgents(input: { baseUrl: string; gatewayToken
   };
 
   try {
+    const constructorResponse = await fetch(`${baseUrl}/admin/agents`, {
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${input.gatewayToken}`
+      },
+      cache: "no-store"
+    });
+    const constructorPayload = (await constructorResponse.json().catch(() => null)) as { items?: unknown[] } | null;
+
+    if (constructorResponse.ok) {
+      return extractAgentList(constructorPayload?.items ?? constructorPayload)
+        .map(normalizeAgent)
+        .filter((agent): agent is OpenClawAgentDescriptor => Boolean(agent));
+    }
+  } catch {
+    // fall through to compatibility bridge paths
+  }
+
+  try {
     const { response, payload } = await fetchJson(`${baseUrl}/agents`, {
       method: "GET",
       headers

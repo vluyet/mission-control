@@ -1,5 +1,4 @@
 import { error, ok } from "@/lib/api-response";
-import { syncActiveWorkspaceOpenClawAgentsInDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
@@ -13,17 +12,8 @@ export async function POST(request: Request) {
     return error("Owner access required.", 403, { code: "OWNER_ACCESS_REQUIRED" });
   }
 
-  const result = await syncActiveWorkspaceOpenClawAgentsInDb();
-
-  if (!result) {
-    return error("Workspace not found.", 404, { code: "WORKSPACE_NOT_FOUND" });
-  }
-
-  if ("error" in result) {
-    return error(result.message ?? "Gateway agent sync failed.", result.error === "GATEWAY_SYNC_NOT_CONFIGURED" ? 422 : 502, {
-      code: result.error
-    });
-  }
-
-  return ok(result);
+  return error("OpenClaw agent sync has been retired. Use /api/workspaces/current/constructor/sync.", 410, {
+    code: "OPENCLAW_SYNC_RETIRED",
+    replacement: "/api/workspaces/current/constructor/sync"
+  });
 }

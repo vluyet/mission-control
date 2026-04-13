@@ -32,7 +32,7 @@ export async function PATCH(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { label?: string; baseUrl?: string; callbackToken?: string; enabled?: boolean }
+    | { label?: string; baseUrl?: string; apiToken?: string; callbackToken?: string; enabled?: boolean }
     | null;
 
   if (!body?.baseUrl?.trim()) {
@@ -42,6 +42,7 @@ export async function PATCH(request: Request) {
   const result = await upsertActiveWorkspaceConstructorIntegrationInDb({
     label: body.label,
     baseUrl: body.baseUrl,
+    apiToken: body.apiToken,
     callbackToken: body.callbackToken,
     enabled: body.enabled
   });

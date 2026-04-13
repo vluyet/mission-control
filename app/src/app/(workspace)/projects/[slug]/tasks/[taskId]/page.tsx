@@ -18,7 +18,12 @@ export default async function ProjectTaskPage({
   }
 
   return (
-    <TaskLiveShell taskId={taskWorkspace.task.id} status={taskWorkspace.task.status} assigneeType={taskWorkspace.task.assigneeType}>
+    <TaskLiveShell
+      taskId={taskWorkspace.task.id}
+      status={taskWorkspace.task.status}
+      assigneeType={taskWorkspace.task.assigneeType}
+      assigneeSourceSystem={taskWorkspace.task.assigneeSourceSystem}
+    >
       <TaskWorkspace
         task={taskWorkspace.task}
         comments={taskWorkspace.comments}

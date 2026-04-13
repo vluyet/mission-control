@@ -107,7 +107,7 @@ async function getConstructorDispatchableAgentMemberships(workspaceId: string) {
       workspaceId,
       kind: "agent",
       enabled: true,
-      sourceSystem: { in: ["openclaw", "constructor_manual"] }
+      sourceSystem: "constructor"
     },
     select: { id: true }
   });
