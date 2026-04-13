@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { AttachmentRecord, Comment, ContextBlock, TaskRecord, TimelineEvent, WatcherRecord } from "@/lib/demo-data";
 import type { ResolvedTaskContext } from "@/lib/context-resolver";
-import { getAgentRunHealth } from "@/lib/agent-run-health";
-import { MessageIcon, PaperclipIcon, PulseIcon } from "@/components/ui/icons";
+import { MessageIcon, PaperclipIcon } from "@/components/ui/icons";
 import { Panel, PanelHeader, PriorityBadge, StatusBadge } from "@/components/ui/primitives";
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
@@ -62,58 +61,10 @@ function QuickActions({ task }: { task: TaskRecord }) {
   );
 }
 
-function AgentDispatchBlock({
-  task,
-  latestExecutionLine,
-  latestUpdatedAt,
-  agentState,
-  agentFreshness,
-  accentClass,
-  executionFeed
-}: {
-  task: TaskRecord;
-  latestExecutionLine?: string | null;
-  latestUpdatedAt?: string;
-  agentState: string;
-  agentFreshness: string;
-  accentClass: string;
-  executionFeed: string[];
-}) {
+function AgentDispatchBlock({ task }: { task: TaskRecord }) {
   return (
-    <div className="space-y-3">
-      <div className="relative overflow-hidden rounded-2xl border border-violet-200/80 bg-[linear-gradient(135deg,rgba(139,92,246,0.10),rgba(255,255,255,0.94)_44%,rgba(249,115,22,0.10))] px-4 py-4 shadow-[0_0_0_1px_rgba(255,255,255,0.7),0_10px_26px_rgba(139,92,246,0.10),0_14px_34px_rgba(249,115,22,0.08)]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.18),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.16),transparent_38%)] opacity-80" />
-        <div className="relative flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">Dispatch and state</p>
-            <p className="mt-1 text-xs text-slate-600">Constructor is the active runtime path for this task.</p>
-          </div>
-          <span className={`rounded-full border px-2.5 py-1 text-xs backdrop-blur-sm ${accentClass}`}>
-            {agentState}
-          </span>
-        </div>
-        <div className="relative mt-4">
-          <TaskConstructorDispatchCard taskId={task.id} taskTitle={task.title} executionFeed={executionFeed} />
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-        <div className="flex items-center gap-2 text-slate-900">
-          <PulseIcon className="h-4 w-4" />
-          <p className="text-sm font-semibold">Current signal</p>
-        </div>
-        <p className="mt-3 text-sm leading-6 text-slate-600">{latestExecutionLine ?? "No agent log yet."}</p>
-        <p className="mt-3 text-xs text-slate-500">{latestUpdatedAt ? `${agentFreshness} · updated ${latestUpdatedAt}` : agentFreshness}</p>
-      </div>
-
-      <TaskStatusActions
-        taskId={task.id}
-        currentStatus={task.status}
-        blockedReason={task.blockedReason}
-        actorType="agent"
-        title="Agent actions"
-        options={task.transitionOptions ?? []}
-      />
+    <div>
+      <TaskConstructorDispatchCard taskId={task.id} />
     </div>
   );
 }
@@ -150,11 +101,6 @@ export function TaskWorkspace({
   availableWatchers?: WatcherRecord[];
   compact?: boolean;
 }) {
-  const agentHealth = getAgentRunHealth(task, executionMeta?.latestUpdatedAt ?? task.updatedAt);
-  const agentFreshness = agentHealth.detail;
-  const agentState = agentHealth.label;
-  const latestExecutionLine = executionFeed[executionFeed.length - 1] ?? null;
-
   return (
     <Panel className="border border-white/70 bg-white/90 shadow-[0_18px_60px_rgba(15,23,42,0.05)]">
       <div className={`grid gap-0 ${compact ? "2xl:grid-cols-[minmax(0,1fr),360px]" : "xl:grid-cols-[minmax(0,1fr),360px]"}`}>
@@ -214,15 +160,7 @@ export function TaskWorkspace({
         <aside className="space-y-5 bg-slate-50/70 p-5">
           {task.assigneeType === "Agent" ? (
             <SidebarSection title="Agent run">
-              <AgentDispatchBlock
-                task={task}
-                latestExecutionLine={latestExecutionLine}
-                latestUpdatedAt={executionMeta?.latestUpdatedAt}
-                agentState={agentState}
-                agentFreshness={agentFreshness}
-                accentClass={agentHealth.accentClass}
-                executionFeed={executionFeed}
-              />
+              <AgentDispatchBlock task={task} />
             </SidebarSection>
           ) : null}
 

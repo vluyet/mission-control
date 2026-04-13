@@ -66,17 +66,28 @@ export function getAgentDocsPayload() {
       {
         method: "GET",
         path: "/api/workspaces/current/openclaw",
-        purpose: "Read the active workspace gateway link and sync state used by Constructor-backed agent discovery."
+        purpose: "Read the retained OpenClaw compatibility link for legacy bridge workflows."
       },
       {
         method: "PATCH",
         path: "/api/workspaces/current/openclaw",
-        purpose: "Create or update the workspace gateway link used by Constructor-backed agent discovery."
+        purpose: "Create or update the retained OpenClaw compatibility link for legacy bridge workflows."
       },
       {
         method: "POST",
         path: "/api/workspaces/current/constructor/sync",
-        purpose: "Discover available agents through the configured gateway connection and sync them into workspace members for Constructor use."
+        purpose: "Discover available agents through Constructor public API and sync them into workspace members for Constructor use."
+      },
+      {
+        method: "POST",
+        path: "/api/tasks/:taskId/constructor/dispatch",
+        purpose:
+          "Owner-only Constructor dispatch using a server-authored Mission Control prompt. Dispatch is rejected when the task description is too underspecified for safe agent execution."
+      },
+      {
+        method: "GET",
+        path: "/api/tasks/:taskId/constructor/status",
+        purpose: "Poll Constructor execution state for an in-flight dispatched task and sync the local Mission Control task status."
       },
       {
         method: "GET",
@@ -284,9 +295,21 @@ export function getAgentContractPayload() {
         path: "/api/workspaces/current/openclaw",
         request_shape: ["label?", "baseUrl", "gatewayToken?", "enabled?"],
         notes: [
-          "This compatibility route persists the gateway connection used by Constructor-backed agent discovery.",
+          "This is a retained compatibility route for legacy OpenClaw bridge workflows.",
           "The gateway token is only written by owner-authenticated clients and is never returned in full.",
           "Leave gatewayToken blank on update to keep the existing saved token."
+        ]
+      },
+      constructor_link: {
+        method: "PATCH",
+        path: "/api/workspaces/current/constructor",
+        request_shape: ["label?", "baseUrl", "apiToken?", "callbackToken?", "enabled?"],
+        notes: [
+          "Mission Control stores the Constructor public API base URL separately from the legacy OpenClaw compatibility link.",
+          "Owner-authenticated reads return stored workspace apiToken and callbackToken values so generated tokens can be revealed and copied again from Manage Workspace.",
+          "Leave apiToken blank on update to keep the existing saved token.",
+          "Leave callbackToken blank on update to keep the existing saved token.",
+          "Constructor's current public API does not sign callbacks, so callbackToken is stored but not enforced on callback delivery."
         ]
       },
       constructor_sync: {
@@ -294,8 +317,8 @@ export function getAgentContractPayload() {
         path: "/api/workspaces/current/constructor/sync",
         response_shape: ["integration", "agents[]"],
         notes: [
-          "Mission Control calls the linked gateway agent discovery flow for the active workspace.",
-          "Synced agents are created or updated as workspace agent members from the gateway-backed sync source used by Constructor."
+          "Mission Control calls Constructor GET /api/v1/agents for the active workspace.",
+          "Synced agents are created or updated as workspace agent members with sourceSystem=constructor."
         ]
       },
       member_update: {
