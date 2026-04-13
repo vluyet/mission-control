@@ -89,7 +89,6 @@ model Workspace {
   projects    Project[]
   assets      WorkspaceAsset[]
   authEvents  AuthEvent[]
-  openclawIntegration WorkspaceOpenClawIntegration?
   constructorIntegration WorkspaceConstructorIntegration?
 }
 
@@ -101,23 +100,6 @@ model WorkspaceConstructorIntegration {
   apiToken       String?
   enabled        Boolean   @default(true)
   callbackToken  String?
-  lastSyncAt     DateTime?
-  lastSyncStatus String?
-  lastSyncError  String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, updatedAt])
-}
-
-model WorkspaceOpenClawIntegration {
-  id             String    @id @default(cuid())
-  workspaceId     String    @unique
-  label          String?
-  baseUrl        String
-  gatewayToken   String
-  enabled        Boolean   @default(true)
   lastSyncAt     DateTime?
   lastSyncStatus String?
   lastSyncError  String?

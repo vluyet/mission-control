@@ -18,9 +18,7 @@ In progress:
 
 ## Notes
 
-- OpenClaw autonomous loop is functional via scoped runtime bearer credentials.
-- Dispatch is hooks-based (`/hooks/agent`) with ack/runId semantics.
-- Agent progress/final output should flow via Mission Control APIs:
-  - `POST /api/tasks/:taskId/execution`
-  - `POST /api/tasks/:taskId/comments`
+- Constructor dispatch is functional through the public API with tracked `bridgeExecutionId` and `externalTaskId` state.
+- Final output returns through Constructor callback and status polling, then gets projected into Mission Control comments and execution logs.
+- Scoped agent credentials remain the only supported direct Mission Control API access for agent-authored actions.
 

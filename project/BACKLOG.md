@@ -59,14 +59,14 @@ This file replaces legacy backlog files and is the canonical backlog view.
 ### 10) Mention notifications and inbox hooks
 - Priority: P2
 
-### 11) Generalized external agent provider abstraction (post-OpenClaw MVP)
+### 11) Generalized external agent provider abstraction (post-Constructor integration)
 - Priority: P2
 
 ---
 
-## OpenClaw async completion queue
+## Constructor runtime hardening
 
-### 12) Trusted OpenClaw callback correlation and status handling
+### 12) Constructor callback observability and recovery
 - Priority: P1
 
 ### 13) Callback-path regression coverage
@@ -76,12 +76,11 @@ This file replaces legacy backlog files and is the canonical backlog view.
 
 ## Recently completed (high signal)
 
-- OpenClaw workspace link + agent sync
-- OpenClaw task dispatch via `/hooks/agent`
-- Hooks-token auth alignment for dispatch
-- Scoped runtime agent bearer credential issuance per dispatch
-- Agent callback contract injection in dispatch prompt (`/execution`, `/comments`)
-- Synchronous hook response projection into comments when text is present
+- Constructor workspace link + public API agent sync
+- Constructor task dispatch via `POST /api/v1/tasks`
+- Constructor callback comment projection and duplicate suppression
+- Constructor status polling and local task lifecycle sync
+- Scoped agent credentials for Mission Control APIs
 - Dispatch payload/status logging improvements
-- CI stabilized for current hooks-only contract
+- CI stabilized for the current Constructor contract
 

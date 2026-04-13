@@ -65,13 +65,13 @@ export function getAgentDocsPayload() {
       },
       {
         method: "GET",
-        path: "/api/workspaces/current/openclaw",
-        purpose: "Read the retained OpenClaw compatibility link for legacy bridge workflows."
+        path: "/api/workspaces/current/constructor",
+        purpose: "Read the active Constructor workspace integration settings."
       },
       {
         method: "PATCH",
-        path: "/api/workspaces/current/openclaw",
-        purpose: "Create or update the retained OpenClaw compatibility link for legacy bridge workflows."
+        path: "/api/workspaces/current/constructor",
+        purpose: "Create or update the active Constructor workspace integration settings."
       },
       {
         method: "POST",
@@ -88,6 +88,11 @@ export function getAgentDocsPayload() {
         method: "GET",
         path: "/api/tasks/:taskId/constructor/status",
         purpose: "Poll Constructor execution state for an in-flight dispatched task and sync the local Mission Control task status."
+      },
+      {
+        method: "POST",
+        path: "/api/tasks/:taskId/constructor/callback",
+        purpose: "Receive Constructor completion callbacks and project the final response into Mission Control comments and execution state."
       },
       {
         method: "GET",
@@ -108,11 +113,6 @@ export function getAgentDocsPayload() {
         method: "GET",
         path: "/api/search?q=:query",
         purpose: "Search tasks and projects inside the active workspace."
-      },
-      {
-        method: "GET",
-        path: "/api/search?q=:query",
-        purpose: "Search projects and tasks inside the active workspace without scraping UI pages."
       },
       {
         method: "POST",
@@ -163,11 +163,6 @@ export function getAgentDocsPayload() {
         method: "GET",
         path: "/api/tasks/:taskId/context",
         purpose: "Read the deterministic context resolution payload for a task."
-      },
-      {
-        method: "POST",
-        path: "/api/tasks/:taskId/openclaw/dispatch",
-        purpose: "Compatibility bridge route for gateway-backed task dispatch under the Constructor-owned product flow."
       },
       {
         method: "GET",
@@ -234,7 +229,7 @@ export function getAgentContractPayload() {
         notes: [
           "Owner-only admin endpoints do not accept agent credentials.",
           "Agent tokens are scope-limited and revocable.",
-          "Workspace OpenClaw linking is owner-only and stores the gateway token server-side."
+          "Workspace Constructor linking is owner-only and stores integration tokens server-side."
         ]
       },
       context_resolution: {
@@ -290,22 +285,16 @@ export function getAgentContractPayload() {
           "Observer project members can follow work but cannot own tasks."
         ]
       },
-      gateway_link: {
-        method: "PATCH",
-        path: "/api/workspaces/current/openclaw",
-        request_shape: ["label?", "baseUrl", "gatewayToken?", "enabled?"],
-        notes: [
-          "This is a retained compatibility route for legacy OpenClaw bridge workflows.",
-          "The gateway token is only written by owner-authenticated clients and is never returned in full.",
-          "Leave gatewayToken blank on update to keep the existing saved token."
-        ]
+      constructor_link_read: {
+        method: "GET",
+        path: "/api/workspaces/current/constructor",
+        response_shape: ["integration.id", "integration.baseUrl", "integration.enabled", "integration.apiTokenConfigured", "integration.callbackTokenConfigured"]
       },
       constructor_link: {
         method: "PATCH",
         path: "/api/workspaces/current/constructor",
         request_shape: ["label?", "baseUrl", "apiToken?", "callbackToken?", "enabled?"],
         notes: [
-          "Mission Control stores the Constructor public API base URL separately from the legacy OpenClaw compatibility link.",
           "Owner-authenticated reads return stored workspace apiToken and callbackToken values so generated tokens can be revealed and copied again from Manage Workspace.",
           "Leave apiToken blank on update to keep the existing saved token.",
           "Leave callbackToken blank on update to keep the existing saved token.",
@@ -319,6 +308,34 @@ export function getAgentContractPayload() {
         notes: [
           "Mission Control calls Constructor GET /api/v1/agents for the active workspace.",
           "Synced agents are created or updated as workspace agent members with sourceSystem=constructor."
+        ]
+      },
+      constructor_dispatch: {
+        method: "POST",
+        path: "/api/tasks/:taskId/constructor/dispatch",
+        response_shape: ["dispatch.bridgeExecutionId", "dispatch.externalTaskId", "dispatch.executionState", "dispatch.accepted"],
+        notes: [
+          "Owner-authenticated only.",
+          "Dispatch uses the assigned Constructor agent when present, otherwise the synced default Constructor agent.",
+          "Mission Control authors the final human-facing prompt and keeps task comments and state as the source of truth."
+        ]
+      },
+      constructor_status: {
+        method: "GET",
+        path: "/api/tasks/:taskId/constructor/status",
+        response_shape: ["tracked", "active", "refresh", "summary?"],
+        notes: [
+          "Polls Constructor execution state using the last tracked bridgeExecutionId.",
+          "Mission Control appends deduplicated execution log lines as state changes arrive."
+        ]
+      },
+      constructor_callback: {
+        method: "POST",
+        path: "/api/tasks/:taskId/constructor/callback",
+        response_shape: ["ok", "commentId?", "duplicate?"],
+        notes: [
+          "Receives Constructor terminal callbacks for previously dispatched tasks.",
+          "Mission Control deduplicates repeated callbacks and writes the final answer into task comments as the responding agent."
         ]
       },
       member_update: {
@@ -440,17 +457,6 @@ export function getAgentContractPayload() {
         path: "/api/attachments/:attachmentId",
         response_shape: ["binary file response"]
       },
-      gateway_task_dispatch_compat: {
-        method: "POST",
-        path: "/api/tasks/:taskId/openclaw/dispatch",
-        response_shape: ["dispatch.taskId", "dispatch.agentId", "dispatch.responseId?"],
-        notes: [
-          "Owner-authenticated only.",
-          "This is a compatibility bridge route retained while the Constructor-owned product flow still reuses the underlying gateway dispatch seam.",
-          "Dispatch uses the linked gateway agent hook endpoint with the assigned `agentId`.",
-          "Mission Control writes the final human-facing response back into task comments as the assigned agent."
-        ]
-      },
       task_comments: {
         method: "GET",
         path: "/api/tasks/:taskId/comments"
@@ -483,13 +489,6 @@ export function getAgentContractPayload() {
         path: "/api/tasks/:taskId/execution",
         request_shape: ["line"],
         notes: ["Appending execution logs requires the log_execution permission."]
-      },
-      openclaw_reporting_conventions: {
-        notes: [
-          "The current first-pass OpenClaw flow is synchronous and comment-oriented.",
-          "Mission Control dispatches the task to the assigned OpenClaw agent and writes the returned final answer into task comments.",
-          "Execution and activity traces are still recorded in Mission Control."
-        ]
       }
     },
     examples: getAgentDocsPayload()

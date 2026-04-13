@@ -43,7 +43,7 @@ async function loadRouteModule() {
     path.join(outdir, "stubs", "constructor.mjs"),
     'export async function fetchConstructorTaskSummary(args) {\n' +
       '  (globalThis.__constructorLookups ??= []).push(args);\n' +
-      '  const payload = globalThis.__constructorSummaryPayload ?? { item: { bridgeExecutionId: "constructor:exec-1", externalTaskId: "mc-task-123", executionState: "running", callbackState: "pending", cancellationState: "none", runtimeName: "openclaw", latestResult: null } };\n' +
+      '  const payload = globalThis.__constructorSummaryPayload ?? { item: { bridgeExecutionId: "constructor:exec-1", externalTaskId: "mc-task-123", executionState: "running", callbackState: "pending", cancellationState: "none", runtimeName: "constructor", latestResult: null } };\n' +
       '  const status = globalThis.__constructorSummaryStatus ?? 200;\n' +
       '  return { response: new Response(JSON.stringify(payload), { status, headers: { "content-type": "application/json" } }), payload };\n' +
       '}\n',
@@ -135,7 +135,7 @@ test("constructor status route appends a progress log when Constructor advances 
     assert.equal(globalThis.__systemExecutionLogs.length, 1);
     assert.equal(
       globalThis.__systemExecutionLogs[0].line,
-      "CONSTRUCTOR_STATUS bridgeExecutionId=constructor:exec-1 externalTaskId=mc-task-123 executionState=running callbackState=pending cancellationState=none runtimeName=openclaw"
+      "CONSTRUCTOR_STATUS bridgeExecutionId=constructor:exec-1 externalTaskId=mc-task-123 executionState=running callbackState=pending cancellationState=none runtimeName=constructor"
     );
     assert.equal(globalThis.__taskUpdates.length, 0);
     assert.equal(globalThis.__executionUpdates.length, 0);
@@ -147,7 +147,7 @@ test("constructor status route appends a progress log when Constructor advances 
 test("constructor status route promotes completed executions into review", async () => {
   resetGlobals();
   globalThis.__executionLogsForTask = [
-    "CONSTRUCTOR_STATUS bridgeExecutionId=constructor:exec-1 externalTaskId=mc-task-123 executionState=running callbackState=pending cancellationState=none runtimeName=openclaw",
+    "CONSTRUCTOR_STATUS bridgeExecutionId=constructor:exec-1 externalTaskId=mc-task-123 executionState=running callbackState=pending cancellationState=none runtimeName=constructor",
     "CONSTRUCTOR_DISPATCH_ACCEPTED bridgeExecutionId=constructor:exec-1 externalTaskId=mc-task-123 executionState=queued"
   ];
   globalThis.__constructorSummaryPayload = {
@@ -157,7 +157,7 @@ test("constructor status route promotes completed executions into review", async
       executionState: "completed",
       callbackState: "delivered",
       cancellationState: "none",
-      runtimeName: "openclaw",
+      runtimeName: "constructor",
       latestResult: {
         type: "completed",
         text: "Final answer from Constructor"

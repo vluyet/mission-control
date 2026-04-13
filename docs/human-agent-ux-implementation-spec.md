@@ -16,7 +16,7 @@ Completed in this pass:
 - review summary now packages currently available evidence more explicitly using recent execution lines, attachment names, and the latest conversation signal
 - task detail right rail now separates the immediate human decision from quieter metadata so review and intervention states are easier to scan
 - project task surfaces now inherit the lighter attention-first grouping pattern in list mode, while board snapshots follow the active filters instead of showing stale totals
-- members/settings admin surfaces now handle low-data and in-flight states more clearly: empty member lists point back to workspace settings, OpenClaw link/sync actions explain what is happening while requests are in flight, and agent credential states explain next steps when no agents, credentials, or auth events exist yet
+- members/settings admin surfaces now handle low-data and in-flight states more clearly: empty member lists point back to workspace settings, Constructor link/sync actions explain what is happening while requests are in flight, and agent credential states explain next steps when no agents, credentials, or auth events exist yet
 - review-summary evidence lines now normalize raw transport-style execution messages into shorter human-readable signals so the latest meaningful update stays readable during review, and the summary no longer repeats that same line immediately inside the recent execution list
 
 Still to refine in follow-up passes:
@@ -25,7 +25,7 @@ Still to refine in follow-up passes:
 - decide later whether project surfaces need their own reduced metric strip or should stay more context-heavy than Queue/My Tasks
 
 ## Purpose
-Define the next UX phase for Mission Control now that async OpenClaw dispatch and task lifecycle handling are working.
+Define the next UX phase for Mission Control now that async Constructor dispatch and task lifecycle handling are working.
 
 This spec is intentionally scoped to **fill the highest-value human interaction gaps without undoing the foundation already built**.
 
@@ -35,7 +35,7 @@ It should be used as the reference for the next implementation passes.
 
 ## Background
 Mission Control now has a solid operational base:
-- async-first OpenClaw dispatch
+- async-first Constructor dispatch
 - immediate task acceptance feedback
 - task lifecycle updates (`todo`/`current` -> `in_progress` -> `review`)
 - queue surface
@@ -327,7 +327,7 @@ Instead:
 - show secondary intervention actions in a quieter grouped area
 
 Example by state:
-- **Todo / agent-owned** -> primary: `Dispatch to OpenClaw`
+- **Todo / agent-owned** -> primary: `Dispatch to Constructor`
 - **In progress + healthy** -> primary: none, secondary: `Add context`, `Mark blocked`
 - **In progress + stale** -> primary: `Re-dispatch` or `Add context`
 - **Blocked** -> primary: `Resolve blocker`

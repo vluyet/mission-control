@@ -2,7 +2,7 @@
 
 This document describes the current local Mission Control ↔ Constructor v2 integration as implemented in this repo.
 
-It is intentionally narrower than the older OpenClaw bridge docs. It documents the working local POC contract, not a final product API guarantee.
+It is intentionally narrower than the older bridge-era docs. It documents the working local POC contract, not a final product API guarantee.
 
 ## Scope
 
@@ -85,7 +85,7 @@ Mission Control also sends optional execution context, metadata, callback instru
 
 ### Important design choice
 
-This Constructor v2 POC is intentionally different from the older OpenClaw bridge path.
+This Constructor v2 POC is intentionally different from the older bridge-era task execution path.
 
 Mission Control currently tells Constructor:
 - do **not** call Mission Control APIs directly during execution

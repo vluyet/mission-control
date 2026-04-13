@@ -10,12 +10,6 @@ import { createAgentAccessToken, getOwnerAuthConfig, hashAgentAccessToken, type 
 import { cookies } from "next/headers";
 import type { ActivityFeedItem, AttachmentRecord, ContextBlock, Member, Metric, ProjectSummary, TaskRecord, WatcherRecord } from "@/lib/demo-data";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
-export {
-  dispatchTaskToOpenClawInDb,
-  triggerGatewayMentionDispatchInDb,
-  handleGatewayTaskWebhookInDb,
-  syncActiveWorkspaceOpenClawAgentsInDb
-} from "@/lib/server/openclaw-server";
 export { syncActiveWorkspaceConstructorAgentsInDb } from "@/lib/server/constructor-server";
 export {
   getMembersForUi,
@@ -26,12 +20,10 @@ export {
 export {
   getActiveWorkspaceConstructorIntegration,
   getActiveWorkspaceConstructorIntegrationRecord,
-  getActiveWorkspaceOpenClawIntegration,
   getWorkspaceManagementDataForUi,
   getWorkspaceShellDataForUi,
   updateActiveWorkspaceInDb,
-  upsertActiveWorkspaceConstructorIntegrationInDb,
-  upsertActiveWorkspaceOpenClawIntegrationInDb
+  upsertActiveWorkspaceConstructorIntegrationInDb
 } from "@/lib/server/workspace-server";
 import {
   createProjectInDb,

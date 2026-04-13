@@ -223,7 +223,7 @@ export async function getWorkspaceManagementDataForUi() {
     return null;
   }
 
-  const [workspace, openclawIntegration, constructorIntegration, taskAttachmentsCount, workspaceAssetsCount, humanCount, agentCount, credentials, authEvents] = await Promise.all([
+  const [workspace, constructorIntegration, taskAttachmentsCount, workspaceAssetsCount, humanCount, agentCount, credentials, authEvents] = await Promise.all([
     db.workspace.findFirst({
       where: { id: activeWorkspace.id },
       include: {
@@ -235,7 +235,6 @@ export async function getWorkspaceManagementDataForUi() {
         }
       }
     }),
-    db.workspaceOpenClawIntegration.findUnique({ where: { workspaceId: activeWorkspace.id } }),
     db.workspaceConstructorIntegration.findUnique({ where: { workspaceId: activeWorkspace.id } }),
     db.attachment.count({ where: { task: { project: { workspaceId: activeWorkspace.id } } } }),
     db.workspaceAsset.count({ where: { workspaceId: activeWorkspace.id } }),
@@ -281,18 +280,6 @@ export async function getWorkspaceManagementDataForUi() {
           sourceSystem: member.sourceSystem ?? undefined,
           sourceKey: member.sourceKey ?? undefined
         })),
-      openclaw: openclawIntegration
-        ? {
-            id: openclawIntegration.id,
-            label: openclawIntegration.label ?? "",
-            baseUrl: openclawIntegration.baseUrl,
-            enabled: openclawIntegration.enabled,
-            tokenConfigured: Boolean(openclawIntegration.gatewayToken),
-            lastSyncAt: openclawIntegration.lastSyncAt ? openclawIntegration.lastSyncAt.toISOString() : null,
-            lastSyncStatus: openclawIntegration.lastSyncStatus ?? null,
-            lastSyncError: openclawIntegration.lastSyncError ?? null
-          }
-        : null,
       constructor: constructorIntegration
         ? {
             id: constructorIntegration.id,
@@ -449,85 +436,6 @@ export async function upsertActiveWorkspaceConstructorIntegrationInDb(payload: {
     callbackToken: integration.callbackToken ?? null,
     apiTokenConfigured: Boolean(integration.apiToken) || Boolean(process.env.CONSTRUCTOR_API_TOKEN?.trim()),
     callbackTokenConfigured: Boolean(integration.callbackToken),
-    lastSyncAt: integration.lastSyncAt ? integration.lastSyncAt.toISOString() : null,
-    lastSyncStatus: integration.lastSyncStatus ?? null,
-    lastSyncError: integration.lastSyncError ?? null
-  };
-}
-
-export async function getActiveWorkspaceOpenClawIntegration() {
-  const activeWorkspace = await getActiveWorkspaceRecord();
-
-  if (!activeWorkspace) {
-    return null;
-  }
-
-  const integration = await db.workspaceOpenClawIntegration.findUnique({
-    where: { workspaceId: activeWorkspace.id }
-  });
-
-  if (!integration) {
-    return null;
-  }
-
-  return {
-    id: integration.id,
-    label: integration.label ?? "",
-    baseUrl: integration.baseUrl,
-    enabled: integration.enabled,
-    tokenConfigured: Boolean(integration.gatewayToken),
-    lastSyncAt: integration.lastSyncAt ? integration.lastSyncAt.toISOString() : null,
-    lastSyncStatus: integration.lastSyncStatus ?? null,
-    lastSyncError: integration.lastSyncError ?? null
-  };
-}
-
-export async function upsertActiveWorkspaceOpenClawIntegrationInDb(payload: {
-  label?: string;
-  baseUrl: string;
-  gatewayToken?: string;
-  enabled?: boolean;
-}) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
-
-  if (!activeWorkspace) {
-    return null;
-  }
-
-  const existing = await db.workspaceOpenClawIntegration.findUnique({
-    where: { workspaceId: activeWorkspace.id }
-  });
-
-  const nextToken = payload.gatewayToken?.trim() || existing?.gatewayToken;
-
-  if (!nextToken) {
-    return { error: "GATEWAY_TOKEN_REQUIRED" } as const;
-  }
-
-  const integration = await db.workspaceOpenClawIntegration.upsert({
-    where: { workspaceId: activeWorkspace.id },
-    update: {
-      label: payload.label?.trim() || null,
-      baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
-      gatewayToken: nextToken,
-      enabled: payload.enabled ?? existing?.enabled ?? true,
-      lastSyncError: existing?.lastSyncError ?? null
-    },
-    create: {
-      workspaceId: activeWorkspace.id,
-      label: payload.label?.trim() || null,
-      baseUrl: payload.baseUrl.trim().replace(/\/+$/, ""),
-      gatewayToken: nextToken,
-      enabled: payload.enabled ?? true
-    }
-  });
-
-  return {
-    id: integration.id,
-    label: integration.label ?? "",
-    baseUrl: integration.baseUrl,
-    enabled: integration.enabled,
-    tokenConfigured: Boolean(integration.gatewayToken),
     lastSyncAt: integration.lastSyncAt ? integration.lastSyncAt.toISOString() : null,
     lastSyncStatus: integration.lastSyncStatus ?? null,
     lastSyncError: integration.lastSyncError ?? null

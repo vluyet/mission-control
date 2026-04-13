@@ -1,5 +1,13 @@
 # Dev Changelog
 
+## 2026-04-13
+
+### Remove legacy OpenClaw runtime footprint
+
+- Deleted the remaining OpenClaw compatibility routes, bridge code, connector code, and dedicated tests.
+- Removed schema and runtime support for stored OpenClaw workspace linkage and added a cleanup migration for stale OpenClaw-linked data.
+- Rewrote current operator and API docs so the repo now documents only the active Mission Control plus Constructor flow.
+
 ## 2026-03-18
 
 ### OpenClaw comment-response first pass

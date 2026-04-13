@@ -17,4 +17,3 @@ app/prisma/dev.db
 app/storage/task-attachments
 app/storage
 app/tsconfig.tsbuildinfo
-host-bridge/__pycache__/

@@ -1,18 +1,19 @@
 # Mission Control
 
-Mission Control is a task operations app for human teammates and AI agents working inside the same system.
+Mission Control is a task operations app for human teammates and Constructor-backed agents working inside the same system.
 
 ## Release status
 
 Current version: `v0.2.3`
 
-This release is launch-ready with:
+Current product surface:
 
 - owner authentication
 - multi-workspace support
 - projects, tasks, comments, timeline-style activity monitoring, watchers, attachments, and execution logs
 - workspace administration and shared workspace files
 - scoped agent API credentials
+- Constructor public API sync, dispatch, callback, and status polling
 
 ## Local development
 
@@ -31,7 +32,7 @@ docker compose exec app npm run test
 docker compose exec app npm run db:reset
 ```
 
-The workspace shell top bar now surfaces the current deployed version and, when available, the deployed branch and commit.
+The workspace shell top bar surfaces the current deployed version and, when available, the deployed branch and commit.
 
 ## One-line install
 
@@ -51,20 +52,16 @@ MC_APP_PORT=3000 \
 curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.2.3/scripts/bootstrap-public.sh | bash
 ```
 
-## Production runtime (current working model)
+## Production runtime
 
-The current working OpenClaw integration model on `piclaw` is:
+The current runtime model is:
 
-- Mission Control app runs on the host via `systemctl --user` (`mission-control-app.service`)
-- PostgreSQL stays in Docker via `docker-compose.prod.yml`
-- OpenClaw runs on the host
-- A small host bridge exposes OpenClaw integration endpoints on `http://127.0.0.1:18891` via `mc-openclaw-host-bridge.service`
+- PostgreSQL runs through `docker-compose.prod.yml`
+- the Next.js app runs on the host via `systemctl --user` as `mission-control-app.service`
+- the host service serves the built app from `app/.next-build`
+- external agent execution goes through the configured Constructor public API
 
-Use this OpenClaw integration base URL inside Mission Control:
-
-- `http://127.0.0.1:18891`
-
-This avoids unreliable container-to-host networking for the host-installed OpenClaw instance.
+When updating a host-run deployment, rebuild the app before restarting the service so `.next-build` matches the checked-out source.
 
 ## Production install
 
@@ -137,6 +134,28 @@ Notes:
 - If the host app is managed differently, set `MC_APP_RESTART_CMD` to the correct restart command before running the update script.
 - After the update, verify the top bar or call `/api/health` to confirm the deployed version, branch, and commit.
 
+## Constructor integration
+
+Mission Control’s only external runtime integration is the Constructor public API.
+
+Workspace owners configure Constructor from Manage Workspace with:
+
+- Base URL
+- API token
+- optional callback token for local bookkeeping
+- enabled/disabled state
+
+Current upstream calls used by the app:
+
+- `GET /api/v1/agents`
+- `POST /api/v1/tasks`
+- `GET /api/v1/tasks/:bridgeExecutionId`
+- `GET /api/v1/tasks/by-external/:externalTaskId`
+
+Current Mission Control callback ingress:
+
+- `POST /api/tasks/:taskId/constructor/callback`
+
 ## Deployment model
 
 Production uses:
@@ -148,27 +167,7 @@ Production uses:
 
 Health endpoint:
 
-- `/api/health` (returns status, deployed version, commit, and timestamp)
-
-## External agent integration
-
-Mission Control now ships an MVP OpenClaw integration for workspace linking, agent sync, and task dispatch through the OpenClaw gateway API.
-
-For Docker production installs, the bundled `openclaw-connector` service exposes a stable in-stack endpoint for the app. Configure Mission Control OpenClaw linkage with:
-
-- Base URL: `http://127.0.0.1:18891`
-- Token: the OpenClaw `gateway.auth.token`
-
-If your OpenClaw runtime accepts discovery with the gateway token but rejects `/hooks/agent` with `401`, configure the host bridge with a separate `OPENCLAW_HOOK_TOKEN` for dispatch while keeping `OPENCLAW_GATEWAY_TOKEN` for agent discovery.
-
-Minimal agent exposure endpoints:
-
-- `GET /agents` → list available agents for linking
-- `POST /identity/validate` with `{ "token": "..." }` → validate OpenClaw identity token
-- `POST /workspace-links` with `{ "workspaceId": "...", "agentId": "..." }` → link agent to workspace
-- `GET /workspace-links` → inspect current links (MVP in-memory)
-- `POST /workspace-dispatch` with `{ "workspaceId": "...", "taskId": "...", "prompt": "..." }` → run work through linked agent
-
+- `/api/health` returns status, deployed version, commit, and timestamp
 
 ## API docs
 

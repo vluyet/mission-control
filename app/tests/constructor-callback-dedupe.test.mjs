@@ -163,7 +163,7 @@ test("constructor callback retries do not create duplicate task comments", async
         }
       },
       meta: {
-        runtimeName: "openclaw",
+        runtimeName: "constructor",
         targetAgent: "agent-main"
       }
     };
@@ -238,7 +238,7 @@ test("constructor callback uses the responding agent for unassigned tasks and st
         }
       },
       meta: {
-        runtimeName: "openclaw",
+        runtimeName: "constructor",
         targetAgent: "agent-main"
       }
     };

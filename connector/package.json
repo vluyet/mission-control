@@ -1,9 +1,0 @@
-{
-  "name": "mission-control-openclaw-connector",
-  "private": true,
-  "version": "0.2.3",
-  "type": "module",
-  "scripts": {
-    "start": "node server.mjs"
-  }
-}

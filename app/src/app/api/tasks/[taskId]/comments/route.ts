@@ -1,5 +1,5 @@
 import { error, ok } from "@/lib/api-response";
-import { createCommentInDb, getTaskCommentsFromDb, getTaskResourceFromDb, triggerGatewayMentionDispatchInDb } from "@/lib/server-data";
+import { createCommentInDb, getTaskCommentsFromDb, getTaskResourceFromDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
 
 export async function GET(
@@ -78,14 +78,7 @@ export async function POST(
     });
   }
 
-  const mentionDispatch =
-    auth.actor.type === "agent"
-      ? { triggered: false as const }
-      : await triggerGatewayMentionDispatchInDb(params.taskId, {
-          commentBody: body.body,
-          actorLabel: auth.actor.label,
-          missionControlBaseUrl: new URL(request.url).origin
-        });
+  const mentionDispatch = { triggered: false as const };
 
   return ok(
     {
