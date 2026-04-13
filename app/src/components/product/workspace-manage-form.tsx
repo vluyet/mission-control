@@ -270,46 +270,59 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
         <Panel className="overflow-hidden">
           <PanelHeader eyebrow="Directory" title="Workspace directory" description="Create another workspace, switch into it, or review workspace counts." />
           <div className="grid gap-5 px-5 py-5 xl:grid-cols-[minmax(0,1fr),320px]">
-            <div className="space-y-3">
-              {workspace.workspaces.map((item) => (
-                <div key={item.slug} className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
+            <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)]">
+              <div className="grid grid-cols-[minmax(0,1.4fr),110px,90px,90px,auto] gap-3 border-b border-[var(--line)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-dim)]">
+                <span>Workspace</span>
+                <span>Access</span>
+                <span>Projects</span>
+                <span>Members</span>
+                <span className="text-right">Action</span>
+              </div>
+              <div className="divide-y divide-[var(--line)]">
+                {workspace.workspaces.map((item) => (
+                  <div key={item.slug} className="grid grid-cols-[minmax(0,1.4fr),110px,90px,90px,auto] gap-3 px-4 py-3 text-sm">
+                    <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-[var(--text-strong)]">{item.name}</p>
-                        <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--text-dim)]">
-                          {item.visibility}
-                        </span>
+                        <p className="truncate font-semibold text-[var(--text-strong)]">{item.name}</p>
                         {item.isActive ? (
                           <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-strong)]">
                             Active
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-1 text-sm text-[var(--text-muted)]">
-                        {item.projectCount} project{item.projectCount === 1 ? "" : "s"} and {item.memberCount} member{item.memberCount === 1 ? "" : "s"}
-                      </p>
+                      <p className="mt-1 truncate text-xs text-[var(--text-dim)]">{item.slug}</p>
                     </div>
-                    {!item.isActive ? (
-                      <AppButton
-                        tone="secondary"
-                        onClick={() => {
-                          fetch("/api/workspaces/active", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ slug: item.slug })
-                          }).then(() => {
-                            router.replace("/manage-workspace");
-                            router.refresh();
-                          });
-                        }}
-                      >
-                        Open workspace
-                      </AppButton>
-                    ) : null}
+                    <div className="flex items-center">
+                      <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--text-dim)]">
+                        {item.visibility}
+                      </span>
+                    </div>
+                    <div className="flex items-center text-[var(--text-muted)]">{item.projectCount}</div>
+                    <div className="flex items-center text-[var(--text-muted)]">{item.memberCount}</div>
+                    <div className="flex items-center justify-end">
+                      {!item.isActive ? (
+                        <AppButton
+                          tone="secondary"
+                          onClick={() => {
+                            fetch("/api/workspaces/active", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ slug: item.slug })
+                            }).then(() => {
+                              router.replace("/manage-workspace");
+                              router.refresh();
+                            });
+                          }}
+                        >
+                          Open
+                        </AppButton>
+                      ) : (
+                        <span className="text-xs font-medium text-[var(--text-dim)]">Current</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             <form onSubmit={handleCreateWorkspace} className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
@@ -431,32 +444,48 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
           />
           <div className="space-y-4 px-5 py-5">
             {workspace.projects.length ? (
-              workspace.projects.map((project) => (
-                <div key={project.slug} className="grid gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4 lg:grid-cols-[minmax(0,1fr),260px,auto] lg:items-center">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--text-strong)]">{project.name}</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">
-                      {project.taskCount} task{project.taskCount === 1 ? "" : "s"} • {project.status}
-                    </p>
-                  </div>
-                  <select
-                    className="input-control"
-                    value={moveTargets[project.slug] ?? ""}
-                    onChange={(event) => setMoveTargets((current) => ({ ...current, [project.slug]: event.target.value }))}
-                    disabled={!availableTargetWorkspaces.length || isMoving}
-                  >
-                    <option value="">Select target workspace</option>
-                    {availableTargetWorkspaces.map((item) => (
-                      <option key={item.slug} value={item.slug}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                  <AppButton tone="secondary" onClick={() => handleMoveProject(project.slug)} disabled={!availableTargetWorkspaces.length || isMoving}>
-                    {isMoving ? "Moving..." : "Move project"}
-                  </AppButton>
+              <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)]">
+                <div className="grid grid-cols-[minmax(0,1.4fr),90px,minmax(180px,240px),auto] gap-3 border-b border-[var(--line)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-dim)]">
+                  <span>Project</span>
+                  <span>Tasks</span>
+                  <span>Move to</span>
+                  <span className="text-right">Action</span>
                 </div>
-              ))
+                <div className="divide-y divide-[var(--line)]">
+                  {workspace.projects.map((project) => (
+                    <div key={project.slug} className="grid grid-cols-[minmax(0,1.4fr),90px,minmax(180px,240px),auto] gap-3 px-4 py-3 text-sm lg:items-center">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate font-semibold text-[var(--text-strong)]">{project.name}</p>
+                          <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--text-dim)]">
+                            {project.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate text-xs text-[var(--text-dim)]">{project.slug}</p>
+                      </div>
+                      <div className="flex items-center text-[var(--text-muted)]">{project.taskCount}</div>
+                      <select
+                        className="input-control"
+                        value={moveTargets[project.slug] ?? ""}
+                        onChange={(event) => setMoveTargets((current) => ({ ...current, [project.slug]: event.target.value }))}
+                        disabled={!availableTargetWorkspaces.length || isMoving}
+                      >
+                        <option value="">Select target workspace</option>
+                        {availableTargetWorkspaces.map((item) => (
+                          <option key={item.slug} value={item.slug}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="flex items-center justify-end">
+                        <AppButton tone="secondary" onClick={() => handleMoveProject(project.slug)} disabled={!availableTargetWorkspaces.length || isMoving}>
+                          {isMoving ? "Moving..." : "Move"}
+                        </AppButton>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-[var(--line)] px-4 py-6 text-sm text-[var(--text-muted)]">
                 This workspace has no projects to move.
