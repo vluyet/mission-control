@@ -471,9 +471,23 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
       </div>
 
       {workspace.assets.length ? <WorkspaceAssetsPanel assets={workspace.assets} /> : null}
+
       <Panel className="overflow-hidden">
-        <PanelHeader eyebrow="Advanced" title="Constructor runtime" description="Only needed for Constructor integration and agent API access." />
+        <PanelHeader
+          eyebrow="Operations"
+          title="Constructor and agent operations"
+          description="These controls support Constructor connectivity and agent API access. They are operational integrations, not basic workspace profile settings."
+        />
         <div className="space-y-5 px-5 py-5">
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4 text-sm text-[var(--text-dim)]">
+            <p className="font-semibold text-[var(--text-strong)]">What belongs here</p>
+            <ul className="mt-2 list-disc space-y-1 pl-4">
+              <li>Constructor endpoint and token configuration</li>
+              <li>Agent API credentials and recent auth activity</li>
+              <li>Operational sync and integration troubleshooting</li>
+            </ul>
+          </div>
+
           <div id="workspace-constructor">
             <WorkspaceConstructorPanel integration={workspace.constructor} />
           </div>

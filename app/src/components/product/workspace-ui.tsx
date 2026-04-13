@@ -246,19 +246,21 @@ export function ProjectGrid({ items }: { items: ProjectSummary[] }) {
 export function TaskTable({
   items,
   title = "Task list",
+  description,
   projectScoped = false,
   emptyTitle = "No tasks yet",
   emptyDescription = "Create the first task to start tracking work."
 }: {
   items: TaskRecord[];
   title?: string;
+  description?: string;
   projectScoped?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
 }) {
   return (
     <Panel className="overflow-hidden">
-      <PanelHeader eyebrow="Tasks" title={title} />
+      <PanelHeader eyebrow="Tasks" title={title} description={description} />
       {items.length ? (
         <>
           <div className="task-table-header">
@@ -280,33 +282,34 @@ export function TaskTable({
                       </span>
                       <h3 className="truncate text-sm font-semibold text-[var(--text-strong)]">{task.title}</h3>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
-                      <span>{task.project}</span>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-dim)]">
+                      {!projectScoped ? (
+                        <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">
+                          {task.project}
+                        </span>
+                      ) : null}
                       {task.parentTaskTitle ? (
-                        <>
-                          <span className="text-[var(--line-strong)]">•</span>
-                          <span>Subtask of {task.parentTaskTitle}</span>
-                        </>
+                        <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">
+                          Subtask
+                        </span>
                       ) : null}
                       {task.childCount ? (
-                        <>
-                          <span className="text-[var(--line-strong)]">•</span>
-                          <span>{task.childCount} subtasks</span>
-                        </>
+                        <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">
+                          {task.childCount} subtasks
+                        </span>
                       ) : null}
-                      {task.tags.slice(0, 2).map((tag) => (
-                        <span key={tag} className="rounded-full bg-[var(--surface-subtle)] px-2 py-1 text-xs text-[var(--text-dim)]">
+                      {task.tags.slice(0, 1).map((tag) => (
+                        <span key={tag} className="rounded-full bg-[var(--surface-subtle)] px-2 py-1 text-[11px] text-[var(--text-dim)]">
                           {tag}
                         </span>
                       ))}
-                      {task.tags.length > 2 ? <span className="text-xs text-[var(--text-dim)]">+{task.tags.length - 2}</span> : null}
+                      {task.tags.length > 1 ? <span className="text-[11px] text-[var(--text-dim)]">+{task.tags.length - 1}</span> : null}
+                      {health ? <span className={`rounded-full border px-2 py-1 text-[11px] ${health.accentClass}`}>{health.label}</span> : null}
                     </div>
-                    {health ? <p className="mt-2 text-xs text-[var(--text-dim)]">{health.detail}</p> : null}
                   </div>
                   <div className="flex justify-start">
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge value={task.status} />
-                      {health ? <span className={`rounded-full border px-2.5 py-1 text-xs ${health.accentClass}`}>{health.label}</span> : null}
                     </div>
                   </div>
                   <div className="flex justify-start">
@@ -422,6 +425,18 @@ export function TaskViewToolbar({
   preservedParams?: Record<string, string>;
   savedViewsKey?: string;
 }) {
+  const activeFilters = [
+    current.status ? `Status: ${statusLabel(current.status)}` : null,
+    current.timing ? `Timing: ${timingLabel(current.timing)}` : null,
+    current.tag ? `Tag: ${current.tag}` : null,
+    current.sort !== "due" ? `Sort: ${sortLabel(current.sort)}` : null
+  ].filter(Boolean) as string[];
+  const clearHref = buildTaskViewHref(
+    basePath,
+    current,
+    { status: "", timing: "", tag: "", sort: "due", mode: current.mode },
+    preservedParams
+  );
   const modeOptions = [
     { label: "List", value: "list" as const, icon: <StackIcon className="h-3.5 w-3.5" /> },
     { label: "Board", value: "board" as const, icon: <BoardIcon className="h-3.5 w-3.5" /> }
@@ -447,6 +462,22 @@ export function TaskViewToolbar({
 
   return (
     <Panel className="overflow-hidden p-3">
+      {activeFilters.length ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-[var(--line)] pb-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-dim)]">Active</span>
+          {activeFilters.map((filter) => (
+            <span
+              key={filter}
+              className="inline-flex h-7 items-center rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 text-xs font-medium text-[var(--text-strong)]"
+            >
+              {filter}
+            </span>
+          ))}
+          <Link href={clearHref} className="text-xs font-medium text-[var(--accent-strong)] hover:underline">
+            Clear filters
+          </Link>
+        </div>
+      ) : null}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-sm whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex items-center gap-2 pr-1">
           <TaskViewControlLabel label="View" icon={<SparkIcon className="h-3.5 w-3.5" />} />
@@ -540,6 +571,39 @@ export function TaskViewToolbar({
       </div>
     </Panel>
   );
+}
+
+function statusLabel(value: string) {
+  const labels: Record<string, string> = {
+    "": "All statuses",
+    todo: "Todo",
+    "in-progress": "In progress",
+    "in-review": "In review",
+    blocked: "Blocked"
+  };
+
+  return labels[value] ?? value;
+}
+
+function timingLabel(value: string) {
+  const labels: Record<string, string> = {
+    "": "All timing",
+    "due-soon": "Due soon",
+    overdue: "Overdue"
+  };
+
+  return labels[value] ?? value;
+}
+
+function sortLabel(value: string) {
+  const labels: Record<string, string> = {
+    due: "Due date",
+    priority: "Priority",
+    updated: "Updated",
+    created: "Created"
+  };
+
+  return labels[value] ?? value;
 }
 
 export function BoardGrid({

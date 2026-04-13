@@ -1,5 +1,5 @@
 import { getMyTasksForUi } from "@/lib/server-data";
-import { FocusQueuePanel, PageHeader, MetricStrip, TaskTable, TaskViewToolbar } from "@/components/product/workspace-ui";
+import { PageHeader, TaskTable, TaskViewToolbar } from "@/components/product/workspace-ui";
 import { BoardGridInteractive } from "@/components/product/board-grid-interactive";
 import { SavedTaskViews } from "@/components/product/saved-task-views";
 import { applyTaskView, buildBoardColumns, getTagOptions, parseTaskViewState } from "@/lib/task-view";
@@ -12,13 +12,11 @@ export default async function MyTasksPage({ searchParams }: { searchParams?: Pro
   const visibleItems = applyTaskView(items, view);
   const tagOptions = getTagOptions(items);
   const boardColumns = buildBoardColumns(visibleItems);
-  const openItems = items.filter((task) => task.status !== "Done");
-  const reviewItems = visibleItems.filter((task) => task.status === "In Review");
-  const blockedItems = visibleItems.filter((task) => task.status === "Blocked");
-  const staleItems = visibleItems.filter((task) => task.assigneeType === "Agent" && task.status === "In Progress" && getAgentRunHealth(task).bucket === "stale");
-  const attentionIds = new Set([...reviewItems, ...blockedItems, ...staleItems].map((task) => task.id));
-  const remainingItems = visibleItems.filter((task) => !attentionIds.has(task.id));
-  const attentionItems = [...reviewItems, ...blockedItems, ...staleItems].slice(0, 6);
+  const reviewCount = visibleItems.filter((task) => task.status === "In Review").length;
+  const blockedCount = visibleItems.filter((task) => task.status === "Blocked").length;
+  const staleCount = visibleItems.filter(
+    (task) => task.assigneeType === "Agent" && task.status === "In Progress" && getAgentRunHealth(task).bucket === "stale"
+  ).length;
 
   return (
     <div className="space-y-8">
@@ -37,20 +35,11 @@ export default async function MyTasksPage({ searchParams }: { searchParams?: Pro
           title="Visible work"
           description="Grouped by status."
         />
-      ) : attentionItems.length ? (
-        <div className="space-y-6">
-          <FocusQueuePanel items={attentionItems} title="Needs attention" />
-          <TaskTable
-            items={visibleItems}
-            title="All visible tasks"
-            emptyTitle="Nothing matches this view"
-            emptyDescription="Adjust filters or switch to board view."
-          />
-        </div>
       ) : (
         <TaskTable
           items={visibleItems}
           title="Visible work"
+          description={`Review ${reviewCount} · Blocked ${blockedCount} · Stale agent runs ${staleCount}`}
           emptyTitle="Nothing matches this view"
           emptyDescription="Adjust filters or switch to board view."
         />

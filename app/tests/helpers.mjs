@@ -2,7 +2,22 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-export const baseUrl = process.env.TEST_BASE_URL || "http://127.0.0.1:3000";
+const defaultBaseUrl = process.env.TEST_BASE_URL || "http://127.0.0.1:3000";
+export const baseUrl = defaultBaseUrl;
+const allowLiveMutation = process.env.MC_ALLOW_LIVE_TEST_MUTATIONS === "1";
+
+function assertSafeMutationTarget() {
+  if (allowLiveMutation) {
+    return;
+  }
+
+  if (baseUrl === "http://127.0.0.1:3000" || baseUrl === "http://localhost:3000") {
+    throw new Error(
+      `Refusing to run mutating tests against live Mission Control at ${baseUrl}. ` +
+        "Set TEST_BASE_URL to an isolated instance or set MC_ALLOW_LIVE_TEST_MUTATIONS=1 to override intentionally."
+    );
+  }
+}
 
 function readLocalEnv() {
   const envPath = path.resolve(process.cwd(), ".env");
@@ -47,6 +62,7 @@ export async function signIn() {
 }
 
 export async function upsertWorkspaceConstructorIntegration(cookie, body) {
+  assertSafeMutationTarget();
   const response = await fetch(`${baseUrl}/api/workspaces/current/constructor`, {
     method: "PATCH",
     headers: {
@@ -61,6 +77,9 @@ export async function upsertWorkspaceConstructorIntegration(cookie, body) {
 }
 
 export async function json(path, { method = "GET", cookie, body } = {}) {
+  if (method !== "GET" && method !== "HEAD") {
+    assertSafeMutationTarget();
+  }
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
