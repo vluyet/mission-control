@@ -98,3 +98,28 @@ test("renderTaskCommentBody groups unordered lists, ordered lists, paragraphs, a
   assert.equal(getType(blocks.at(-1)), "p");
   assert.equal(blocks.map(flattenText).join(""), "Intro linefirstsecondalphabetaFinal note for @Echo");
 });
+
+test("renderTaskCommentBody renders OpenClaw-style headings, checklists, fenced code blocks, and inline code", async () => {
+  const { renderTaskCommentBody } = await loadModule();
+  const blocks = renderTaskCommentBody(
+    "🎉✨🚀🛠️📌\n\n# Test task\n\nThis is a simple markdown-formatted response for Mission Control.\n\n## Example checklist\n\n- [x] Emoji parade included\n- [x] Markdown formatting included\n- [x] Scope kept simple\n\n## Example code\n\n```js\nconst status = \"ok\";\nconsole.log(`Task status: ${status}`);\n```\n\n## Note\n\n`Projet test` currently has minimal context, so this response stays explicit and lightweight.",
+    ["Echo"],
+    "comment-echo"
+  );
+
+  assert.equal(flattenText(blocks[0]), "🎉✨🚀🛠️📌");
+  assert.equal(flattenText(blocks[2]), "Test task");
+  assert.equal(flattenText(blocks[6]), "Example checklist");
+  assert.equal(getType(blocks[8]), "ul");
+  assert.deepEqual(getProps(blocks[8]).children.map(flattenText), [
+    "✓Emoji parade included",
+    "✓Markdown formatting included",
+    "✓Scope kept simple"
+  ]);
+  assert.equal(flattenText(blocks[10]), "Example code");
+  assert.equal(getType(blocks[12]), "div");
+  assert.ok(flattenText(blocks[12]).includes('const status = "ok";'));
+  assert.ok(flattenText(blocks[12]).includes('console.log(`Task status: ${status}`);'));
+  assert.equal(flattenText(blocks[14]), "Note");
+  assert.ok(flattenText(blocks[16]).includes("Projet test currently has minimal context"));
+});

@@ -1,5 +1,12 @@
 import type { JSX } from "react";
 
+type ListKind = "unordered" | "ordered" | "checklist";
+
+type ChecklistItem = {
+  text: string;
+  checked: boolean;
+};
+
 function escapeMentionName(name: string) {
   return name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -78,11 +85,14 @@ export function renderInlineTaskCommentMarkdown(text: string, mentionSuggestions
 export function renderTaskCommentBody(body: string, mentionSuggestions: string[], commentId: string): JSX.Element[] {
   const lines = body.split("\n");
   const blocks: JSX.Element[] = [];
+  let listKind: ListKind | null = null;
   let listItems: string[] = [];
-  let orderedListItems: string[] = [];
+  let checklistItems: ChecklistItem[] = [];
+  let codeFenceLanguage: string | null = null;
+  let codeFenceLines: string[] = [];
 
   function flushList(key: string) {
-    if (listItems.length) {
+    if (listKind === "unordered" && listItems.length) {
       blocks.push(
         <ul className="my-3 list-disc space-y-1 pl-5 marker:text-slate-400" key={`${key}-unordered`}>
           {listItems.map((item, index) => (
@@ -90,25 +100,82 @@ export function renderTaskCommentBody(body: string, mentionSuggestions: string[]
           ))}
         </ul>
       );
-      listItems = [];
     }
 
-    if (orderedListItems.length) {
+    if (listKind === "ordered" && listItems.length) {
       blocks.push(
         <ol className="my-3 list-decimal space-y-1 pl-5 marker:text-slate-500" key={`${key}-ordered`}>
-          {orderedListItems.map((item, index) => (
+          {listItems.map((item, index) => (
             <li key={`${key}-ordered-${index}`}>{renderInlineTaskCommentMarkdown(item, mentionSuggestions, `${commentId}-oli-${index}`)}</li>
           ))}
         </ol>
       );
-      orderedListItems = [];
     }
+
+    if (listKind === "checklist" && checklistItems.length) {
+      blocks.push(
+        <ul className="my-3 space-y-1.5 pl-0" key={`${key}-checklist`}>
+          {checklistItems.map((item, index) => (
+            <li className="flex items-start gap-2 text-sm leading-6 text-slate-600" key={`${key}-checklist-${index}`}>
+              <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border text-[0.75rem] font-semibold ${item.checked ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-300 bg-white text-slate-400"}`}>
+                {item.checked ? "✓" : ""}
+              </span>
+              <span>{renderInlineTaskCommentMarkdown(item.text, mentionSuggestions, `${commentId}-check-${index}`)}</span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    listKind = null;
+    listItems = [];
+    checklistItems = [];
+  }
+
+  function flushCodeFence(key: string) {
+    if (!codeFenceLines.length && codeFenceLanguage == null) return;
+
+    blocks.push(
+      <div className="my-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-950" key={`${key}-codeblock`}>
+        {codeFenceLanguage ? (
+          <div className="border-b border-slate-800 px-3 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-300">
+            {codeFenceLanguage}
+          </div>
+        ) : null}
+        <pre className="overflow-x-auto px-4 py-3 text-[0.82rem] leading-6 text-slate-100">
+          <code>{codeFenceLines.join("\n")}</code>
+        </pre>
+      </div>
+    );
+
+    codeFenceLanguage = null;
+    codeFenceLines = [];
   }
 
   lines.forEach((line, index) => {
     const trimmed = line.trim();
+    const fenceMatch = /^```\s*([A-Za-z0-9_-]+)?\s*$/.exec(trimmed);
+
+    if (codeFenceLanguage !== null) {
+      if (fenceMatch) {
+        flushCodeFence(`${commentId}-code-${index}`);
+      } else {
+        codeFenceLines.push(line);
+      }
+      return;
+    }
+
+    if (fenceMatch) {
+      flushList(`${commentId}-list-${index}`);
+      codeFenceLanguage = fenceMatch[1] ?? "";
+      codeFenceLines = [];
+      return;
+    }
+
+    const checklistMatch = /^[-*]\s+\[(x|X| )\]\s+(.+)$/.exec(trimmed);
     const listMatch = /^[-*]\s+(.+)$/.exec(trimmed);
     const orderedListMatch = /^\d+\.\s+(.+)$/.exec(trimmed);
+    const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmed);
 
     if (!trimmed) {
       flushList(`${commentId}-list-${index}`);
@@ -116,17 +183,52 @@ export function renderTaskCommentBody(body: string, mentionSuggestions: string[]
       return;
     }
 
+    if (checklistMatch) {
+      if (listKind !== "checklist") {
+        flushList(`${commentId}-list-${index}`);
+        listKind = "checklist";
+      }
+      checklistItems.push({ text: checklistMatch[2], checked: checklistMatch[1].toLowerCase() === "x" });
+      return;
+    }
+
     if (listMatch) {
+      if (listKind !== "unordered") {
+        flushList(`${commentId}-list-${index}`);
+        listKind = "unordered";
+      }
       listItems.push(listMatch[1]);
       return;
     }
 
     if (orderedListMatch) {
-      orderedListItems.push(orderedListMatch[1]);
+      if (listKind !== "ordered") {
+        flushList(`${commentId}-list-${index}`);
+        listKind = "ordered";
+      }
+      listItems.push(orderedListMatch[1]);
       return;
     }
 
     flushList(`${commentId}-list-${index}`);
+
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const className =
+        level === 1
+          ? "mt-1 text-base font-semibold tracking-tight text-slate-900"
+          : level === 2
+            ? "mt-1 text-sm font-semibold tracking-tight text-slate-900"
+            : "mt-1 text-sm font-semibold text-slate-800";
+
+      blocks.push(
+        <p className={className} key={`${commentId}-h-${index}`}>
+          {renderInlineTaskCommentMarkdown(headingMatch[2], mentionSuggestions, `${commentId}-heading-${index}`)}
+        </p>
+      );
+      return;
+    }
+
     blocks.push(
       <p className="text-sm leading-7 text-slate-600" key={`${commentId}-p-${index}`}>
         {renderInlineTaskCommentMarkdown(line, mentionSuggestions, `${commentId}-line-${index}`)}
@@ -135,5 +237,6 @@ export function renderTaskCommentBody(body: string, mentionSuggestions: string[]
   });
 
   flushList(`${commentId}-list-final`);
+  flushCodeFence(`${commentId}-code-final`);
   return blocks;
 }

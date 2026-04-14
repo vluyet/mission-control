@@ -41,27 +41,46 @@ try {
   await page.goto(`${baseUrl}/sign-in`, { waitUntil: "networkidle" });
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/password/i).fill(password);
-
-  let signInResponse = null;
-  page.on("response", (response) => {
-    if (!signInResponse && response.url().includes("/api/auth/sign-in") && response.request().method() === "POST") {
-      signInResponse = response;
-    }
-  });
+  const signInResponsePromise = page
+    .waitForResponse(
+      (response) => response.url().includes("/api/auth/sign-in") && response.request().method() === "POST",
+      { timeout: 15000 }
+    )
+    .catch(() => null);
 
   await page.getByRole("button", { name: /continue to workspace/i }).click();
-  await page.waitForLoadState("networkidle");
+  const signInResponse = await signInResponsePromise;
 
   if (signInResponse && !signInResponse.ok()) {
     const payload = await signInResponse.text().catch(() => "");
     throw new Error(`Sign-in failed with ${signInResponse.status()}: ${payload}`);
   }
 
+  await page.waitForLoadState("networkidle");
   if (page.url().includes("/sign-in")) {
     await page.goto(`${baseUrl}/my-tasks`, { waitUntil: "networkidle" });
   }
 
   await page.goto(`${baseUrl}/tasks/${encodeURIComponent(taskId)}`, { waitUntil: "networkidle" });
+  await page.waitForURL((url) => url.pathname === `/tasks/${taskId}` || url.pathname === "/sign-in", { timeout: 15000 });
+  await page.waitForLoadState("networkidle");
+
+  const signInHeading = page.getByRole("heading", { name: /sign in/i }).first();
+
+  if (await signInHeading.isVisible().catch(() => false)) {
+    throw new Error(`Task page validation fell back to sign-in for ${taskId}: ${page.url()}`);
+  }
+
+  const taskWorkspaceId = page.getByTestId("task-workspace-id").first();
+  const taskWorkspaceTitle = page.getByTestId("task-workspace-title").first();
+  await taskWorkspaceId.waitFor({ state: "visible", timeout: 15000 });
+  await taskWorkspaceTitle.waitFor({ state: "visible", timeout: 15000 });
+
+  const renderedTaskId = (await taskWorkspaceId.textContent())?.trim();
+  if (renderedTaskId !== taskId) {
+    throw new Error(`Task page validation reached ${page.url()} but rendered task id was ${JSON.stringify(renderedTaskId)} instead of ${JSON.stringify(taskId)}`);
+  }
+
   await page.screenshot({ path: outPath, fullPage: true });
 
   console.log(JSON.stringify({ ok: true, taskId, path: outPath, url: page.url(), title: await page.title() }));
