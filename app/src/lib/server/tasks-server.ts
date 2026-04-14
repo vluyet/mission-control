@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import type { ContextBlock, TaskRecord, TimelineEvent } from "@/lib/demo-data";
+import type { TaskRecord, TimelineEvent } from "@/lib/demo-data";
+import { mapContextBlock } from "@/lib/context-block";
 import { resolveTaskContext } from "@/lib/context-resolver";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
@@ -50,16 +51,6 @@ function formatDateTime(date: Date) {
     second: "2-digit",
     hour12: false
   }).format(date);
-}
-
-function mapContextBlock(value: unknown, fallbackTitle: string): ContextBlock {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return { title: fallbackTitle, summary: "", bullets: [] };
-  const record = value as Record<string, unknown>;
-  return {
-    title: typeof record.title === "string" && record.title.trim() ? record.title : fallbackTitle,
-    summary: typeof record.summary === "string" ? record.summary : "",
-    bullets: Array.isArray(record.bullets) ? record.bullets.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : []
-  };
 }
 
 function formatStatus(status: string): TaskRecord["status"] {

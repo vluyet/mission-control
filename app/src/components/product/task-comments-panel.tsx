@@ -4,43 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Comment, TimelineEvent } from "@/lib/demo-data";
 import { TaskCommentComposer } from "@/components/product/task-comment-composer";
-
-function renderMentions(body: string, mentionSuggestions: string[]) {
-  if (!mentionSuggestions.length) return body;
-
-  const matches = mentionSuggestions
-    .map((name) => ({ name, token: `@${name}` }))
-    .filter((item) => body.includes(item.token))
-    .sort((a, b) => b.token.length - a.token.length);
-
-  if (!matches.length) return body;
-
-  const nodes: Array<string | JSX.Element> = [];
-  let cursor = 0;
-
-  while (cursor < body.length) {
-    const next = matches
-      .map((item) => ({ ...item, index: body.indexOf(item.token, cursor) }))
-      .filter((item) => item.index >= 0)
-      .sort((a, b) => a.index - b.index)[0];
-
-    if (!next) {
-      nodes.push(body.slice(cursor));
-      break;
-    }
-
-    if (next.index > cursor) nodes.push(body.slice(cursor, next.index));
-
-    nodes.push(
-      <span key={`${next.token}-${next.index}`} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[0.78rem] font-medium text-slate-700">
-        {next.token}
-      </span>
-    );
-    cursor = next.index + next.token.length;
-  }
-
-  return nodes;
-}
+import { renderTaskCommentBody } from "@/lib/task-comment-markdown";
 
 export function TaskCommentsPanel({
   taskId,
@@ -173,8 +137,8 @@ export function TaskCommentsPanel({
                   </div>
                 ) : (
                   <>
-                    <div className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-slate-600">
-                      {renderMentions(renderedBody, sortedMentions)}
+                    <div className="mt-4 break-words">
+                      {renderTaskCommentBody(renderedBody, sortedMentions, comment.id)}
                     </div>
                     {isAgentComment && comment.body.length > 320 ? (
                       <button

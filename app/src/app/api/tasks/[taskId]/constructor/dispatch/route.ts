@@ -39,6 +39,17 @@ type TaskDispatchReadiness =
       message: string;
     };
 
+export type ConstructorDispatchOptions = {
+  requestUrl: string;
+  taskId: string;
+  instruction?: string;
+  metadata?: Record<string, unknown>;
+  routingHints?: Record<string, unknown>;
+  sessionId?: string | null;
+  externalTaskId?: string | null;
+  idempotencyKey?: string | null;
+};
+
 async function getConstructorConfig(): Promise<ConstructorConfig> {
   const integration = await getActiveWorkspaceConstructorIntegrationRecord();
 
@@ -102,7 +113,7 @@ function formatContextLayer(title: string, value: unknown) {
 
   const record = value as Record<string, unknown>;
   const bullets = Array.isArray(record.bullets)
-    ? record.bullets.map((entry) => (typeof entry === "string" ? entry.trim() : "")).filter(Boolean)
+    ? record.bullets.map((entry) => (typeof entry === "string" ? entry.trim() : "")).filter(Boolean).slice(0, 4)
     : [];
   const summary = typeof record.summary === "string" ? record.summary.trim() : "";
   const layerTitle = typeof record.title === "string" ? record.title.trim() : "";
@@ -111,6 +122,35 @@ function formatContextLayer(title: string, value: unknown) {
     layerTitle && layerTitle !== title ? `Title: ${layerTitle}` : null,
     summary ? `Summary: ${summary}` : null,
     ...bullets
+  ]);
+}
+
+function formatCompactEffectiveContext(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const summary = Array.isArray(record.summary)
+    ? record.summary.map((entry) => (typeof entry === "string" ? entry.trim() : "")).filter(Boolean).slice(0, 2)
+    : [];
+  const bullets = Array.isArray(record.bullets)
+    ? record.bullets.map((entry) => (typeof entry === "string" ? entry.trim() : "")).filter(Boolean).slice(0, 6)
+    : [];
+  const principles = Array.isArray(record.principles)
+    ? record.principles.map((entry) => (typeof entry === "string" ? entry.trim() : "")).filter(Boolean).slice(0, 4)
+    : [];
+  const constraints = Array.isArray(record.constraints)
+    ? record.constraints.map((entry) => (typeof entry === "string" ? entry.trim() : "")).filter(Boolean).slice(0, 4)
+    : [];
+  const taskHint = typeof record.taskHint === "string" && record.taskHint.trim() ? record.taskHint.trim() : null;
+
+  return formatBulletSection("Effective context", [
+    ...summary,
+    ...bullets,
+    ...principles.map((value) => `Principle: ${value}`),
+    ...constraints.map((value) => `Constraint: ${value}`),
+    taskHint ? `Task hint: ${taskHint}` : null
   ]);
 }
 
@@ -224,19 +264,27 @@ function formatTaskInstruction(taskResource: NonNullable<Awaited<ReturnType<type
     task?.contextHint ? `Task hint: ${task.contextHint}` : null,
     task?.parentTaskId ? `Parent task: ${task.parentTaskId}${task.parentTaskTitle ? ` · ${task.parentTaskTitle}` : ""}` : null
   ]);
-  const workspaceContextSection = formatContextLayer("Workspace context", taskResource?.resolved_context?.layers?.workspace);
-  const projectContextSection = formatContextLayer("Project context", taskResource?.resolved_context?.layers?.project);
-  const taskContextSection = formatBulletSection("Task context", [
-    typeof taskResource?.resolved_context?.layers?.task?.hint === "string" && taskResource.resolved_context.layers.task.hint.trim()
-      ? taskResource.resolved_context.layers.task.hint.trim()
-      : null
-  ]);
+  const effectiveContextSection = formatCompactEffectiveContext(taskResource?.resolved_context?.compact?.effective);
+  const workspaceContextSection = effectiveContextSection
+    ? null
+    : formatContextLayer("Workspace context", taskResource?.resolved_context?.layers?.workspace);
+  const projectContextSection = effectiveContextSection
+    ? null
+    : formatContextLayer("Project context", taskResource?.resolved_context?.layers?.project);
+  const taskContextSection = effectiveContextSection
+    ? null
+    : formatBulletSection("Task context", [
+        typeof taskResource?.resolved_context?.layers?.task?.hint === "string" && taskResource.resolved_context.layers.task.hint.trim()
+          ? taskResource.resolved_context.layers.task.hint.trim()
+          : null
+      ]);
 
   return [
     "You are working on a Mission Control task.",
     `Requested deliverable:\n${task?.description?.trim()}`,
     `Task title: ${task?.title ?? "Untitled task"}`,
     taskDetailSection,
+    effectiveContextSection,
     workspaceContextSection,
     projectContextSection,
     taskContextSection,
@@ -253,7 +301,7 @@ function formatTaskInstruction(taskResource: NonNullable<Awaited<ReturnType<type
       "Response requirements:",
       "- Return the actual deliverable or answer requested above.",
       "- Write it so Mission Control can post it directly as a task comment.",
-      "- Do not reply with a generic acknowledgement like \"Done\" unless the task explicitly asks for that.",
+      '- Do not reply with a generic acknowledgement like "Done" unless the task explicitly asks for that.',
       "- Keep assumptions brief and include them only when they materially affect the result.",
       "- If the request still cannot be completed from the supplied information, say exactly what is missing."
     ].join("\n")
@@ -344,60 +392,108 @@ async function resolveTargetAgent(taskId: string): Promise<ResolvedTargetAgent> 
   };
 }
 
-export async function POST(request: Request, { params }: { params: { taskId: string } }) {
-  const auth = await resolveApiActor(request);
+function normalizeDispatchToken(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
 
-  if (!auth.ok) {
-    return error(auth.message, auth.status, { code: auth.error });
+function parseExecutionLogValues(line: string) {
+  const values: Record<string, string> = {};
+
+  for (const token of line.trim().split(/\s+/).slice(1)) {
+    const separatorIndex = token.indexOf("=");
+    if (separatorIndex <= 0) continue;
+    values[token.slice(0, separatorIndex)] = token.slice(separatorIndex + 1);
   }
 
-  if (auth.actor.type !== "owner") {
-    return error("Owner access required.", 403, { code: "OWNER_ACCESS_REQUIRED" });
+  return values;
+}
+
+export async function getLatestConstructorSession(taskId: string) {
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    select: {
+      executions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          logs: {
+            orderBy: { createdAt: "desc" },
+            select: {
+              line: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const lines = task?.executions?.[0]?.logs ?? [];
+
+  for (const entry of lines) {
+    const trimmed = entry.line.trim();
+    if (!trimmed.startsWith("CONSTRUCTOR_")) continue;
+    const values = parseExecutionLogValues(trimmed);
+    const sessionId = normalizeDispatchToken(values.sessionId);
+    const externalTaskId = normalizeDispatchToken(values.externalTaskId);
+    const idempotencyKey = normalizeDispatchToken(values.idempotencyKey);
+
+    if (sessionId || externalTaskId || idempotencyKey) {
+      return { sessionId, externalTaskId, idempotencyKey };
+    }
   }
 
-  const task = await getTaskResourceFromDb(params.taskId);
+  return { sessionId: null, externalTaskId: null, idempotencyKey: null };
+}
+
+export async function dispatchMissionControlTaskToConstructor(input: ConstructorDispatchOptions) {
+  const task = await getTaskResourceFromDb(input.taskId);
 
   if (!task) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return { ok: false as const, status: 404, message: "Task not found", details: { taskId: input.taskId } };
   }
-  const requestUrl = new URL(request.url);
+
+  const requestUrl = new URL(input.requestUrl);
   const constructorConfig = await getConstructorConfig();
-  const targetAgent = await resolveTargetAgent(params.taskId);
+  const targetAgent = await resolveTargetAgent(input.taskId);
   const missionControlBaseUrl = getMissionControlBaseUrl(requestUrl);
   const taskInfo = task.task;
   const now = Date.now();
-  const externalTaskId = `mc-task-${taskInfo.id}-${now}`;
-  const idempotencyKey = `mc-task-${taskInfo.id}-${now}`;
+  const latestSession = await getLatestConstructorSession(taskInfo.id);
+  const externalTaskId = normalizeDispatchToken(input.externalTaskId) ?? latestSession.externalTaskId ?? `mc-task-${taskInfo.id}-${now}`;
+  const idempotencyKey = normalizeDispatchToken(input.idempotencyKey) ?? latestSession.idempotencyKey ?? externalTaskId;
+  const sessionId = normalizeDispatchToken(input.sessionId) ?? latestSession.sessionId ?? null;
   const callbackUrl = `${missionControlBaseUrl}/api/tasks/${taskInfo.id}/constructor/callback`;
 
   if ("error" in constructorConfig) {
     await appendSystemExecutionLogInDb(taskInfo.id, "CONSTRUCTOR_DISPATCH_FAILED reason=constructor_disabled", "Constructor");
-    return error("Constructor dispatch is disabled for this workspace.", 409, { code: constructorConfig.error });
+    return { ok: false as const, status: 409, message: "Constructor dispatch is disabled for this workspace.", details: { code: constructorConfig.error } };
   }
 
   if (!constructorConfig.apiToken) {
     await appendSystemExecutionLogInDb(taskInfo.id, "CONSTRUCTOR_DISPATCH_FAILED reason=missing_api_token", "Constructor");
-    return error("Constructor API token is required before dispatch.", 409, { code: "CONSTRUCTOR_API_TOKEN_REQUIRED" });
+    return { ok: false as const, status: 409, message: "Constructor API token is required before dispatch.", details: { code: "CONSTRUCTOR_API_TOKEN_REQUIRED" } };
   }
 
   if (!targetAgent) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return { ok: false as const, status: 404, message: "Task not found", details: { taskId: input.taskId } };
   }
 
   if ("error" in targetAgent) {
     await appendSystemExecutionLogInDb(taskInfo.id, "CONSTRUCTOR_DISPATCH_FAILED reason=missing_target_agent", "Constructor");
-    return error(
-      "Assign the task to a Constructor agent or sync a default Constructor agent before dispatch.",
-      422,
-      { code: targetAgent.error }
-    );
+    return {
+      ok: false as const,
+      status: 422,
+      message: "Assign the task to a Constructor agent or sync a default Constructor agent before dispatch.",
+      details: { code: targetAgent.error }
+    };
   }
 
   const taskReadiness = validateTaskForConstructorDispatch(task);
 
   if (!taskReadiness.ok) {
     await appendSystemExecutionLogInDb(taskInfo.id, "CONSTRUCTOR_DISPATCH_FAILED reason=underspecified_task", "Constructor");
-    return error(taskReadiness.message, 422, { code: taskReadiness.code });
+    return { ok: false as const, status: 422, message: taskReadiness.message, details: { code: taskReadiness.code } };
   }
 
   let upstreamResult: Awaited<ReturnType<typeof dispatchConstructorTask>>;
@@ -409,8 +505,9 @@ export async function POST(request: Request, { params }: { params: { taskId: str
       body: {
         externalTaskId,
         idempotencyKey,
+        ...(sessionId ? { sessionId } : {}),
         targetAgent: targetAgent.targetAgent,
-        instruction: formatTaskInstruction(task),
+        instruction: input.instruction?.trim() || formatTaskInstruction(task),
         context: {
           missionControl: buildMissionControlContext(task),
           constructor: {
@@ -421,9 +518,10 @@ export async function POST(request: Request, { params }: { params: { taskId: str
         metadata: {
           origin: "mission-control-ui",
           taskId: taskInfo.id,
-          integration: "constructor"
+          integration: "constructor",
+          ...(input.metadata ?? {})
         },
-        routingHints: {},
+        routingHints: input.routingHints ?? {},
         callback: {
           required: true,
           url: callbackUrl
@@ -441,10 +539,15 @@ export async function POST(request: Request, { params }: { params: { taskId: str
     });
   } catch {
     await appendSystemExecutionLogInDb(taskInfo.id, "CONSTRUCTOR_DISPATCH_FAILED reason=constructor_unreachable", "Constructor");
-    return error("Constructor is unreachable.", 502, {
-      code: "CONSTRUCTOR_UNREACHABLE",
-      constructorBaseUrl: constructorConfig.baseUrl
-    });
+    return {
+      ok: false as const,
+      status: 502,
+      message: "Constructor is unreachable.",
+      details: {
+        code: "CONSTRUCTOR_UNREACHABLE",
+        constructorBaseUrl: constructorConfig.baseUrl
+      }
+    };
   }
 
   const upstreamJson = upstreamResult.payload;
@@ -458,48 +561,81 @@ export async function POST(request: Request, { params }: { params: { taskId: str
       "Constructor"
     );
 
-    return error(failureMessage, upstreamResult.response.status === 400 ? 422 : 502, {
-      code: upstreamJson?.rejection?.code ?? upstreamJson?.error ?? "CONSTRUCTOR_DISPATCH_FAILED",
-      constructorBaseUrl: constructorConfig.baseUrl
-    });
+    return {
+      ok: false as const,
+      status: upstreamResult.response.status === 400 ? 422 : 502,
+      message: failureMessage,
+      details: {
+        code: upstreamJson?.rejection?.code ?? upstreamJson?.error ?? "CONSTRUCTOR_DISPATCH_FAILED",
+        constructorBaseUrl: constructorConfig.baseUrl
+      }
+    };
   }
 
   await db.task.update({
-    where: { id: params.taskId },
+    where: { id: input.taskId },
     data: {
       status: "in_progress",
       blockedReason: null
     }
   });
 
+  const resolvedSessionId = normalizeDispatchToken((upstreamJson as Record<string, unknown>)?.sessionId as string | undefined) ?? sessionId;
+
   await appendSystemExecutionLogInDb(
     taskInfo.id,
-    `CONSTRUCTOR_DISPATCH_ACCEPTED targetAgent=${targetAgent.targetAgent} targetSource=${targetAgent.targetSource} bridgeExecutionId=${upstreamJson.bridgeExecutionId ?? "none"} externalTaskId=${upstreamJson.externalTaskId ?? externalTaskId} executionState=${upstreamJson.executionState ?? "queued"}${upstreamJson.deduplicated ? " deduplicated=true" : ""}`,
+    `CONSTRUCTOR_DISPATCH_ACCEPTED targetAgent=${targetAgent.targetAgent} targetSource=${targetAgent.targetSource} bridgeExecutionId=${upstreamJson.bridgeExecutionId ?? "none"} externalTaskId=${upstreamJson.externalTaskId ?? externalTaskId} idempotencyKey=${idempotencyKey} executionState=${upstreamJson.executionState ?? "queued"}${resolvedSessionId ? ` sessionId=${resolvedSessionId}` : ""}${upstreamJson.deduplicated ? " deduplicated=true" : ""}`,
     "Constructor"
   );
 
-  revalidatePath(`/tasks/${params.taskId}`);
+  revalidatePath(`/tasks/${input.taskId}`);
   if (taskInfo.projectSlug) {
-    revalidatePath(`/projects/${taskInfo.projectSlug}/tasks/${params.taskId}`);
+    revalidatePath(`/projects/${taskInfo.projectSlug}/tasks/${input.taskId}`);
     revalidatePath(`/projects/${taskInfo.projectSlug}`);
   }
   revalidatePath("/my-tasks");
   revalidatePath("/queue");
 
-  return ok(
-    {
+  return {
+    ok: true as const,
+    status: upstreamResult.response.status === 200 ? 200 : 202,
+    body: {
       dispatch: {
         accepted: true,
         deduplicated: upstreamJson.deduplicated ?? false,
         bridgeExecutionId: upstreamJson.bridgeExecutionId,
         externalTaskId: upstreamJson.externalTaskId ?? externalTaskId,
+        idempotencyKey,
+        sessionId: resolvedSessionId,
         executionState: upstreamJson.executionState ?? "queued",
         targetAgent: targetAgent.targetAgent,
         targetSource: targetAgent.targetSource,
         targetAgentLabel: targetAgent.targetAgentLabel,
         message: upstreamJson.message ?? "Task accepted by Constructor. Mission Control will post the final answer to task comments after the callback arrives."
       }
-    },
-    { status: upstreamResult.response.status === 200 ? 200 : 202 }
-  );
+    }
+  };
+}
+
+export async function POST(request: Request, { params }: { params: { taskId: string } }) {
+  const auth = await resolveApiActor(request);
+
+  if (!auth.ok) {
+    return error(auth.message, auth.status, { code: auth.error });
+  }
+
+  if (auth.actor.type !== "owner") {
+    return error("Owner access required.", 403, { code: "OWNER_ACCESS_REQUIRED" });
+  }
+
+  const result = await dispatchMissionControlTaskToConstructor({
+    requestUrl: request.url,
+    taskId: params.taskId
+  });
+
+  if (!result.ok) {
+    return error(result.message, result.status, result.details);
+  }
+
+  return ok(result.body, { status: result.status });
 }

@@ -7,8 +7,9 @@
   },
   "scripts": {
     "dev": "node scripts/with-root-env.mjs next dev -H 0.0.0.0",
-    "build": "NEXT_DIST_DIR=.next-build node scripts/with-root-env.mjs next build",
-    "start": "NEXT_DIST_DIR=.next-build node scripts/with-root-env.mjs next start -H 0.0.0.0",
+    "build": "node scripts/build-live.mjs",
+    "start": "node scripts/serve-live.mjs",
+    "rebuild:live": "npm run build && npm run start",
     "db:bootstrap": "node scripts/bootstrap-db.mjs",
     "lint": "next lint",
     "test:migrations": "node scripts/with-root-env.mjs ./node_modules/.bin/prisma validate && node scripts/with-root-env.mjs ./node_modules/.bin/prisma migrate status",

@@ -8,7 +8,8 @@ import {
 } from "@/lib/attachment-storage";
 import { createAgentAccessToken, getOwnerAuthConfig, hashAgentAccessToken, type AgentScope } from "@/lib/auth";
 import { cookies } from "next/headers";
-import type { ActivityFeedItem, AttachmentRecord, ContextBlock, Member, Metric, ProjectSummary, TaskRecord, WatcherRecord } from "@/lib/demo-data";
+import type { ActivityFeedItem, AttachmentRecord, Member, Metric, ProjectSummary, TaskRecord, WatcherRecord } from "@/lib/demo-data";
+import { mapContextBlock } from "@/lib/context-block";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 export { syncActiveWorkspaceConstructorAgentsInDb } from "@/lib/server/constructor-server";
 export {
@@ -196,16 +197,6 @@ function getAttachmentPreviewKind(mimeType: string): AttachmentRecord["previewKi
   }
 
   return null;
-}
-
-function mapContextBlock(value: unknown, fallbackTitle: string): ContextBlock {
-  const payload = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-
-  return {
-    title: typeof payload.title === "string" ? payload.title : fallbackTitle,
-    summary: typeof payload.summary === "string" ? payload.summary : "",
-    bullets: Array.isArray(payload.bullets) ? payload.bullets.filter((item): item is string => typeof item === "string") : []
-  };
 }
 
 const HUMAN_STATUS_TRANSITIONS: Record<string, Array<{ value: "todo" | "in_progress" | "review" | "blocked" | "done"; label: string }>> = {

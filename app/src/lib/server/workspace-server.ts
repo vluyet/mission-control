@@ -2,11 +2,11 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import type {
   AttachmentRecord,
-  ContextBlock,
   ShellCounts,
   WorkspaceOption,
   WorkspaceSummary
 } from "@/lib/demo-data";
+import { mapContextBlock } from "@/lib/context-block";
 import { getOwnerAuthConfig } from "@/lib/auth";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
@@ -35,21 +35,6 @@ function formatRelativeTime(date: Date) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
   return `${days}d ago`;
-}
-
-function mapContextBlock(value: unknown, fallbackTitle: string): ContextBlock {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { title: fallbackTitle, summary: "", bullets: [] };
-  }
-
-  const record = value as Record<string, unknown>;
-  return {
-    title: typeof record.title === "string" && record.title.trim() ? record.title : fallbackTitle,
-    summary: typeof record.summary === "string" ? record.summary : "",
-    bullets: Array.isArray(record.bullets)
-      ? record.bullets.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-      : []
-  };
 }
 
 function mapWorkspaceOption(workspace: {

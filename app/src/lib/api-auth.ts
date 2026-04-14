@@ -38,7 +38,8 @@ export async function logAuthEvent(input: {
 }
 
 export async function resolveApiActor(request: Request, requiredScope?: AgentScope) {
-  const sessionToken = cookies().get(AUTH_COOKIE_NAME)?.value;
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(AUTH_COOKIE_NAME)?.value;
   const session = await verifySessionTokenDetailed(sessionToken);
 
   if (session.status === "valid") {

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import type { ContextBlock, ProjectSummary } from "@/lib/demo-data";
+import type { ProjectSummary } from "@/lib/demo-data";
+import { mapContextBlock } from "@/lib/context-block";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
 async function getActiveWorkspaceSlug() {
@@ -67,20 +68,6 @@ function formatProjectRole(role: string) {
 function formatShortDate(date: Date | null | undefined) {
   if (!date) return "No date";
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
-}
-
-function mapContextBlock(value: unknown, fallbackTitle: string): ContextBlock {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { title: fallbackTitle, summary: "", bullets: [] };
-  }
-  const record = value as Record<string, unknown>;
-  return {
-    title: typeof record.title === "string" && record.title.trim() ? record.title : fallbackTitle,
-    summary: typeof record.summary === "string" ? record.summary : "",
-    bullets: Array.isArray(record.bullets)
-      ? record.bullets.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-      : []
-  };
 }
 
 function buildProjectVisibilityWhere(visibilityMembershipId?: string | null) {

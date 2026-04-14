@@ -37,6 +37,7 @@ export function TaskCommentComposer({
   const [isPending, startTransition] = useTransition();
   const isDisabled = isSubmitting || isPending;
   const trimmedBody = body.trim();
+  const hasMentions = mentionSuggestions.length > 0;
 
   function insertMention(name: string) {
     if (isDisabled) return;
@@ -112,7 +113,11 @@ export function TaskCommentComposer({
         className="mt-3 min-h-[110px] w-full resize-none rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm text-[var(--text-strong)] outline-none transition focus:border-[var(--accent-strong)]"
         placeholder={placeholder}
       />
-      {mentionSuggestions.length ? (
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+        <span className="rounded-full bg-[var(--surface-subtle)] px-2.5 py-1 font-medium text-[var(--text-dim)]">Supports **bold**, _italic_, `code`, lists, links, and @mentions</span>
+        {hasMentions ? <span>Tap a teammate to insert a mention.</span> : null}
+      </div>
+      {hasMentions ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {mentionSuggestions.map((name) => (
             <button
@@ -120,7 +125,8 @@ export function TaskCommentComposer({
               type="button"
               onClick={() => insertMention(name)}
               disabled={isDisabled}
-              className="rounded-full border border-[var(--line)] bg-white px-3 py-1.5 text-xs text-[var(--text-dim)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
+              className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label={`Insert mention for ${name}`}
             >
               @{name}
             </button>

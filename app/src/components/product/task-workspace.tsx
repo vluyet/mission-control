@@ -6,6 +6,7 @@ import { Panel, PanelHeader, PriorityBadge, StatusBadge } from "@/components/ui/
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
 import { TaskConstructorDispatchCard } from "@/components/product/task-constructor-dispatch-card";
+import { TaskAttachmentsPanel } from "@/components/product/task-attachments-panel";
 
 function MetadataItem({
   label,
@@ -169,23 +170,12 @@ export function TaskWorkspace({
           </SidebarSection>
 
           <SidebarSection title="Attachments" defaultOpen={false}>
-            <div className="space-y-3">
-              {attachments.length ? attachments.map((attachment) => (
-                <div key={attachment.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                  <div className="flex items-start gap-3">
-                    <PaperclipIcon className="mt-0.5 h-4 w-4 text-slate-400" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900">{attachment.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{attachment.artifactType}</p>
-                    </div>
-                  </div>
-                </div>
-              )) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-                  Attachment list placeholder.
-                </div>
-              )}
-            </div>
+            <TaskAttachmentsPanel
+              taskId={task.id}
+              attachments={attachments}
+              agentActorName={task.assigneeType === "Agent" ? task.assignee : undefined}
+              agentActorEnabled={task.assigneeType === "Agent" ? task.assigneeEnabled ?? false : false}
+            />
           </SidebarSection>
 
           {(watchers.length || resolvedContext) ? (
