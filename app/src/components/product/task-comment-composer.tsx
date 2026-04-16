@@ -4,15 +4,16 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 import { PaperclipIcon } from "@/components/ui/icons";
 import { AppButton } from "@/components/ui/primitives";
+import { useI18n } from "@/components/product/i18n-provider";
 import type { Comment } from "@/lib/demo-data";
 
 export function TaskCommentComposer({
   taskId,
   commentId,
   initialBody = "",
-  submitLabel = "Post update",
-  title = "Add comment",
-  placeholder = "Write an update, request input, or summarize progress.",
+  submitLabel,
+  title,
+  placeholder,
   mentionSuggestions = [],
   submitSuccessLabel,
   onSubmitted,
@@ -30,6 +31,7 @@ export function TaskCommentComposer({
   onCancel?: () => void;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [body, setBody] = useState(initialBody);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export function TaskCommentComposer({
     }
 
     if (!trimmedBody) {
-      setError("Write a comment before posting.");
+      setError(t("taskWorkspace.writeCommentBeforePosting"));
       return;
     }
 
@@ -71,8 +73,8 @@ export function TaskCommentComposer({
               body: trimmedBody
             }
           : {
-              author: "Workspace Owner",
-              role: "Owner",
+              author: t("taskAttachments.workspaceOwner"),
+              role: t("common.owner"),
               tone: "human",
               body: trimmedBody
             }
@@ -82,7 +84,7 @@ export function TaskCommentComposer({
     setIsSubmitting(false);
 
     if (!response || !response.ok) {
-      setError(commentId ? "Comment could not be updated." : "Comment could not be posted.");
+      setError(commentId ? t("taskWorkspace.commentUpdateFailed") : t("taskWorkspace.commentPostFailed"));
       return;
     }
 
@@ -92,7 +94,7 @@ export function TaskCommentComposer({
     }
 
     setBody(commentId ? body : "");
-    setSuccess(submitSuccessLabel ?? (commentId ? "Comment updated." : "Comment posted."));
+    setSuccess(submitSuccessLabel ?? (commentId ? t("taskWorkspace.commentUpdated") : t("taskWorkspace.commentPosted")));
     onCancel?.();
     startTransition(() => {
       router.refresh();
@@ -101,7 +103,7 @@ export function TaskCommentComposer({
 
   return (
     <form onSubmit={handleSubmit} className="rounded-3xl border border-dashed border-[var(--line-strong)] bg-[var(--surface)] p-4">
-      <p className="text-sm font-medium text-[var(--text-strong)]">{title}</p>
+      <p className="text-sm font-medium text-[var(--text-strong)]">{title ?? t("taskWorkspace.addComment")}</p>
       <textarea
         value={body}
         onChange={(event) => {
@@ -111,11 +113,11 @@ export function TaskCommentComposer({
         }}
         disabled={isDisabled}
         className="mt-3 min-h-[110px] w-full resize-none rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm text-[var(--text-strong)] outline-none transition focus:border-[var(--accent-strong)]"
-        placeholder={placeholder}
+        placeholder={placeholder ?? t("taskWorkspace.addCommentPlaceholder")}
       />
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-        <span className="rounded-full bg-[var(--surface-subtle)] px-2.5 py-1 font-medium text-[var(--text-dim)]">Supports **bold**, _italic_, `code`, lists, links, and @mentions</span>
-        {hasMentions ? <span>Tap a teammate to insert a mention.</span> : null}
+        <span className="rounded-full bg-[var(--surface-subtle)] px-2.5 py-1 font-medium text-[var(--text-dim)]">{t("taskWorkspace.formattingHint")}</span>
+        {hasMentions ? <span>{t("taskWorkspace.mentionHint")}</span> : null}
       </div>
       {hasMentions ? (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -126,7 +128,7 @@ export function TaskCommentComposer({
               onClick={() => insertMention(name)}
               disabled={isDisabled}
               className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label={`Insert mention for ${name}`}
+              aria-label={t("taskWorkspace.insertMentionAria", { name })}
             >
               @{name}
             </button>
@@ -136,18 +138,18 @@ export function TaskCommentComposer({
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <button type="button" disabled className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)] opacity-60">
           <PaperclipIcon className="h-4 w-4" />
-          Attach file
+          {t("taskWorkspace.attachFile")}
         </button>
         <div className="flex items-center gap-3">
           {error ? <span className="text-sm text-rose-600">{error}</span> : null}
           {!error && success ? <span className="text-sm text-emerald-700">{success}</span> : null}
           {onCancel ? (
             <AppButton type="button" tone="secondary" onClick={onCancel} disabled={isDisabled}>
-              Cancel
+              {t("taskWorkspace.cancel")}
             </AppButton>
           ) : null}
           <AppButton type="submit" tone="primary" disabled={isDisabled || !trimmedBody} className={isDisabled ? "opacity-70" : ""}>
-            {isDisabled ? (commentId ? "Saving..." : "Posting...") : submitLabel}
+            {isDisabled ? (commentId ? t("taskWorkspace.saving") : t("taskWorkspace.posting")) : (submitLabel ?? t("taskWorkspace.postUpdate"))}
           </AppButton>
         </div>
       </div>

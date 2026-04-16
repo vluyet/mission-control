@@ -1,15 +1,17 @@
 import { error, ok } from "@/lib/api-response";
 import { createTaskInDb, getProjectWorkspaceForUi } from "@/lib/server-data";
 import { logAppEvent } from "@/lib/logger";
+import { getApiT } from "@/lib/api-i18n";
 
 export async function POST(
   request: Request,
   { params }: { params: { slug: string } }
 ) {
+  const t = await getApiT();
   const project = await getProjectWorkspaceForUi(params.slug);
 
   if (!project) {
-    return error("Project not found", 404, { slug: params.slug });
+    return error(t("api.projectNotFound"), 404, { slug: params.slug });
   }
 
   const body = (await request.json().catch(() => null)) as
@@ -27,7 +29,7 @@ export async function POST(
     | null;
 
   if (!body?.title?.trim()) {
-    return error("Missing required fields", 422, {
+    return error(t("api.missingRequiredFields"), 422, {
       required: ["title"]
     });
   }
@@ -46,22 +48,22 @@ export async function POST(
 
   if (!created) {
     logAppEvent("error", "task.create.failed", { projectSlug: params.slug, reason: "project_not_found" });
-    return error("Project not found", 404, { slug: params.slug });
+    return error(t("api.projectNotFound"), 404, { slug: params.slug });
   }
 
   if ("error" in created) {
     const code = created.error as "ASSIGNEE_NOT_IN_PROJECT" | "ASSIGNEE_DISABLED" | "ASSIGNEE_VIEWER" | "ASSIGNEE_OBSERVER" | "PROJECT_ARCHIVED" | "PARENT_NOT_IN_PROJECT";
     const errorMap: Record<string, string> = {
-      ASSIGNEE_NOT_IN_PROJECT: "Assignee must belong to the project",
-      ASSIGNEE_DISABLED: "Disabled agents cannot be assigned",
-      ASSIGNEE_VIEWER: "Viewer members cannot own tasks",
-      ASSIGNEE_OBSERVER: "Observer project members cannot own tasks",
-      PROJECT_ARCHIVED: "Archived projects cannot accept new tasks",
-      PARENT_NOT_IN_PROJECT: "Parent task must belong to the same project"
+      ASSIGNEE_NOT_IN_PROJECT: t("api.assigneeMustBelongToProject"),
+      ASSIGNEE_DISABLED: t("api.disabledAgentsCannotBeAssigned"),
+      ASSIGNEE_VIEWER: t("api.viewerMembersCannotOwnTasks"),
+      ASSIGNEE_OBSERVER: t("api.observerMembersCannotOwnTasks"),
+      PROJECT_ARCHIVED: t("api.archivedProjectsCannotAcceptNewTasks"),
+      PARENT_NOT_IN_PROJECT: t("api.parentTaskMustBelongToSameProject")
     };
 
     logAppEvent("warn", "task.create.rejected", { projectSlug: params.slug, code });
-    return error(errorMap[code] ?? "Task creation failed", 422, {
+    return error(errorMap[code] ?? t("api.taskCreationFailed"), 422, {
       code
     });
   }

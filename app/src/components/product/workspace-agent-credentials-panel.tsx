@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AGENT_SCOPES } from "@/lib/auth";
+import { useI18n } from "@/components/product/i18n-provider";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 
 type AgentOption = {
@@ -40,6 +41,7 @@ export function WorkspaceAgentCredentialsPanel({
   authEvents: AuthEventRecord[];
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [selectedAgentId, setSelectedAgentId] = useState(agents[0]?.id ?? "");
   const [credentialName, setCredentialName] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<string[]>(["tasks.read", "tasks.write", "comments.write"]);
@@ -56,13 +58,13 @@ export function WorkspaceAgentCredentialsPanel({
 
   async function createCredential() {
     if (!selectedAgentId || !credentialName.trim() || !selectedScopes.length) {
-      setError("Agent, name, and at least one scope are required.");
+      setError(t("workspaceAgentCredentials.agentNameAndScopeRequired"));
       setStatusMessage(null);
       return;
     }
 
     setError(null);
-    setStatusMessage("Creating credential and refreshing the workspace record…");
+    setStatusMessage(t("workspaceAgentCredentials.creatingCredentialAndRefreshing"));
     setCreatedToken(null);
 
     const response = await fetch("/api/workspaces/current/agent-credentials", {
@@ -80,14 +82,14 @@ export function WorkspaceAgentCredentialsPanel({
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setError(payload?.error?.message ?? "Credential could not be created.");
+      setError(payload?.error?.message ?? t("workspaceAgentCredentials.credentialCouldNotBeCreated"));
       setStatusMessage(null);
       return;
     }
 
     setCreatedToken(payload?.data?.token ?? null);
     setCredentialName("");
-    setStatusMessage("Credential created. Copy the token now — it will not be shown again.");
+    setStatusMessage(t("workspaceAgentCredentials.credentialCreatedCopyNow"));
     startTransition(() => {
       router.refresh();
     });
@@ -95,7 +97,7 @@ export function WorkspaceAgentCredentialsPanel({
 
   async function setCredentialEnabled(id: string, enabled: boolean) {
     setError(null);
-    setStatusMessage(enabled ? "Enabling credential and refreshing the list…" : "Revoking credential and refreshing the list…");
+    setStatusMessage(enabled ? t("workspaceAgentCredentials.enablingCredentialAndRefreshing") : t("workspaceAgentCredentials.revokingCredentialAndRefreshing"));
 
     const response = await fetch(`/api/agent-credentials/${id}`, {
       method: "PATCH",
@@ -108,12 +110,12 @@ export function WorkspaceAgentCredentialsPanel({
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setError(payload?.error?.message ?? "Credential update failed.");
+      setError(payload?.error?.message ?? t("workspaceAgentCredentials.credentialUpdateFailed"));
       setStatusMessage(null);
       return;
     }
 
-    setStatusMessage(enabled ? "Credential enabled." : "Credential revoked.");
+    setStatusMessage(enabled ? t("workspaceAgentCredentials.credentialEnabled") : t("workspaceAgentCredentials.credentialRevoked"));
     startTransition(() => {
       router.refresh();
     });
@@ -122,7 +124,7 @@ export function WorkspaceAgentCredentialsPanel({
   return (
     <div className="space-y-5">
       <Panel className="overflow-hidden">
-        <PanelHeader eyebrow="Agent API" title="Credentials" />
+        <PanelHeader eyebrow={t("workspaceAgentCredentials.agentApi")} title={t("workspaceAgentCredentials.credentials")} />
         <div className="space-y-4 px-5 py-5">
           <div className="grid gap-3 xl:grid-cols-[220px,minmax(0,1fr)]">
             <select value={selectedAgentId} onChange={(event) => setSelectedAgentId(event.target.value)} className="input-control">
@@ -133,14 +135,14 @@ export function WorkspaceAgentCredentialsPanel({
                   </option>
                 ))
               ) : (
-                <option value="">No enabled agents</option>
+                <option value="">{t("workspaceAgentCredentials.noEnabledAgents")}</option>
               )}
             </select>
             <input
               value={credentialName}
               onChange={(event) => setCredentialName(event.target.value)}
               className="input-control"
-              placeholder="Credential name"
+              placeholder={t("workspaceAgentCredentials.credentialName")}
             />
           </div>
 
@@ -162,9 +164,9 @@ export function WorkspaceAgentCredentialsPanel({
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-[var(--text-dim)]">Tokens are only shown once at creation.</span>
+            <span className="text-xs text-[var(--text-dim)]">{t("workspaceAgentCredentials.tokensShownOnce")}</span>
             <AppButton tone="secondary" onClick={createCredential} disabled={isPending || !agents.length}>
-              {isPending ? "Saving..." : "Create credential"}
+              {isPending ? t("workspaceAgentCredentials.saving") : t("workspaceAgentCredentials.createCredential")}
             </AppButton>
           </div>
 
@@ -176,7 +178,7 @@ export function WorkspaceAgentCredentialsPanel({
 
           {createdToken ? (
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">New token</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">{t("workspaceAgentCredentials.newToken")}</p>
               <code className="mt-2 block overflow-x-auto text-sm text-emerald-900">{createdToken}</code>
             </div>
           ) : null}
@@ -195,14 +197,14 @@ export function WorkspaceAgentCredentialsPanel({
                     <div>
                       <p className="text-sm font-semibold text-[var(--text-strong)]">{credential.name}</p>
                       <p className="mt-1 text-xs text-[var(--text-dim)]">
-                        {credential.agentName} · Created {credential.createdAt} · Last used {credential.lastUsedAt}
+                        {t("workspaceAgentCredentials.credentialMeta", { agent: credential.agentName, createdAt: credential.createdAt, lastUsedAt: credential.lastUsedAt })}
                       </p>
                     </div>
                     <AppButton
                       tone="secondary"
                       onClick={() => setCredentialEnabled(credential.id, !credential.enabled)}
                     >
-                      {credential.enabled ? "Revoke" : "Enable"}
+                      {credential.enabled ? t("workspaceAgentCredentials.revoke") : t("workspaceAgentCredentials.enable")}
                     </AppButton>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -217,8 +219,8 @@ export function WorkspaceAgentCredentialsPanel({
             ) : (
               <div className="rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] px-4 py-4 text-sm text-[var(--text-dim)]">
                 {agents.length
-                  ? "No agent credentials yet. Create one when an agent needs API access."
-                  : "No enabled agents are available yet. Enable or sync an agent first, then create a credential here."}
+                  ? t("workspaceAgentCredentials.noCredentialsYet")
+                  : t("workspaceAgentCredentials.noEnabledAgentsAvailable")}
               </div>
             )}
           </div>
@@ -226,7 +228,7 @@ export function WorkspaceAgentCredentialsPanel({
       </Panel>
 
       <Panel className="overflow-hidden">
-        <PanelHeader eyebrow="Auth events" title="Recent access" />
+        <PanelHeader eyebrow={t("workspaceAgentCredentials.authEvents")} title={t("workspaceAgentCredentials.recentAccess")} />
         <div className="space-y-3 px-5 py-5">
           {authEvents.length ? (
             authEvents.map((event) => (
@@ -241,7 +243,7 @@ export function WorkspaceAgentCredentialsPanel({
             ))
           ) : (
             <div className="rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] px-4 py-4 text-sm text-[var(--text-dim)]">
-              No auth events yet. Recent credential use will appear here once an agent starts calling the API.
+              {t("workspaceAgentCredentials.noAuthEventsYet")}
             </div>
           )}
         </div>

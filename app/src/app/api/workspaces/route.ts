@@ -3,6 +3,7 @@ import { error, ok } from "@/lib/api-response";
 import { resolveApiActor } from "@/lib/api-auth";
 import { createWorkspaceInDb, getWorkspaceShellDataForUi } from "@/lib/server-data";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, getActiveWorkspaceCookieOptions } from "@/lib/workspace-session";
+import { getApiT } from "@/lib/api-i18n";
 
 type CreateWorkspaceBody = {
   name?: string;
@@ -10,6 +11,7 @@ type CreateWorkspaceBody = {
 };
 
 export async function GET(request: Request) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request);
 
   if (!auth.ok) {
@@ -17,7 +19,7 @@ export async function GET(request: Request) {
   }
 
   if (auth.actor.type !== "owner") {
-    return error("Owner access required.", 403, { code: "OWNER_ACCESS_REQUIRED" });
+    return error(t("api.ownerAccessRequired"), 403, { code: "OWNER_ACCESS_REQUIRED" });
   }
 
   const data = await getWorkspaceShellDataForUi();
@@ -25,6 +27,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request);
 
   if (!auth.ok) {
@@ -32,13 +35,13 @@ export async function POST(request: Request) {
   }
 
   if (auth.actor.type !== "owner") {
-    return error("Owner access required.", 403, { code: "OWNER_ACCESS_REQUIRED" });
+    return error(t("api.ownerAccessRequired"), 403, { code: "OWNER_ACCESS_REQUIRED" });
   }
 
   const body = (await request.json().catch(() => null)) as CreateWorkspaceBody | null;
 
   if (!body?.name?.trim()) {
-    return error("Workspace name is required.", 422, { code: "WORKSPACE_NAME_REQUIRED" });
+    return error(t("api.workspaceNameRequired"), 422, { code: "WORKSPACE_NAME_REQUIRED" });
   }
 
   const workspace = await createWorkspaceInDb({
@@ -47,7 +50,7 @@ export async function POST(request: Request) {
   });
 
   if (!workspace) {
-    return error("Workspace could not be created.", 500, { code: "WORKSPACE_CREATE_FAILED" });
+    return error(t("api.workspaceCreateFailed"), 500, { code: "WORKSPACE_CREATE_FAILED" });
   }
 
   const cookieStore = await cookies();

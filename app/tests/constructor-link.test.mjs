@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { signIn, json } from "./helpers.mjs";
+import {
+  signIn,
+  json,
+  upsertWorkspaceConstructorIntegration,
+  createTemporaryWorkspaceSession,
+  cleanupTemporaryWorkspaceSession
+} from "./helpers.mjs";
 
 function startMockConstructor() {
   const requests = [];
@@ -52,24 +58,30 @@ function startMockConstructor() {
 }
 
 test("owner can save Constructor settings and sync Constructor agents through the public API", async () => {
-  const cookie = await signIn();
-  const mock = await startMockConstructor();
+  const authCookie = await signIn();
+  const session = await createTemporaryWorkspaceSession(authCookie, "Constructor link test");
+  const cookie = session.cookie;
+  let mock;
 
   try {
-    const save = await json("/api/workspaces/current/constructor", {
-      method: "PATCH",
-      cookie,
-      body: {
-        label: "Local Constructor",
-        baseUrl: mock.baseUrl,
-        apiToken: "test-token",
-        enabled: true
-      }
+    mock = await startMockConstructor();
+
+    const save = await upsertWorkspaceConstructorIntegration(cookie, {
+      label: "Local Constructor",
+      baseUrl: mock.baseUrl,
+      apiToken: "test-token",
+      enabled: true
     });
 
     assert.equal(save.response.status, 200);
     assert.equal(save.payload?.data?.integration?.baseUrl, mock.baseUrl);
     assert.equal(save.payload?.data?.integration?.apiTokenConfigured, true);
+
+    const stored = await json("/api/workspaces/current/constructor", { cookie });
+    assert.equal(stored.response.status, 200);
+    assert.equal(stored.payload?.data?.integration?.label, "Local Constructor");
+    assert.equal(stored.payload?.data?.integration?.baseUrl, mock.baseUrl);
+    assert.equal(stored.payload?.data?.integration?.apiTokenConfigured, true);
 
     const sync = await json("/api/workspaces/current/constructor/sync", {
       method: "POST",
@@ -87,6 +99,7 @@ test("owner can save Constructor settings and sync Constructor agents through th
     assert.equal(agents.some((agent) => agent.sourceSystem === "constructor" && agent.name === "Research Agent"), true);
     assert.equal(agents.some((agent) => agent.sourceSystem === "constructor" && agent.name === "Main Agent"), true);
   } finally {
-    mock.server.close();
+    mock?.server.close();
+    await cleanupTemporaryWorkspaceSession(authCookie, session);
   }
 });

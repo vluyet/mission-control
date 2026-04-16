@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useI18n } from "@/components/product/i18n-provider";
+
 type TransitionOption = {
   value: "todo" | "in_progress" | "review" | "blocked" | "done";
   label: string;
@@ -10,6 +12,7 @@ type TransitionOption = {
 export function TaskStatusActions({
   taskId,
   currentStatus,
+  rawStatus,
   blockedReason,
   options,
   actorType = "agent",
@@ -19,6 +22,7 @@ export function TaskStatusActions({
 }: {
   taskId: string;
   currentStatus: string;
+  rawStatus?: string;
   blockedReason?: string;
   options: TransitionOption[];
   actorType?: "human" | "agent";
@@ -27,24 +31,25 @@ export function TaskStatusActions({
   hideHeader?: boolean;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const normalizedStatus = currentStatus.toLowerCase();
+  const normalizedStatus = (rawStatus ?? currentStatus).toLowerCase();
   const stateAwareDescription =
     description ??
     (actorType === "agent"
       ? normalizedStatus.includes("review")
-        ? "The run is finished. Keep the next step human: approve it, send it back for another pass, or mark it blocked if the outcome is incomplete."
+        ? t("taskStatus.agentReviewDescription")
         : normalizedStatus.includes("progress")
-          ? "The run is active. Only intervene if you need to add context, redirect the work, or mark a blocker."
+          ? t("taskStatus.agentInProgressDescription")
           : normalizedStatus.includes("blocked")
-            ? "The run is blocked. Add the missing context or move the task into the state that best reflects the next safe step."
-            : `Current state: ${currentStatus}. Use the constrained workflow below to keep agent execution predictable.`
+            ? t("taskStatus.agentBlockedDescription")
+            : t("taskStatus.agentCurrentStateDescription", { status: currentStatus })
       : normalizedStatus.includes("review")
-        ? "A decision is needed now. Approve the result, request changes, or move it into a clearer human-owned state."
+        ? t("taskStatus.humanReviewDescription")
         : normalizedStatus.includes("blocked")
-          ? "Resolve the blocker first, then move the task forward deliberately."
-          : `Current state: ${currentStatus}. Human operators can move work intentionally without bypassing the shared workflow model.`);
+          ? t("taskStatus.humanBlockedDescription")
+          : t("taskStatus.humanCurrentStateDescription", { status: currentStatus }));
 
   async function handleTransition(nextStatus: TransitionOption["value"]) {
     setError(null);
@@ -57,13 +62,13 @@ export function TaskStatusActions({
       body: JSON.stringify({
         status: nextStatus,
         actorType,
-        blockedReason: nextStatus === "blocked" ? blockedReason ?? "Blocked pending follow-up." : blockedReason ?? ""
+        blockedReason: nextStatus === "blocked" ? blockedReason ?? t("taskStatus.blockedPendingFollowUp") : blockedReason ?? ""
       })
     });
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      setError(payload?.error?.message ?? "Status transition failed.");
+      setError(payload?.error?.message ?? t("taskStatus.transitionFailed"));
       return;
     }
 
@@ -74,7 +79,7 @@ export function TaskStatusActions({
 
   return (
     <div>
-      {hideHeader ? null : <p className="section-eyebrow">{title ?? (actorType === "agent" ? "Agent workflow" : "Human workflow")}</p>}
+      {hideHeader ? null : <p className="section-eyebrow">{title ?? (actorType === "agent" ? t("taskStatus.agentWorkflow") : t("taskStatus.humanWorkflow"))}</p>}
       {hideHeader ? null : <p className="mt-2 text-sm text-[var(--text-muted)]">{stateAwareDescription}</p>}
       <div className={`${hideHeader ? "flex flex-col gap-2" : "mt-4 flex flex-wrap gap-2"}`}>
         {options.length ? (
@@ -94,11 +99,11 @@ export function TaskStatusActions({
                     : "border-[var(--line)] bg-[var(--surface-subtle)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]"
               }`}
             >
-              {isPending ? "Updating..." : option.label}
+              {isPending ? t("taskStatus.updating") : option.label}
             </button>
           ))
         ) : (
-          <span className="rounded-full border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--text-dim)]">No further transitions available.</span>
+          <span className="rounded-full border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--text-dim)]">{t("taskStatus.noFurtherTransitionsAvailable")}</span>
         )}
       </div>
       {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}

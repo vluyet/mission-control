@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Comment, TimelineEvent } from "@/lib/demo-data";
 import { TaskCommentComposer } from "@/components/product/task-comment-composer";
 import { renderTaskCommentBody } from "@/lib/task-comment-markdown";
+import { useI18n } from "@/components/product/i18n-provider";
 
 export function TaskCommentsPanel({
   taskId,
@@ -24,6 +25,7 @@ export function TaskCommentsPanel({
   const [localComments, setLocalComments] = useState<Comment[]>(comments);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { t } = useI18n();
   const sortedMentions = useMemo(() => Array.from(new Set(mentionSuggestions)).sort((a, b) => a.localeCompare(b)), [mentionSuggestions]);
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export function TaskCommentsPanel({
   }
 
   async function handleDeleteComment(commentId: string) {
-    if (!window.confirm("Delete this comment? This cannot be undone.")) return;
+    if (!window.confirm(t("taskWorkspace.deleteCommentConfirm"))) return;
     setDeletingCommentId(commentId);
     const response = await fetch(`/api/tasks/${taskId}/comments/${commentId}`, { method: "DELETE" });
     setDeletingCommentId(null);
@@ -76,7 +78,7 @@ export function TaskCommentsPanel({
               : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
           }`}
         >
-          Comments ({localComments.length})
+          {t("taskWorkspace.commentsTab", { count: localComments.length })}
         </button>
         <button
           type="button"
@@ -87,7 +89,7 @@ export function TaskCommentsPanel({
               : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
           }`}
         >
-          Activity ({timeline.length})
+          {t("taskWorkspace.activityTab", { count: timeline.length })}
         </button>
       </div>
 
@@ -114,7 +116,7 @@ export function TaskCommentsPanel({
                   <div className="flex items-center gap-2">
                     {comment.editedAt ? (
                       <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] uppercase tracking-[0.12em] text-slate-500">
-                        Edited
+                        {t("taskWorkspace.edited")}
                       </span>
                     ) : null}
                     <span className="text-xs text-slate-500">{comment.time}</span>
@@ -127,9 +129,9 @@ export function TaskCommentsPanel({
                       taskId={taskId}
                       commentId={comment.id}
                       initialBody={comment.body}
-                      title="Edit comment"
-                      submitLabel="Save changes"
-                      placeholder="Refine the comment without changing the task history model."
+                      title={t("taskWorkspace.editCommentTitle")}
+                      submitLabel={t("taskWorkspace.saveChanges")}
+                      placeholder={t("taskWorkspace.editCommentPlaceholder")}
                       mentionSuggestions={sortedMentions}
                       onSubmitted={upsertComment}
                       onCancel={() => setEditingCommentId(null)}
@@ -146,7 +148,7 @@ export function TaskCommentsPanel({
                         onClick={() => toggleExpandedComment(comment.id)}
                         className="mt-2 text-xs font-medium text-slate-900"
                       >
-                        {isExpanded ? "Show less" : "Show full agent update"}
+                        {isExpanded ? t("taskWorkspace.showLess") : t("taskWorkspace.showFullAgentUpdate")}
                       </button>
                     ) : null}
                     {comment.tone === "human" ? (
@@ -157,14 +159,14 @@ export function TaskCommentsPanel({
                           disabled={deletingCommentId === comment.id || isPending}
                           className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
                         >
-                          {deletingCommentId === comment.id ? "Deleting..." : "Delete"}
+                          {deletingCommentId === comment.id ? t("taskWorkspace.deleting") : t("taskWorkspace.deleteComment")}
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditingCommentId(comment.id)}
                           className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
                         >
-                          Edit comment
+                          {t("taskWorkspace.editComment")}
                         </button>
                       </div>
                     ) : null}
@@ -177,7 +179,7 @@ export function TaskCommentsPanel({
 
       {activeView === "comments" && !localComments.length ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-          No comments yet.
+          {t("taskWorkspace.noCommentsYet")}
         </div>
       ) : null}
 
@@ -185,7 +187,7 @@ export function TaskCommentsPanel({
         timeline.length ? (
           <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0b1220] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="border-b border-slate-800 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-              Activity feed
+              {t("taskWorkspace.activityFeed")}
             </div>
             <div className="divide-y divide-slate-800">
               {timeline.map((item, index) => (
@@ -202,12 +204,12 @@ export function TaskCommentsPanel({
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-            No activity yet.
+            {t("common.noActivityYet")}
           </div>
         )
       ) : null}
 
-      {activeView === "comments" ? <TaskCommentComposer taskId={taskId} mentionSuggestions={sortedMentions} onSubmitted={upsertComment} /> : null}
+      {activeView === "comments" ? <TaskCommentComposer taskId={taskId} title={t("taskWorkspace.addComment")} mentionSuggestions={sortedMentions} onSubmitted={upsertComment} /> : null}
     </div>
   );
 }

@@ -2,13 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useI18n } from "@/components/product/i18n-provider";
 import { AppButton } from "@/components/ui/primitives";
-
-const OPTIONS = [
-  { value: "comment", label: "Comment" },
-  { value: "change_status", label: "Change status" },
-  { value: "log_execution", label: "Log execution" }
-];
 
 export function AgentPermissionsEditor({
   memberId,
@@ -18,6 +13,12 @@ export function AgentPermissionsEditor({
   permissions: string[];
 }) {
   const router = useRouter();
+  const { t } = useI18n();
+  const options = [
+    { value: "comment", label: t("memberAgents.permissionComment") },
+    { value: "change_status", label: t("memberAgents.permissionChangeStatus") },
+    { value: "log_execution", label: t("memberAgents.permissionLogExecution") }
+  ];
   const [selected, setSelected] = useState<string[]>(permissions);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -35,7 +36,7 @@ export function AgentPermissionsEditor({
     });
 
     if (!response.ok) {
-      setError("Permissions could not be updated.");
+      setError(t("memberAgents.permissionsUpdateFailed"));
       return;
     }
 
@@ -46,9 +47,9 @@ export function AgentPermissionsEditor({
 
   return (
     <div className="mt-4 border-t border-[var(--line)] pt-4">
-      <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">Permissions</p>
+      <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">{t("memberAgents.permissions")}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        {OPTIONS.map((option) => {
+        {options.map((option) => {
           const active = selected.includes(option.value);
           return (
             <button
@@ -67,9 +68,9 @@ export function AgentPermissionsEditor({
         })}
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
-        {error ? <span className="text-xs text-rose-600">{error}</span> : <span className="text-xs text-[var(--text-dim)]">Workspace-level bounds for agent actions.</span>}
+        {error ? <span className="text-xs text-rose-600">{error}</span> : <span className="text-xs text-[var(--text-dim)]">{t("memberAgents.workspaceBoundsHint")}</span>}
         <AppButton tone="secondary" className="px-3 py-2" disabled={isPending} onClick={save}>
-          {isPending ? "Saving..." : "Save permissions"}
+          {isPending ? t("memberAgents.saving") : t("memberAgents.savePermissions")}
         </AppButton>
       </div>
     </div>

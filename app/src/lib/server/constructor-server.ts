@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { fetchConstructorAgents } from "@/lib/constructor";
 import { getOwnerAuthConfig } from "@/lib/auth";
+import { getRequestI18n } from "@/lib/i18n/server";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
 const DEFAULT_AGENT_PERMISSIONS = ["comment", "change_status", "log_execution"];
@@ -23,7 +24,7 @@ async function getActiveWorkspaceRecord() {
 }
 
 export async function syncActiveWorkspaceConstructorAgentsInDb() {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
 
   if (!activeWorkspace) {
     return null;
@@ -72,7 +73,7 @@ export async function syncActiveWorkspaceConstructorAgentsInDb() {
         update: {
           name: agent.name,
           capabilities: agent.capabilities,
-          roleLabel: "Agent",
+          roleLabel: t("membersServer.agent"),
           kind: "agent",
           enabled: true,
           agentPermissions: DEFAULT_AGENT_PERMISSIONS
@@ -81,7 +82,7 @@ export async function syncActiveWorkspaceConstructorAgentsInDb() {
           workspaceId: activeWorkspace.id,
           name: agent.name,
           kind: "agent",
-          roleLabel: "Agent",
+          roleLabel: t("membersServer.agent"),
           workspaceRole: "member",
           enabled: true,
           sourceSystem: "constructor",

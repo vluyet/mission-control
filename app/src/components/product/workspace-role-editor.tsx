@@ -2,12 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useI18n } from "@/components/product/i18n-provider";
 
 const ROLE_OPTIONS = [
-  { value: "owner", label: "Owner" },
-  { value: "admin", label: "Admin" },
-  { value: "member", label: "Member" },
-  { value: "viewer", label: "Viewer" }
+  { value: "owner", labelKey: "owner" },
+  { value: "admin", labelKey: "admin" },
+  { value: "member", labelKey: "member" },
+  { value: "viewer", labelKey: "viewer" }
 ] as const;
 
 function normalizeRole(role?: string) {
@@ -31,6 +32,7 @@ export function WorkspaceRoleEditor({
   role?: string;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [selected, setSelected] = useState(normalizeRole(role));
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -48,7 +50,7 @@ export function WorkspaceRoleEditor({
     });
 
     if (!response.ok) {
-      setError("Role could not be updated.");
+      setError(t("workspaceRoleEditor.roleCouldNotBeUpdated"));
       return;
     }
 
@@ -59,7 +61,7 @@ export function WorkspaceRoleEditor({
 
   return (
     <div className="mt-4 border-t border-[var(--line)] pt-4">
-      <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">Workspace role</p>
+      <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)]">{t("workspaceRoleEditor.workspaceRole")}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {ROLE_OPTIONS.map((option) => {
           const active = selected === option.value;
@@ -75,13 +77,13 @@ export function WorkspaceRoleEditor({
                   : "border-[var(--line)] bg-[var(--surface)] text-[var(--text-dim)] hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]"
               }`}
             >
-              {option.label}
+              {t(`workspaceRoleEditor.${option.labelKey}` as const)}
             </button>
           );
         })}
       </div>
       <div className="mt-3 text-xs text-[var(--text-dim)]">
-        {error ? <span className="text-rose-600">{error}</span> : <span>Viewers stay visible but are removed from task ownership.</span>}
+        {error ? <span className="text-rose-600">{error}</span> : <span>{t("workspaceRoleEditor.viewerHint")}</span>}
       </div>
     </div>
   );

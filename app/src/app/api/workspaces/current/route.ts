@@ -1,8 +1,10 @@
 import { error, ok } from "@/lib/api-response";
 import { getWorkspaceManagementDataForUi, updateActiveWorkspaceInDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
+import { getApiT } from "@/lib/api-i18n";
 
 export async function GET(request: Request) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request);
 
   if (!auth.ok) {
@@ -10,7 +12,7 @@ export async function GET(request: Request) {
   }
 
   if (auth.actor.type !== "owner") {
-    return error("Owner access required.", 403, {
+    return error(t("api.ownerAccessRequired"), 403, {
       code: "OWNER_ACCESS_REQUIRED"
     });
   }
@@ -18,7 +20,7 @@ export async function GET(request: Request) {
   const payload = await getWorkspaceManagementDataForUi();
 
   if (!payload) {
-    return error("Workspace not found.", 404, {
+    return error(t("api.workspaceNotFound"), 404, {
       code: "WORKSPACE_NOT_FOUND"
     });
   }
@@ -27,6 +29,7 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request);
 
   if (!auth.ok) {
@@ -34,7 +37,7 @@ export async function PATCH(request: Request) {
   }
 
   if (auth.actor.type !== "owner") {
-    return error("Owner access required.", 403, {
+    return error(t("api.ownerAccessRequired"), 403, {
       code: "OWNER_ACCESS_REQUIRED"
     });
   }
@@ -50,7 +53,7 @@ export async function PATCH(request: Request) {
     | null;
 
   if (!body?.name?.trim()) {
-    return error("Workspace name is required.", 422, {
+    return error(t("api.workspaceNameRequired"), 422, {
       code: "WORKSPACE_NAME_REQUIRED"
     });
   }
@@ -64,7 +67,7 @@ export async function PATCH(request: Request) {
   });
 
   if (!workspace) {
-    return error("Workspace not found.", 404, {
+    return error(t("api.workspaceNotFound"), 404, {
       code: "WORKSPACE_NOT_FOUND"
     });
   }

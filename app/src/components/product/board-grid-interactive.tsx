@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useI18n } from "@/components/product/i18n-provider";
 import { DotsIcon } from "@/components/ui/icons";
 import { AppButton, Panel, PanelHeader, PriorityBadge } from "@/components/ui/primitives";
 
@@ -21,18 +22,34 @@ type BoardCard = {
 
 type BoardColumn = {
   title: string;
+  statusKey?: "todo" | "inProgress" | "inReview" | "blocked" | "done";
   count: number;
   accent: "slate" | "blue" | "gold" | "red" | "emerald";
   cards: BoardCard[];
 };
 
-const STATUS_MAP: Record<string, "todo" | "in_progress" | "review" | "blocked" | "done"> = {
-  Todo: "todo",
-  "In Progress": "in_progress",
-  "In Review": "review",
-  Blocked: "blocked",
-  Done: "done"
+const STATUS_MAP: Record<NonNullable<BoardColumn["statusKey"]>, "todo" | "in_progress" | "review" | "blocked" | "done"> = {
+  todo: "todo",
+  inProgress: "in_progress",
+  inReview: "review",
+  blocked: "blocked",
+  done: "done"
 };
+
+function getStatusLabel(column: BoardColumn, t: (key: string) => string) {
+  switch (column.statusKey) {
+    case "inProgress":
+      return t("taskStatus.inProgress");
+    case "inReview":
+      return t("taskStatus.inReview");
+    case "blocked":
+      return t("taskStatus.blocked");
+    case "done":
+      return t("taskStatus.done");
+    default:
+      return t("taskStatus.todo");
+  }
+}
 
 function recount(columns: BoardColumn[]) {
   return columns.map((column) => ({
@@ -51,6 +68,7 @@ export function BoardGridInteractive({
   description?: string;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [boardColumns, setBoardColumns] = useState(columns);
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
   const [dropTitle, setDropTitle] = useState<string | null>(null);
@@ -88,8 +106,8 @@ export function BoardGridInteractive({
     );
   }
 
-  async function handleDrop(targetTitle: string) {
-    if (!draggedCardId || !STATUS_MAP[targetTitle]) {
+  async function handleDrop(targetTitle: string, targetStatusKey?: BoardColumn["statusKey"]) {
+    if (!draggedCardId || !targetStatusKey || !STATUS_MAP[targetStatusKey]) {
       return;
     }
 
@@ -106,7 +124,7 @@ export function BoardGridInteractive({
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        status: STATUS_MAP[targetTitle],
+        status: STATUS_MAP[targetStatusKey],
         actorType: "human"
       })
     });
@@ -114,7 +132,7 @@ export function BoardGridInteractive({
     if (!response.ok) {
       setBoardColumns(previous);
       const payload = await response.json().catch(() => null);
-      setError(payload?.error?.message ?? "Task could not be moved.");
+      setError(payload?.error?.message ?? t("boardGridInteractive.moveFailed"));
       return;
     }
 
@@ -126,15 +144,15 @@ export function BoardGridInteractive({
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
-        eyebrow="Board"
+        eyebrow={t("boardGridInteractive.eyebrow")}
         title={title}
         description={description}
-        action={<AppButton tone="secondary">{isPending ? "Syncing..." : "Board live"}</AppButton>}
+        action={<AppButton tone="secondary">{isPending ? t("boardGridInteractive.syncing") : t("boardGridInteractive.live")}</AppButton>}
       />
       <div className="board-scroll">
         {isEmptyBoard ? (
           <div className="rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] px-4 py-5 text-sm text-[var(--text-dim)]">
-            No tasks on this board yet.
+            {t("boardGridInteractive.empty")}
           </div>
         ) : null}
         {boardColumns.map((column) => (
@@ -148,13 +166,13 @@ export function BoardGridInteractive({
             onDragLeave={() => setDropTitle((current) => (current === column.title ? null : current))}
             onDrop={(event) => {
               event.preventDefault();
-              void handleDrop(column.title);
+              void handleDrop(column.title, column.statusKey);
             }}
           >
             <div className="board-column-header">
               <div className="flex items-center gap-3">
                 <span className={`status-dot status-dot-${column.accent}`} />
-                <h3 className="text-sm font-semibold text-[var(--text-strong)]">{column.title}</h3>
+                <h3 className="text-sm font-semibold text-[var(--text-strong)]">{getStatusLabel(column, t)}</h3>
               </div>
               <span className="rounded-full bg-[var(--surface-subtle)] px-2.5 py-1 text-xs text-[var(--text-dim)]">
                 {column.count}
@@ -177,11 +195,11 @@ export function BoardGridInteractive({
                       <div className="flex flex-wrap items-center gap-2">
                         <PriorityBadge value={card.priority} />
                         <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[11px] text-[var(--text-dim)]">
-                          Due {card.eta}
+                          {t("boardGridInteractive.due", { value: card.eta })}
                         </span>
                         {card.childCount ? (
                           <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[11px] text-[var(--text-dim)]">
-                            {card.childCount} subtasks
+                            {t("boardGridInteractive.subtasks", { count: card.childCount })}
                           </span>
                         ) : null}
                       </div>
@@ -190,7 +208,7 @@ export function BoardGridInteractive({
                       </Link>
                       <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-dim)]">
                         <span>{card.assignee}</span>
-                        {card.parentTaskTitle ? <span>• Subtask of {card.parentTaskTitle}</span> : null}
+                        {card.parentTaskTitle ? <span>• {t("boardGridInteractive.subtaskOf", { title: card.parentTaskTitle })}</span> : null}
                       </div>
                     </div>
                     <span className="text-[var(--text-dim)]">
@@ -214,7 +232,7 @@ export function BoardGridInteractive({
                         <div className="truncate text-[11px] text-[var(--text-dim)]">{card.project}</div>
                       </div>
                     </div>
-                    <span className="drag-pill">Drag</span>
+                    <span className="drag-pill">{t("boardGridInteractive.drag")}</span>
                   </div>
                 </div>
               ))}

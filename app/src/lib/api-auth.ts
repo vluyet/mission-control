@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, type AgentScope, hashAgentAccessToken, verifySessionTokenDetailed } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getApiT } from "@/lib/api-i18n";
 
 export type ApiActor =
   | {
@@ -38,6 +39,7 @@ export async function logAuthEvent(input: {
 }
 
 export async function resolveApiActor(request: Request, requiredScope?: AgentScope) {
+  const t = await getApiT();
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(AUTH_COOKIE_NAME)?.value;
   const session = await verifySessionTokenDetailed(sessionToken);
@@ -60,7 +62,7 @@ export async function resolveApiActor(request: Request, requiredScope?: AgentSco
       ok: false as const,
       status: session.status === "expired" ? 401 : 401,
       error: session.status === "expired" ? "SESSION_EXPIRED" : "UNAUTHENTICATED",
-      message: session.status === "expired" ? "Session expired." : "Authentication required."
+      message: session.status === "expired" ? t("api.sessionExpired") : t("api.authenticationRequired")
     };
   }
 
@@ -82,7 +84,7 @@ export async function resolveApiActor(request: Request, requiredScope?: AgentSco
       ok: false as const,
       status: 401,
       error: "INVALID_AGENT_TOKEN",
-      message: "Agent credential is invalid."
+      message: t("api.invalidAgentCredential")
     };
   }
 
@@ -100,7 +102,7 @@ export async function resolveApiActor(request: Request, requiredScope?: AgentSco
       ok: false as const,
       status: 403,
       error: "AGENT_SCOPE_DENIED",
-      message: "Agent credential does not have the required scope."
+      message: t("api.missingAgentScope")
     };
   }
 

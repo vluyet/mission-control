@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import type { TaskRecord, TimelineEvent } from "@/lib/demo-data";
 import { mapContextBlock } from "@/lib/context-block";
 import { resolveTaskContext } from "@/lib/context-resolver";
+import { getRequestI18n } from "@/lib/i18n/server";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
 async function getActiveWorkspaceSlug() {
@@ -26,19 +27,19 @@ async function getDefaultHumanMembership(workspaceId: string) {
   );
 }
 
-function formatShortDate(date: Date | null | undefined) {
-  if (!date) return "No date";
+function formatShortDate(date: Date | null | undefined, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]) {
+  if (!date) return t("taskServer.noDate");
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
-function formatRelativeTime(date: Date) {
+function formatRelativeTime(date: Date, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]) {
   const diff = Date.now() - date.getTime();
   const minutes = Math.round(diff / 60000);
-  if (minutes <= 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes <= 1) return t("taskServer.justNow");
+  if (minutes < 60) return t("taskServer.minutesAgo", { count: String(minutes) });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
+  if (hours < 24) return t("taskServer.hoursAgo", { count: String(hours) });
+  return t("taskServer.daysAgo", { count: String(Math.round(hours / 24)) });
 }
 
 function formatDateTime(date: Date) {
@@ -78,7 +79,7 @@ function mapComment(comment: any) {
   };
 }
 
-function mapAttachment(attachment: any) {
+function mapAttachment(attachment: any, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]) {
   const previewable = attachment.mimeType.startsWith("image/") || attachment.mimeType === "application/pdf" || attachment.mimeType.startsWith("text/");
   const previewKind: "image" | "document" | "text" | undefined = attachment.mimeType.startsWith("image/")
     ? "image"
@@ -97,8 +98,8 @@ function mapAttachment(attachment: any) {
     previewHref: previewable ? `/api/attachments/${attachment.id}/preview` : undefined,
     previewKind,
     previewable,
-    uploadedAt: formatRelativeTime(attachment.createdAt),
-    author: attachment.author?.name ?? attachment.authorName ?? "Workspace Owner"
+    uploadedAt: formatRelativeTime(attachment.createdAt, t),
+    author: attachment.author?.name ?? attachment.authorName ?? t("taskServer.workspaceOwner")
   };
 }
 
@@ -111,15 +112,15 @@ function mapActivity(item: any) {
   };
 }
 
-function mapWatcher(member: any) {
+function mapWatcher(member: any, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]) {
   return {
     id: member.id,
     name: member.name,
-    type: (member.kind === "agent" ? "Agent" : "Human") as "Agent" | "Human"
+    type: (member.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as "Agent" | "Human"
   };
 }
 
-function mapTaskRecord(task: any): TaskRecord {
+function mapTaskRecord(task: any, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]): TaskRecord {
   return {
     id: task.id,
     title: task.title,
@@ -127,12 +128,12 @@ function mapTaskRecord(task: any): TaskRecord {
     projectSlug: task.project.slug,
     status: formatStatus(task.status),
     priority: formatPriority(task.priority),
-    assignee: task.assignee?.name ?? "Unassigned",
-    assigneeType: task.assignee?.kind === "agent" ? "Agent" : "Human",
+    assignee: task.assignee?.name ?? t("taskServer.unassigned"),
+    assigneeType: (task.assignee?.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as TaskRecord["assigneeType"],
     assigneeSourceSystem: task.assignee?.sourceSystem ?? null,
     reviewer: task.reviewer?.name ?? undefined,
-    due: formatShortDate(task.dueDate),
-    startDate: formatShortDate(task.startDate),
+    due: formatShortDate(task.dueDate, t),
+    startDate: formatShortDate(task.startDate, t),
     tags: task.tags,
     effort: (task.effort ?? "S") as TaskRecord["effort"],
     parentTaskId: task.parentTask?.id ?? undefined,
@@ -144,18 +145,33 @@ function mapTaskRecord(task: any): TaskRecord {
   };
 }
 
+function getTaskStatusKey(status: TaskRecord["status"] | string) {
+  switch (status) {
+    case "In Progress":
+      return "inProgress";
+    case "In Review":
+      return "inReview";
+    case "Blocked":
+      return "blocked";
+    case "Done":
+      return "done";
+    default:
+      return "todo";
+  }
+}
+
 function buildBoardColumns(items: TaskRecord[]) {
   const base = [
-    { title: "Todo", accent: "slate" },
-    { title: "In Progress", accent: "blue" },
-    { title: "In Review", accent: "gold" },
-    { title: "Blocked", accent: "red" },
-    { title: "Done", accent: "emerald" }
+    { title: "Todo", statusKey: "todo", accent: "slate" },
+    { title: "In Progress", statusKey: "inProgress", accent: "blue" },
+    { title: "In Review", statusKey: "inReview", accent: "gold" },
+    { title: "Blocked", statusKey: "blocked", accent: "red" },
+    { title: "Done", statusKey: "done", accent: "emerald" }
   ] as const;
 
   return base.map((column) => {
     const cards = items
-      .filter((item) => item.status === column.title)
+      .filter((item) => getTaskStatusKey(item.status) === column.statusKey)
       .map((item) => ({
         id: item.id,
         title: item.title,
@@ -171,6 +187,7 @@ function buildBoardColumns(items: TaskRecord[]) {
 
     return {
       title: column.title,
+      statusKey: column.statusKey,
       count: cards.length,
       accent: column.accent,
       cards
@@ -240,7 +257,16 @@ function agentHasPermission(member: { kind?: string; agentPermissions?: string[]
 }
 
 async function logPermissionDenied(taskId: string, actorId: string | null, actorName: string, detail: string) {
-  await db.taskActivity.create({ data: { taskId, actorId: actorId ?? undefined, actorName, label: "Permission denied", detail } });
+  const { t } = await getRequestI18n();
+  await db.taskActivity.create({
+    data: {
+      taskId,
+      actorId: actorId ?? undefined,
+      actorName,
+      label: t("taskServer.permissionDenied"),
+      detail
+    }
+  });
 }
 
 async function generateTaskId(projectSlug: string) {
@@ -273,6 +299,7 @@ async function generateTaskId(projectSlug: string) {
 }
 
 export async function getTaskResourceFromDb(taskId: string) {
+  const { t } = await getRequestI18n();
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {
@@ -300,9 +327,11 @@ export async function getTaskResourceFromDb(taskId: string) {
       project: task.project.name,
       description: task.description,
       status: formatStatus(task.status),
+      rawStatus: task.status,
       priority: formatPriority(task.priority),
-      assignee: task.assignee?.name ?? "Unassigned",
-      assigneeType: task.assignee?.kind === "agent" ? "Agent" : "Human",
+      assignee: task.assignee?.name ?? t("taskServer.unassigned"),
+      assigneeType: (task.assignee?.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as TaskRecord["assigneeType"],
+      rawAssigneeType: task.assignee?.kind === "agent" ? "Agent" : "Human",
       assigneeSourceSystem: task.assignee?.sourceSystem ?? null,
       assigneeCapabilities: task.assignee?.kind === "agent" ? task.assignee.capabilities : [],
       assigneeEnabled: task.assignee?.enabled ?? true,
@@ -322,12 +351,12 @@ export async function getTaskResourceFromDb(taskId: string) {
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString()
     },
-    watchers: task.watchers.map((watcher) => mapWatcher(watcher.membership)),
-    available_watchers: availableWatchers.map((item) => item.membership).filter((member) => member.enabled).map(mapWatcher),
+    watchers: task.watchers.map((watcher) => mapWatcher(watcher.membership, t)),
+    available_watchers: availableWatchers.map((item) => item.membership).filter((member) => member.enabled).map((member) => mapWatcher(member, t)),
     resolved_context: resolvedContext,
     comments: task.comments.map(mapComment),
-    attachments: task.attachments.map(mapAttachment),
-    child_tasks: task.childTasks.map((child) => ({ id: child.id, title: child.title, status: formatStatus(child.status) })),
+    attachments: task.attachments.map((attachment) => mapAttachment(attachment, t)),
+    child_tasks: task.childTasks.map((child) => ({ id: child.id, title: child.title, status: child.status })),
     activity: task.activity.map(mapActivity),
     execution: {
       latest_status: latestExecution?.status ?? null,
@@ -339,7 +368,7 @@ export async function getTaskResourceFromDb(taskId: string) {
 }
 
 export async function getTasksForUi(filters?: { projectSlug?: string; assigneeName?: string; agentOnly?: boolean; status?: "todo" | "in_progress" | "review" | "blocked" | "done"; }) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
   const tasks = await db.task.findMany({
     where: {
       project: { ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {}), ...(filters?.projectSlug ? { slug: filters.projectSlug } : {}) },
@@ -350,11 +379,11 @@ export async function getTasksForUi(filters?: { projectSlug?: string; assigneeNa
     orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
     include: { project: true, parentTask: { select: { id: true, title: true } }, childTasks: { select: { id: true } }, assignee: true, reviewer: true }
   });
-  return tasks.map(mapTaskRecord);
+  return tasks.map((task) => mapTaskRecord(task, t));
 }
 
 export async function getMyTasksForUi() {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
   const ownerMembership = activeWorkspace ? await getDefaultHumanMembership(activeWorkspace.id) : null;
   const tasks = await db.task.findMany({
     where: {
@@ -364,11 +393,11 @@ export async function getMyTasksForUi() {
     orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
     include: { project: true, parentTask: { select: { id: true, title: true } }, childTasks: { select: { id: true } }, assignee: true, reviewer: true }
   });
-  return tasks.map(mapTaskRecord);
+  return tasks.map((task) => mapTaskRecord(task, t));
 }
 
 export async function getTaskWorkspaceForUi(taskId: string) {
-  const payload = await getTaskResourceFromDb(taskId);
+  const [{ t }, payload] = await Promise.all([getRequestI18n(), getTaskResourceFromDb(taskId)]);
   if (!payload) return null;
   return {
     task: {
@@ -381,10 +410,12 @@ export async function getTaskWorkspaceForUi(taskId: string) {
       priority: payload.task.priority as TaskRecord["priority"],
       assignee: payload.task.assignee,
       assigneeType: payload.task.assigneeType as TaskRecord["assigneeType"],
+      rawStatus: payload.task.rawStatus as TaskRecord["status"],
+      rawAssigneeType: payload.task.rawAssigneeType as TaskRecord["assigneeType"],
       assigneeSourceSystem: (payload.task.assigneeSourceSystem as string | null | undefined) ?? undefined,
       reviewer: payload.task.reviewer ?? undefined,
-      due: payload.task.due ? formatShortDate(new Date(payload.task.due)) : "No date",
-      startDate: payload.task.startDate ? formatShortDate(new Date(payload.task.startDate)) : "No date",
+      due: payload.task.due ? formatShortDate(new Date(payload.task.due), t) : t("taskServer.noDate"),
+      startDate: payload.task.startDate ? formatShortDate(new Date(payload.task.startDate), t) : t("taskServer.noDate"),
       tags: payload.task.tags,
       effort: ((payload.task.effort as TaskRecord["effort"] | null) ?? "S"),
       contextHint: payload.task.contextHint ?? "",
@@ -400,7 +431,7 @@ export async function getTaskWorkspaceForUi(taskId: string) {
       humanTransitionOptions: payload.task.humanTransitionOptions ?? undefined,
       transitionOptions: payload.task.transitionOptions ?? undefined
     },
-    comments: payload.comments.map((comment) => ({ ...comment, time: formatRelativeTime(new Date(comment.time)) })),
+    comments: payload.comments.map((comment) => ({ ...comment, time: formatRelativeTime(new Date(comment.time), t) })),
     timeline: payload.activity.map((item): TimelineEvent => ({ taskId: item.taskId, label: item.label, detail: item.detail, time: formatDateTime(new Date(item.time)) })),
     executionFeed: payload.execution.logs,
     executionMeta: {
@@ -408,19 +439,20 @@ export async function getTaskWorkspaceForUi(taskId: string) {
       latestCreatedAt: payload.execution.latest_created_at ?? undefined,
       latestUpdatedAt: payload.execution.latest_updated_at ?? undefined
     },
-    attachments: payload.attachments ?? [],
+    attachments: (payload.attachments ?? []).map((attachment) => mapAttachment(attachment, t)),
     childTasks: payload.child_tasks ?? [],
     watchers: payload.watchers ?? [],
     availableWatchers: payload.available_watchers ?? [],
     resolvedContext: {
       task: payload.resolved_context,
-      workspace: mapContextBlock(payload.resolved_context.layers.workspace, "Workspace context"),
-      project: Object.keys(payload.resolved_context.layers.project).length ? mapContextBlock(payload.resolved_context.layers.project, "Project context") : undefined
+      workspace: mapContextBlock(payload.resolved_context.layers.workspace, t("seededContext.workspaceTitle")),
+      project: Object.keys(payload.resolved_context.layers.project).length ? mapContextBlock(payload.resolved_context.layers.project, t("seededContext.projectTitle")) : undefined
     }
   };
 }
 
 export async function getTaskEditFormData(taskId: string) {
+  const { t } = await getRequestI18n();
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {
@@ -445,7 +477,7 @@ export async function getTaskEditFormData(taskId: string) {
       blockedReason: task.blockedReason ?? ""
     },
     project: { slug: task.project.slug, name: task.project.name },
-    assignees: task.project.memberships.map(({ membership }) => ({ id: membership.id, name: membership.name, label: `${membership.name} · ${membership.kind === "agent" ? "Agent" : "Human"}` })).filter((membership) => {
+    assignees: task.project.memberships.map(({ membership }) => ({ id: membership.id, name: membership.name, label: `${membership.name} · ${membership.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")}` })).filter((membership) => {
       const source = task.project.memberships.find((item) => item.membership.id === membership.id)?.membership;
       const projectRole = task.project.memberships.find((item) => item.membership.id === membership.id)?.role;
       return source ? canOwnProjectTask(source, projectRole) : false;
@@ -466,7 +498,7 @@ export async function deleteTaskInDb(taskId: string) {
 }
 
 export async function getTaskCreateFormData(slug: string) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
   const project = await db.project.findFirst({
     where: { slug, ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {}) },
     include: { memberships: { include: { membership: true }, orderBy: { createdAt: "asc" } }, tasks: { orderBy: { createdAt: "asc" }, select: { id: true, title: true } } }
@@ -474,7 +506,7 @@ export async function getTaskCreateFormData(slug: string) {
   if (!project) return null;
   return {
     project: { slug: project.slug, name: project.name },
-    assignees: project.memberships.map(({ membership }) => ({ id: membership.id, name: membership.name, label: `${membership.name} · ${membership.kind === "agent" ? "Agent" : "Human"}` })).filter((membership) => {
+    assignees: project.memberships.map(({ membership }) => ({ id: membership.id, name: membership.name, label: `${membership.name} · ${membership.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")}` })).filter((membership) => {
       const source = project.memberships.find((item) => item.membership.id === membership.id)?.membership;
       const projectRole = project.memberships.find((item) => item.membership.id === membership.id)?.role;
       return source ? canOwnProjectTask(source, projectRole) : false;

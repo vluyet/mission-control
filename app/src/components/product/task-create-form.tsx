@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
+import { useI18n } from "@/components/product/i18n-provider";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 
 type AssigneeOption = {
@@ -27,6 +28,7 @@ export function TaskCreateForm({
   parentOptions: ParentOption[];
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -50,7 +52,7 @@ export function TaskCreateForm({
     };
 
     if (!payload.title.trim()) {
-      setError("Task title is required.");
+      setError(t("taskForms.taskTitleRequired"));
       return;
     }
 
@@ -66,7 +68,7 @@ export function TaskCreateForm({
     const result = await response.json().catch(() => null);
 
     if (!response.ok || !result?.data?.task?.id) {
-      setError(result?.error?.message ?? "Task could not be created.");
+      setError(result?.error?.message ?? t("taskForms.taskCreateFailed"));
       return;
     }
 
@@ -79,53 +81,53 @@ export function TaskCreateForm({
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
-        eyebrow="Create task"
-        title={`New task in ${projectName}`}
-        description="Keep the task lightweight. The project and workspace already carry most of the context."
+        eyebrow={t("taskForms.createEyebrow")}
+        title={t("taskForms.createTitle", { name: projectName })}
+        description={t("taskForms.createDescription")}
       />
       <form onSubmit={handleSubmit} className="grid gap-5 px-5 py-5 xl:grid-cols-[minmax(0,1.2fr),minmax(320px,0.8fr)]">
         <div className="space-y-4">
           <div>
-            <label className="section-eyebrow">Title</label>
-            <input name="title" className="input-control mt-2" placeholder="Improve review queue handoff" />
+            <label className="section-eyebrow">{t("taskForms.title")}</label>
+            <input name="title" className="input-control mt-2" placeholder={t("taskForms.titlePlaceholder")} />
           </div>
           <div>
-            <label className="section-eyebrow">Description</label>
+            <label className="section-eyebrow">{t("taskForms.descriptionLabel")}</label>
             <textarea
               name="description"
               className="input-control mt-2 min-h-[180px] resize-none"
-              placeholder="Summarize the work clearly without restating the whole project context."
+              placeholder={t("taskForms.descriptionPlaceholder")}
             />
           </div>
           <div>
-            <label className="section-eyebrow">Tags</label>
-            <input name="tags" className="input-control mt-2" placeholder="UI, Review, Delivery" />
+            <label className="section-eyebrow">{t("taskForms.tags")}</label>
+            <input name="tags" className="input-control mt-2" placeholder={t("taskForms.tagsPlaceholder")} />
           </div>
         </div>
         <div className="space-y-4 rounded-3xl border border-[var(--line)] bg-[var(--surface-subtle)] p-4">
           <div>
-            <label className="section-eyebrow">Status</label>
+            <label className="section-eyebrow">{t("taskForms.status")}</label>
             <select name="status" defaultValue="todo" className="input-control mt-2">
-              <option value="todo">Todo</option>
-              <option value="in_progress">In Progress</option>
-              <option value="review">In Review</option>
-              <option value="blocked">Blocked</option>
-              <option value="done">Done</option>
+              <option value="todo">{t("taskForms.todo")}</option>
+              <option value="in_progress">{t("taskForms.inProgress")}</option>
+              <option value="review">{t("taskForms.inReview")}</option>
+              <option value="blocked">{t("taskForms.blocked")}</option>
+              <option value="done">{t("taskForms.done")}</option>
             </select>
           </div>
           <div>
-            <label className="section-eyebrow">Priority</label>
+            <label className="section-eyebrow">{t("taskForms.priority")}</label>
             <select name="priority" defaultValue="medium" className="input-control mt-2">
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
+              <option value="low">{t("taskForms.low")}</option>
+              <option value="medium">{t("taskForms.medium")}</option>
+              <option value="high">{t("taskForms.high")}</option>
+              <option value="urgent">{t("taskForms.urgent")}</option>
             </select>
           </div>
           <div>
-            <label className="section-eyebrow">Assignee</label>
+            <label className="section-eyebrow">{t("taskForms.assignee")}</label>
             <select name="assigneeId" defaultValue="" className="input-control mt-2">
-              <option value="">Unassigned</option>
+              <option value="">{t("taskForms.unassigned")}</option>
               {assignees.map((assignee) => (
                 <option key={assignee.id} value={assignee.id}>
                   {assignee.label}
@@ -134,9 +136,9 @@ export function TaskCreateForm({
             </select>
           </div>
           <div>
-            <label className="section-eyebrow">Parent task</label>
+            <label className="section-eyebrow">{t("taskForms.parentTask")}</label>
             <select name="parentTaskId" defaultValue="" className="input-control mt-2">
-              <option value="">No parent task</option>
+              <option value="">{t("taskForms.noParentTask")}</option>
               {parentOptions.map((task) => (
                 <option key={task.id} value={task.id}>
                   {task.label}
@@ -146,21 +148,21 @@ export function TaskCreateForm({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="section-eyebrow">Start date</label>
+              <label className="section-eyebrow">{t("taskForms.startDate")}</label>
               <input name="startDate" type="date" className="input-control mt-2" />
             </div>
             <div>
-              <label className="section-eyebrow">Due date</label>
+              <label className="section-eyebrow">{t("taskForms.dueDate")}</label>
               <input name="dueDate" type="date" className="input-control mt-2" />
             </div>
           </div>
           <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4 text-sm leading-7 text-[var(--text-muted)]">
-            Assignee options are intentionally limited to active non-viewer project members so task ownership stays scoped to people or agents who can act.
+            {t("taskForms.assigneeHint")}
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {error ? <span className="text-sm text-rose-600">{error}</span> : <span className="text-sm text-[var(--text-dim)]">Status defaults to Todo unless you choose otherwise.</span>}
+            {error ? <span className="text-sm text-rose-600">{error}</span> : <span className="text-sm text-[var(--text-dim)]">{t("taskForms.defaultStatusHint")}</span>}
             <AppButton type="submit" tone="primary" className={isPending ? "opacity-70" : ""}>
-              {isPending ? "Creating..." : "Create task"}
+              {isPending ? t("taskForms.creating") : t("taskForms.createTask")}
             </AppButton>
           </div>
         </div>

@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { baseUrl, signIn, json, upsertWorkspaceConstructorIntegration } from "./helpers.mjs";
+import {
+  baseUrl,
+  signIn,
+  json,
+  upsertWorkspaceConstructorIntegration,
+  createTemporaryWorkspaceSession,
+  cleanupTemporaryWorkspaceSession
+} from "./helpers.mjs";
 
 function startMockConstructor() {
   const server = http.createServer((_req, res) => {
@@ -94,58 +101,132 @@ async function createProjectAndTask(cookie, suffix, options = {}) {
 }
 
 test("constructor callback accepts unsigned delivery even when a callback token is saved", async () => {
-  const cookie = await signIn();
+  const authCookie = await signIn();
+  const session = await createTemporaryWorkspaceSession(authCookie, "Constructor callback auth test");
+  const cookie = session.cookie;
   const suffix = `${Date.now()}-auth`;
-  const { taskId } = await createProjectAndTask(cookie, suffix);
+  try {
+    const { taskId } = await createProjectAndTask(cookie, suffix);
 
-  const integration = await upsertWorkspaceConstructorIntegration(cookie, {
-    label: "Secured Constructor",
-    baseUrl: "http://127.0.0.1:8787",
-    callbackToken: "constructor-secret-token",
-    enabled: true
-  });
-  assert.equal(integration.response.status, 200);
+    const integration = await upsertWorkspaceConstructorIntegration(cookie, {
+      label: "Secured Constructor",
+      baseUrl: "http://127.0.0.1:8787",
+      callbackToken: "constructor-secret-token",
+      enabled: true
+    });
+    assert.equal(integration.response.status, 200);
 
-  const callbackPayload = {
-    version: "v1",
-    source: "constructor",
-    eventType: "execution.completed",
-    emittedAt: new Date().toISOString(),
-    bridgeExecutionId: `constructor:test-${suffix}`,
-    externalTaskId: `external-${suffix}`,
-    payload: {
-      executionState: "completed",
-      terminalAt: new Date().toISOString(),
-      result: {
-        text: "This should be rejected without the right token."
+    const callbackPayload = {
+      version: "v1",
+      source: "constructor",
+      eventType: "execution.completed",
+      emittedAt: new Date().toISOString(),
+      bridgeExecutionId: `constructor:test-${suffix}`,
+      externalTaskId: `external-${suffix}`,
+      payload: {
+        executionState: "completed",
+        terminalAt: new Date().toISOString(),
+        result: {
+          text: "This should be rejected without the right token."
+        }
       }
-    }
-  };
+    };
 
-  const accepted = await fetch(`${baseUrl}/api/tasks/${taskId}/constructor/callback`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(callbackPayload)
-  });
-  const acceptedPayload = await accepted.json();
+    const accepted = await fetch(`${baseUrl}/api/tasks/${taskId}/constructor/callback`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(callbackPayload)
+    });
+    const acceptedPayload = await accepted.json();
 
-  assert.equal(accepted.status, 200);
-  assert.equal(acceptedPayload.ok, true);
+    assert.equal(accepted.status, 200);
+    assert.equal(acceptedPayload.ok, true);
 
-  const comments = await json(`/api/tasks/${taskId}/comments`, { cookie });
-  assert.equal(comments.response.status, 200);
-  const constructorComments = (comments.payload?.data?.comments ?? []).filter((comment) => comment.tone === "agent");
-  assert.equal(constructorComments.length, 1);
+    const comments = await json(`/api/tasks/${taskId}/comments`, { cookie });
+    assert.equal(comments.response.status, 200);
+    const constructorComments = (comments.payload?.data?.comments ?? []).filter((comment) => comment.tone === "agent");
+    assert.equal(constructorComments.length, 1);
+  } finally {
+    await cleanupTemporaryWorkspaceSession(authCookie, session);
+  }
+});
+
+test("constructor callback strips the known upstream footer before saving task comments", async () => {
+  const authCookie = await signIn();
+  const session = await createTemporaryWorkspaceSession(authCookie, "Constructor callback footer strip test");
+  const cookie = session.cookie;
+  const suffix = `${Date.now()}-footer`;
+  let mock;
+
+  try {
+    const synced = await syncMainConstructorAgent(cookie);
+    mock = synced.mock;
+    const mainAgent = synced.mainAgent;
+
+    const { taskId } = await createProjectAndTask(cookie, suffix, { assigneeId: mainAgent.id });
+
+    const callbackPayload = {
+      version: "v1",
+      source: "constructor",
+      eventType: "execution.completed",
+      emittedAt: new Date().toISOString(),
+      bridgeExecutionId: `constructor:test-${suffix}`,
+      externalTaskId: `external-${suffix}`,
+      payload: {
+        executionState: "completed",
+        terminalAt: new Date().toISOString(),
+        result: {
+          text: "Ship the callback result once.\n\n> Scope kept explicit and simple, based only on the task payload."
+        }
+      },
+      meta: {
+        runtimeName: "constructor",
+        targetAgent: "agent-main"
+      }
+    };
+
+    const response = await fetch(`${baseUrl}/api/tasks/${taskId}/constructor/callback`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(callbackPayload)
+    });
+    const responsePayload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(responsePayload.ok, true);
+
+    const comments = await json(`/api/tasks/${taskId}/comments`, { cookie });
+    assert.equal(comments.response.status, 200);
+
+    const constructorComments = (comments.payload?.data?.comments ?? []).filter(
+      (comment) => comment.tone === "agent"
+    );
+
+    assert.equal(constructorComments.length, 1);
+    assert.equal(constructorComments[0]?.body, "Ship the callback result once.");
+    assert.doesNotMatch(constructorComments[0]?.body ?? "", /Scope kept explicit and simple/i);
+  } finally {
+    mock?.server.close();
+    await cleanupTemporaryWorkspaceSession(authCookie, session);
+  }
 });
 
 test("constructor callback retries do not create duplicate task comments", async () => {
-  const cookie = await signIn();
+  const authCookie = await signIn();
+  const session = await createTemporaryWorkspaceSession(authCookie, "Constructor callback dedupe test");
+  const cookie = session.cookie;
   const suffix = Date.now();
-  const { mock, mainAgent } = await syncMainConstructorAgent(cookie);
+  let mock;
 
   try {
+    const synced = await syncMainConstructorAgent(cookie);
+    mock = synced.mock;
+    const mainAgent = synced.mainAgent;
+
     const { taskId } = await createProjectAndTask(cookie, suffix, { assigneeId: mainAgent.id });
 
     const callbackPayload = {
@@ -211,16 +292,22 @@ test("constructor callback retries do not create duplicate task comments", async
     assert.equal(task.response.status, 200);
     assert.equal(task.payload?.data?.task?.status, "In Review");
   } finally {
-    mock.server.close();
+    mock?.server.close();
+    await cleanupTemporaryWorkspaceSession(authCookie, session);
   }
 });
 
 test("constructor callback uses the responding agent for unassigned tasks and still writes receipt logs", async () => {
-  const cookie = await signIn();
+  const authCookie = await signIn();
+  const session = await createTemporaryWorkspaceSession(authCookie, "Constructor callback unassigned test");
+  const cookie = session.cookie;
   const suffix = `${Date.now()}-unassigned`;
-  const { mock } = await syncMainConstructorAgent(cookie);
+  let mock;
 
   try {
+    const synced = await syncMainConstructorAgent(cookie);
+    mock = synced.mock;
+
     const { taskId } = await createProjectAndTask(cookie, suffix);
 
     const callbackPayload = {
@@ -286,6 +373,7 @@ test("constructor callback uses the responding agent for unassigned tasks and st
       )
     );
   } finally {
-    mock.server.close();
+    mock?.server.close();
+    await cleanupTemporaryWorkspaceSession(authCookie, session);
   }
 });

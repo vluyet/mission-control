@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { WatcherRecord } from "@/lib/demo-data";
+import { useI18n } from "@/components/product/i18n-provider";
 import { AppButton } from "@/components/ui/primitives";
 
 export function TaskWatchersManager({
@@ -15,6 +16,7 @@ export function TaskWatchersManager({
   availableWatchers: WatcherRecord[];
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [selectedIds, setSelectedIds] = useState<string[]>(watchers.map((watcher) => watcher.id));
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -33,7 +35,7 @@ export function TaskWatchersManager({
     });
 
     if (!response.ok) {
-      setError("Watchers could not be updated.");
+      setError(t("taskWatchers.updateFailed"));
       return;
     }
 
@@ -44,8 +46,8 @@ export function TaskWatchersManager({
 
   return (
     <div>
-      <p className="section-eyebrow">Watchers</p>
-      <p className="mt-2 text-sm text-[var(--text-muted)]">Followers can track the task without owning it.</p>
+      <p className="section-eyebrow">{t("taskWatchers.title")}</p>
+      <p className="mt-2 text-sm text-[var(--text-muted)]">{t("taskWatchers.description")}</p>
       <div className="mt-4 space-y-2">
         {availableWatchers.map((watcher) => {
           const selected = selectedIds.includes(watcher.id);
@@ -61,9 +63,9 @@ export function TaskWatchersManager({
         })}
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
-        {error ? <span className="text-xs text-rose-600">{error}</span> : <span className="text-xs text-[var(--text-dim)]">{selectedIds.length} watchers following this task.</span>}
+        {error ? <span className="text-xs text-rose-600">{error}</span> : <span className="text-xs text-[var(--text-dim)]">{t("taskWatchers.count", { count: selectedIds.length })}</span>}
         <AppButton tone="secondary" className="px-3 py-2" disabled={isPending} onClick={save}>
-          {isPending ? "Saving..." : "Save watchers"}
+          {isPending ? t("taskWatchers.saving") : t("taskWatchers.save")}
         </AppButton>
       </div>
     </div>

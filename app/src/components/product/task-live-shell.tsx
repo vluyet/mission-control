@@ -4,20 +4,26 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-function isActiveAgentTask(status: string, assigneeType: string) {
-  return assigneeType === "Agent" && status === "In Progress";
+const TERMINAL_REFRESH_WINDOW_MS = 20_000;
+
+function isAgentTask(rawAssigneeType: string) {
+  return rawAssigneeType === "Agent";
+}
+
+function isActiveAgentTask(rawStatus: string, rawAssigneeType: string) {
+  return isAgentTask(rawAssigneeType) && rawStatus === "In Progress";
 }
 
 export function TaskLiveShell({
   taskId,
-  status,
-  assigneeType,
+  rawStatus,
+  rawAssigneeType,
   assigneeSourceSystem,
   children
 }: {
   taskId: string;
-  status: string;
-  assigneeType: string;
+  rawStatus: string;
+  rawAssigneeType: string;
   assigneeSourceSystem?: string | null;
   children: ReactNode;
 }) {
@@ -25,15 +31,29 @@ export function TaskLiveShell({
   const [, startTransition] = useTransition();
   const intervalRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
+  const stopTimeoutRef = useRef<number | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!isActiveAgentTask(status, assigneeType)) {
+    const clearTimers = () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
       if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+      if (stopTimeoutRef.current) window.clearTimeout(stopTimeoutRef.current);
       controllerRef.current?.abort();
       intervalRef.current = null;
       timeoutRef.current = null;
+      stopTimeoutRef.current = null;
+    };
+
+    if (!isAgentTask(rawAssigneeType)) {
+      clearTimers();
+      return;
+    }
+
+    const shouldKeepRefreshing = isActiveAgentTask(rawStatus, rawAssigneeType) || assigneeSourceSystem === "constructor";
+
+    if (!shouldKeepRefreshing) {
+      clearTimers();
       return;
     }
 
@@ -56,6 +76,7 @@ export function TaskLiveShell({
                 ok?: boolean;
                 data?: {
                   tracked?: boolean;
+                  active?: boolean;
                   refresh?: boolean;
                 };
               }
@@ -64,6 +85,17 @@ export function TaskLiveShell({
           if (response.ok && payload?.ok && payload.data?.tracked) {
             if (payload.data.refresh) {
               refresh();
+            }
+
+            if (!payload.data.active) {
+              if (!stopTimeoutRef.current) {
+                stopTimeoutRef.current = window.setTimeout(() => {
+                  clearTimers();
+                }, TERMINAL_REFRESH_WINDOW_MS);
+              }
+            } else if (stopTimeoutRef.current) {
+              window.clearTimeout(stopTimeoutRef.current);
+              stopTimeoutRef.current = null;
             }
             return;
           }
@@ -88,13 +120,9 @@ export function TaskLiveShell({
     }, 5000);
 
     return () => {
-      if (intervalRef.current) window.clearInterval(intervalRef.current);
-      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-      controllerRef.current?.abort();
-      intervalRef.current = null;
-      timeoutRef.current = null;
+      clearTimers();
     };
-  }, [assigneeSourceSystem, assigneeType, router, startTransition, status, taskId]);
+  }, [assigneeSourceSystem, rawAssigneeType, rawStatus, router, startTransition, taskId]);
 
   return <>{children}</>;
 }

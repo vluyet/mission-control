@@ -1,5 +1,6 @@
 import { error, ok } from "@/lib/api-response";
 import { resolveApiActor } from "@/lib/api-auth";
+import { getApiT } from "@/lib/api-i18n";
 import {
   dispatchMissionControlTaskToConstructor,
   getLatestConstructorSession
@@ -17,6 +18,7 @@ export async function GET(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "comments.read");
 
   if (!auth.ok) {
@@ -26,7 +28,7 @@ export async function GET(
   const task = await getTaskResourceFromDb(params.taskId);
 
   if (!task) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   return ok({
@@ -45,9 +47,12 @@ function extractMentionNames(body: string) {
   );
 }
 
-function formatQuotedComment(comment: TaskCommentRecord) {
-  const author = comment.author?.trim() || "Unknown";
-  const role = comment.role?.trim() || "Comment";
+function formatQuotedComment(
+  comment: TaskCommentRecord,
+  t: Awaited<ReturnType<typeof getApiT>>
+) {
+  const author = comment.author?.trim() || t("api.unknownCommentAuthor");
+  const role = comment.role?.trim() || t("api.commentRoleFallback");
   return `${author} (${role}):\n${comment.body.trim()}`;
 }
 
@@ -58,25 +63,35 @@ function buildMentionDispatchInstruction(input: {
   commentBody: string;
   latestAgentComment?: TaskCommentRecord | null;
   recentComments?: TaskCommentRecord[];
+  t: Awaited<ReturnType<typeof getApiT>>;
 }) {
   const recentContext = (input.recentComments ?? [])
     .slice(-4)
-    .map((comment) => formatQuotedComment(comment))
+    .map((comment) => formatQuotedComment(comment, input.t))
     .join("\n\n---\n\n");
 
   return [
-    "You are continuing an existing Mission Control task after a new human follow-up comment.",
-    `Original task title: ${input.taskTitle}`,
-    `Original requested deliverable:\n${input.taskDescription.trim()}`,
+    input.t("commentFollowUpDispatch.intro"),
+    input.t("commentFollowUpDispatch.originalTaskTitle", { value: input.taskTitle }),
+    input.t("commentFollowUpDispatch.originalRequestedDeliverable", {
+      value: input.taskDescription.trim()
+    }),
     input.latestAgentComment
-      ? `Latest agent draft/output to revise:\n${input.latestAgentComment.body.trim()}`
+      ? input.t("commentFollowUpDispatch.latestAgentDraft", {
+          value: input.latestAgentComment.body.trim()
+        })
       : null,
-    recentContext ? `Recent task comments:\n${recentContext}` : null,
-    `Latest human follow-up from ${input.author}:\n${input.commentBody.trim()}`,
-    "Treat the human comment as feedback or a revision request on the existing task, not as a brand new blank request.",
-    "Use the original task goal and the latest draft/output above to produce the revised final answer directly.",
-    "Reply with the improved deliverable itself so Mission Control can post it as the next task comment.",
-    "If something important is genuinely missing, say exactly what is missing in one short sentence."
+    recentContext
+      ? input.t("commentFollowUpDispatch.recentTaskComments", { value: recentContext })
+      : null,
+    input.t("commentFollowUpDispatch.latestHumanFollowUp", {
+      author: input.author,
+      value: input.commentBody.trim()
+    }),
+    input.t("commentFollowUpDispatch.treatAsRevision"),
+    input.t("commentFollowUpDispatch.useOriginalGoal"),
+    input.t("commentFollowUpDispatch.replyWithDeliverable"),
+    input.t("commentFollowUpDispatch.missingInfoShort")
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -86,6 +101,7 @@ export async function POST(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "comments.write");
 
   if (!auth.ok) {
@@ -95,7 +111,7 @@ export async function POST(
   const task = await getTaskResourceFromDb(params.taskId);
 
   if (!task) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   const body = (await request.json().catch(() => null)) as
@@ -108,30 +124,30 @@ export async function POST(
     | null;
 
   if ((!body?.author || !body?.role || !body?.tone) && auth.actor.type !== "agent") {
-    return error("Missing required fields", 422, {
+    return error(t("api.missingRequiredFields"), 422, {
       required: ["author", "role", "tone", "body"]
     });
   }
   if (!body?.body) {
-    return error("Missing required fields", 422, {
+    return error(t("api.missingRequiredFields"), 422, {
       required: ["body"]
     });
   }
 
   const comment = await createCommentInDb(params.taskId, {
     author: auth.actor.type === "agent" ? auth.actor.label : body.author!,
-    role: auth.actor.type === "agent" ? "Agent" : body.role!,
+    role: auth.actor.type === "agent" ? t("api.agentRole") : body.role!,
     tone: auth.actor.type === "agent" ? "agent" : body.tone!,
     body: body.body,
     membershipId: auth.actor.type === "agent" ? auth.actor.membershipId : undefined
   });
 
   if (!comment) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   if ("error" in comment) {
-    return error("This agent is not allowed to comment.", 403, {
+    return error(t("api.agentNotAllowedToComment"), 403, {
       code: comment.error
     });
   }
@@ -165,12 +181,13 @@ export async function POST(
       requestUrl: request.url,
       taskId: params.taskId,
       instruction: buildMentionDispatchInstruction({
-        taskTitle: task.task.title ?? "Untitled task",
+        taskTitle: task.task.title ?? t("api.untitledTask"),
         taskDescription: task.task.description?.trim() || body.body.trim(),
         author: authorName,
         commentBody: body.body,
         latestAgentComment,
-        recentComments
+        recentComments,
+        t
       }),
       sessionId: latestSession?.sessionId ?? null,
       externalTaskId: `mc-task-${params.taskId}-comment-${comment.id}`,

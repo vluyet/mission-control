@@ -1,12 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import type { AttachmentRecord, Comment, ContextBlock, TaskRecord, TimelineEvent, WatcherRecord } from "@/lib/demo-data";
 import type { ResolvedTaskContext } from "@/lib/context-resolver";
-import { MessageIcon, PaperclipIcon } from "@/components/ui/icons";
+import { MessageIcon } from "@/components/ui/icons";
 import { Panel, PanelHeader, PriorityBadge, StatusBadge } from "@/components/ui/primitives";
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
 import { TaskConstructorDispatchCard } from "@/components/product/task-constructor-dispatch-card";
 import { TaskAttachmentsPanel } from "@/components/product/task-attachments-panel";
+import { useI18n } from "@/components/product/i18n-provider";
 
 function MetadataItem({
   label,
@@ -41,14 +44,19 @@ function SidebarSection({ title, children, defaultOpen = true }: { title: string
 }
 
 function QuickActions({ task }: { task: TaskRecord }) {
+  const { t } = useI18n();
+  const rawAssigneeType = task.rawAssigneeType ?? task.assigneeType;
+  const isAgentTask = rawAssigneeType === "Agent";
+
   return (
     <div className="space-y-4">
       <TaskStatusActions
         taskId={task.id}
         currentStatus={task.status}
+        rawStatus={task.rawStatus ?? task.status}
         blockedReason={task.blockedReason}
         actorType="human"
-        title="Quick actions"
+        title={t("taskWorkspace.quickActions")}
         hideHeader
         options={task.humanTransitionOptions ?? []}
       />
@@ -56,7 +64,7 @@ function QuickActions({ task }: { task: TaskRecord }) {
         href={`/tasks/${task.id}/edit`}
         className="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
       >
-        Update task
+        {t("taskWorkspace.updateTask")}
       </Link>
     </div>
   );
@@ -102,6 +110,10 @@ export function TaskWorkspace({
   availableWatchers?: WatcherRecord[];
   compact?: boolean;
 }) {
+  const { t } = useI18n();
+  const rawAssigneeType = task.rawAssigneeType ?? task.assigneeType;
+  const isAgentTask = rawAssigneeType === "Agent";
+
   return (
     <Panel className="border border-white/70 bg-white/90 shadow-[0_18px_60px_rgba(15,23,42,0.05)]" data-testid="task-workspace-root">
       <div className={`grid gap-0 ${compact ? "2xl:grid-cols-[minmax(0,1fr),360px]" : "xl:grid-cols-[minmax(0,1fr),360px]"}`}>
@@ -121,16 +133,16 @@ export function TaskWorkspace({
             </div>
 
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <MetadataItem label="Assignee" value={task.assignee} />
-              <MetadataItem label="Priority" value={task.priority} />
-              <MetadataItem label="Due date" value={task.due} />
-              <MetadataItem label="Labels">
+              <MetadataItem label={t("taskWorkspace.assignee")} value={task.assignee} />
+              <MetadataItem label={t("common.priority")} value={task.priority} />
+              <MetadataItem label={t("taskWorkspace.dueDate")} value={task.due} />
+              <MetadataItem label={t("taskWorkspace.labels")}>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {task.tags.length ? task.tags.map((tag) => (
                     <span key={tag} className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600">
                       {tag}
                     </span>
-                  )) : <span className="text-sm text-slate-500">No labels</span>}
+                  )) : <span className="text-sm text-slate-500">{t("taskWorkspace.noLabels")}</span>}
                 </div>
               </MetadataItem>
             </div>
@@ -138,17 +150,17 @@ export function TaskWorkspace({
 
           <section className="mt-8">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Task description</h2>
+              <h2 className="text-base font-semibold text-slate-900">{t("taskWorkspace.taskDescription")}</h2>
             </div>
             <div className="mt-4 rounded-3xl border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.03)]">
               <p className="whitespace-pre-wrap break-words text-[15px] leading-7 text-slate-600">
-                {task.description || "No task description yet."}
+                {task.description || t("taskWorkspace.noTaskDescriptionYet")}
               </p>
             </div>
           </section>
 
           <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.03)]">
-            <PanelHeader eyebrow="Discussion" title="Comments and activity" />
+            <PanelHeader eyebrow={t("taskWorkspace.discussion")} title={t("taskWorkspace.commentsAndActivity")} />
             <TaskCommentsPanel
               taskId={task.id}
               comments={comments}
@@ -159,40 +171,40 @@ export function TaskWorkspace({
         </div>
 
         <aside className="space-y-5 bg-slate-50/70 p-5">
-          {task.assigneeType === "Agent" ? (
-            <SidebarSection title="Agent run">
+          {isAgentTask ? (
+            <SidebarSection title={t("taskWorkspace.agentRun")}>
               <AgentDispatchBlock task={task} />
             </SidebarSection>
           ) : null}
 
-          <SidebarSection title="Quick actions">
+          <SidebarSection title={t("taskWorkspace.quickActions")}>
             <QuickActions task={task} />
           </SidebarSection>
 
-          <SidebarSection title="Attachments" defaultOpen={false}>
+          <SidebarSection title={t("taskWorkspace.attachments")} defaultOpen={false}>
             <TaskAttachmentsPanel
               taskId={task.id}
               attachments={attachments}
-              agentActorName={task.assigneeType === "Agent" ? task.assignee : undefined}
-              agentActorEnabled={task.assigneeType === "Agent" ? task.assigneeEnabled ?? false : false}
+              agentActorName={isAgentTask ? task.assignee : undefined}
+              agentActorEnabled={isAgentTask ? task.assigneeEnabled ?? false : false}
             />
           </SidebarSection>
 
           {(watchers.length || resolvedContext) ? (
-            <SidebarSection title="Support" defaultOpen={false}>
+            <SidebarSection title={t("taskWorkspace.support")} defaultOpen={false}>
               <div className="space-y-3">
                 {watchers.length ? (
                   <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
                     <div className="flex items-center gap-2">
                       <MessageIcon className="h-4 w-4 text-slate-400" />
-                      <p className="text-sm font-semibold text-slate-900">Watchers</p>
+                      <p className="text-sm font-semibold text-slate-900">{t("taskWorkspace.watchers")}</p>
                     </div>
                     <p className="mt-2 text-sm text-slate-600">{watchers.map((watcher) => watcher.name).join(", ")}</p>
                   </div>
                 ) : null}
                 {resolvedContext ? (
                   <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
-                    Context inheritance is enabled for this task.
+                    {t("taskWorkspace.contextInheritanceEnabled")}
                   </div>
                 ) : null}
               </div>

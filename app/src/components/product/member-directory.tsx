@@ -1,9 +1,11 @@
 import { Member } from "@/lib/demo-data";
 import Link from "next/link";
+import { useI18n } from "@/components/product/i18n-provider";
 import { Panel, PanelHeader } from "@/components/ui/primitives";
 import { AgentEnabledToggle } from "@/components/product/agent-enabled-toggle";
 
 function MemberTypeBadge({ type }: { type: Member["type"] }) {
+  const { t } = useI18n();
   return (
     <span
       className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
@@ -12,47 +14,49 @@ function MemberTypeBadge({ type }: { type: Member["type"] }) {
           : "border-slate-200 bg-slate-50 text-slate-700"
       }`}
     >
-      {type}
+      {type === "Agent" ? t("memberDirectory.agent") : t("memberDirectory.human")}
     </span>
   );
 }
 
 function MemberStateBadge({ active }: { active: boolean }) {
+  const { t } = useI18n();
   return (
     <span
       className={`rounded-full px-2.5 py-1 text-xs font-medium ${
         active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
       }`}
     >
-      {active ? "Enabled" : "Disabled"}
+      {active ? t("memberDirectory.enabled") : t("memberDirectory.disabled")}
     </span>
   );
 }
 
 export function MemberDirectory({ items }: { items: Member[] }) {
+  const { t } = useI18n();
   const humanCount = items.filter((member) => member.type === "Human").length;
   const agentCount = items.filter((member) => member.type === "Agent").length;
 
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
-        eyebrow="Directory"
-        title="Workspace members"
-        description={`Compact member directory with ${humanCount} human${humanCount === 1 ? "" : "s"} and ${agentCount} agent${agentCount === 1 ? "" : "s"}.`}
+        eyebrow={t("memberDirectory.directory")}
+        title={t("memberDirectory.workspaceMembers")}
+        description={t("memberDirectory.description", { humanCount, agentCount })}
       />
       {!items.length ? (
         <div className="border-t border-[var(--line)] px-5 py-5">
           <div className="rounded-3xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] p-5">
-            <h3 className="text-sm font-semibold text-[var(--text-strong)]">No members yet</h3>
+            <h3 className="text-sm font-semibold text-[var(--text-strong)]">{t("memberDirectory.noMembersYet")}</h3>
             <p className="mt-2 text-sm leading-7 text-[var(--text-muted)]">
-              Add people or sync agents before assigning work. Once members exist, this page becomes the quickest way to scan who is available.
+              {t("memberDirectory.noMembersDescription")}
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
                 href="/manage-workspace"
                 className="inline-flex items-center rounded-full border border-[var(--line)] bg-white px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition hover:border-[var(--line-strong)]"
               >
-                Manage workspace
+                {t("memberDirectory.manageWorkspace")}
               </Link>
             </div>
           </div>
@@ -60,11 +64,11 @@ export function MemberDirectory({ items }: { items: Member[] }) {
       ) : (
         <>
           <div className="task-table-header">
-            <span>Member</span>
-            <span>Type</span>
-            <span>Load</span>
-            <span>Projects</span>
-            <span>State</span>
+            <span>{t("memberDirectory.member")}</span>
+            <span>{t("memberDirectory.type")}</span>
+            <span>{t("memberDirectory.load")}</span>
+            <span>{t("memberDirectory.projects")}</span>
+            <span>{t("memberDirectory.state")}</span>
           </div>
           <div className="divide-y divide-[var(--line)]">
             {items.map((member) => (
@@ -103,7 +107,7 @@ export function MemberDirectory({ items }: { items: Member[] }) {
                       {member.projects.length > 2 ? <span>+{member.projects.length - 2}</span> : null}
                     </>
                   ) : (
-                    <span>No projects</span>
+                    <span>{t("memberDirectory.noProjects")}</span>
                   )}
                 </div>
                 <div className="flex items-center justify-end gap-2">

@@ -3,6 +3,7 @@ import { resolveApiActor } from "@/lib/api-auth";
 import { fetchConstructorTaskSummary, type ConstructorTaskSummaryItem } from "@/lib/constructor";
 import { db } from "@/lib/db";
 import { appendSystemExecutionLogInDb } from "@/lib/server-data";
+import { getApiT } from "@/lib/api-i18n";
 
 type ConstructorTracking = {
   bridgeExecutionId: string | null;
@@ -91,20 +92,20 @@ function mapExecutionStatus(value: string | null | undefined) {
   }
 }
 
-function getBlockedReason(value: string | null | undefined) {
+function getBlockedReason(value: string | null | undefined, t: Awaited<ReturnType<typeof getApiT>>) {
   switch (value) {
     case "failed":
-      return "Constructor execution failed.";
+      return t("api.constructorExecutionFailed");
     case "timed_out":
-      return "Constructor execution timed out.";
+      return t("api.constructorExecutionTimedOut");
     case "canceled":
-      return "Constructor execution was canceled.";
+      return t("api.constructorExecutionCanceled");
     default:
       return null;
   }
 }
 
-function getTaskPatchForExecutionState(value: string | null | undefined) {
+function getTaskPatchForExecutionState(value: string | null | undefined, t: Awaited<ReturnType<typeof getApiT>>) {
   switch (value) {
     case "queued":
     case "dispatching":
@@ -115,7 +116,7 @@ function getTaskPatchForExecutionState(value: string | null | undefined) {
     case "failed":
     case "timed_out":
     case "canceled":
-      return { status: "blocked" as const, blockedReason: getBlockedReason(value) };
+      return { status: "blocked" as const, blockedReason: getBlockedReason(value, t) };
     default:
       return null;
   }
@@ -150,6 +151,7 @@ export async function GET(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "execution.read");
 
   if (!auth.ok) {
@@ -187,7 +189,7 @@ export async function GET(
   });
 
   if (!task) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   const latestExecution = task.executions[0] ?? null;
@@ -218,7 +220,7 @@ export async function GET(
   const apiToken = integration?.apiToken?.trim() || process.env.CONSTRUCTOR_API_TOKEN?.trim() || null;
 
   if (!apiToken) {
-    return error("Constructor API token is required before polling task status.", 409, {
+    return error(t("api.constructorPollingApiTokenRequired"), 409, {
       code: "CONSTRUCTOR_API_TOKEN_REQUIRED"
     });
   }
@@ -233,7 +235,7 @@ export async function GET(
       externalTaskId: tracking.externalTaskId ?? undefined
     });
   } catch {
-    return error("Constructor is unreachable.", 502, {
+    return error(t("api.constructorUnreachable"), 502, {
       code: "CONSTRUCTOR_UNREACHABLE",
       constructorBaseUrl: baseUrl
     });
@@ -251,7 +253,7 @@ export async function GET(
   }
 
   if (!summaryResult.response.ok || !upstreamJson?.item) {
-    const detail = upstreamJson?.message ?? upstreamJson?.error ?? `Constructor task lookup failed with status ${summaryResult.response.status}.`;
+    const detail = upstreamJson?.message ?? upstreamJson?.error ?? `${t("api.constructorTaskLookupFailed")} ${summaryResult.response.status}.`;
 
     return error(detail, 502, {
       code: upstreamJson?.error ?? "CONSTRUCTOR_STATUS_LOOKUP_FAILED",
@@ -271,7 +273,7 @@ export async function GET(
 
   const nextExecutionStatus = mapExecutionStatus(item.executionState);
   const nextExecutionSummary = getExecutionSummary(item);
-  const nextExecutionBlockedReason = getBlockedReason(item.executionState);
+  const nextExecutionBlockedReason = getBlockedReason(item.executionState, t);
 
   if (latestExecution?.id) {
     const executionPatch: {
@@ -301,7 +303,7 @@ export async function GET(
     }
   }
 
-  const nextTaskPatch = getTaskPatchForExecutionState(item.executionState);
+  const nextTaskPatch = getTaskPatchForExecutionState(item.executionState, t);
 
   if (
     nextTaskPatch &&

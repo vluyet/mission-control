@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { TaskStatus } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
@@ -6,9 +7,14 @@ import {
   appendSystemExecutionLogInDb,
   createCommentInDb
 } from "@/lib/server-data";
+import { getApiT } from "@/lib/api-i18n";
 
 type CallbackTaskRecord = {
-  project: { workspaceId: string };
+  id: string;
+  project: {
+    workspaceId: string;
+    slug: string;
+  };
   assignee: {
     id: string;
     name: string;
@@ -70,29 +76,41 @@ function extractResultText(payload: unknown): string | null {
   return null;
 }
 
-function formatCallbackComment(event: Record<string, unknown>) {
+function stripKnownConstructorFooter(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const sanitized = value
+    .replace(/(?:\r?\n\s*){1,}>\s*Scope kept explicit and simple, based only on the task payload\.\s*$/i, "")
+    .trim();
+
+  return sanitized || null;
+}
+
+function formatCallbackComment(event: Record<string, unknown>, t: Awaited<ReturnType<typeof getApiT>>) {
   const eventType = typeof event.eventType === "string" ? event.eventType : "execution.unknown";
   const payload = event.payload && typeof event.payload === "object" ? (event.payload as Record<string, unknown>) : {};
-  const resultText = extractResultText(payload.result);
-  const errorText = extractResultText(payload.error);
+  const resultText = stripKnownConstructorFooter(extractResultText(payload.result));
+  const errorText = stripKnownConstructorFooter(extractResultText(payload.error));
 
   if (eventType === "execution.completed") {
-    return resultText ?? "Task completed, but no result text was included in the callback payload.";
+    return resultText ?? t("api.callbackCompletedWithoutResult");
   }
 
   if (eventType === "execution.failed") {
-    return errorText ?? "The execution failed before a final answer was returned.";
+    return errorText ?? t("api.callbackFailedWithoutFinalAnswer");
   }
 
   if (eventType === "execution.timed_out") {
-    return errorText ?? "Constructor execution timed out.";
+    return errorText ?? t("api.constructorExecutionTimedOut");
   }
 
   if (eventType === "execution.canceled") {
-    return errorText ?? "Constructor execution was canceled.";
+    return errorText ?? t("api.constructorExecutionCanceled");
   }
 
-  return resultText ?? errorText ?? "Constructor sent a terminal update without a final answer.";
+  return resultText ?? errorText ?? t("api.callbackTerminalWithoutFinalAnswer");
 }
 
 function extractDispatchTargetAgent(logs: Array<{ line: string }>) {
@@ -107,12 +125,13 @@ function extractDispatchTargetAgent(logs: Array<{ line: string }>) {
 }
 
 async function resolveCallbackCommentAuthor(task: CallbackTaskRecord, event: Record<string, unknown>) {
+  const t = await getApiT();
   const assignee = task.assignee;
 
   if (assignee?.kind === "agent" && assignee.sourceSystem === "constructor") {
     return {
       author: assignee.name,
-      role: assignee.roleLabel ?? "Agent",
+      role: assignee.roleLabel ?? t("membersServer.agent"),
       membershipId: assignee.id
     } satisfies CallbackCommentAuthor;
   }
@@ -141,7 +160,7 @@ async function resolveCallbackCommentAuthor(task: CallbackTaskRecord, event: Rec
     if (membership) {
       return {
         author: membership.name,
-        role: membership.roleLabel ?? "Agent",
+        role: membership.roleLabel ?? t("membersServer.agent"),
         membershipId: membership.id
       } satisfies CallbackCommentAuthor;
     }
@@ -149,12 +168,12 @@ async function resolveCallbackCommentAuthor(task: CallbackTaskRecord, event: Rec
 
   return {
     author: "Constructor",
-    role: "Agent",
+    role: t("membersServer.agent"),
     membershipId: null
   } satisfies CallbackCommentAuthor;
 }
 
-function getCallbackTaskPatch(event: Record<string, unknown>): Prisma.TaskUpdateInput | null {
+function getCallbackTaskPatch(event: Record<string, unknown>, t: Awaited<ReturnType<typeof getApiT>>): Prisma.TaskUpdateInput | null {
   const eventType = typeof event.eventType === "string" ? event.eventType : "execution.unknown";
 
   if (eventType === "execution.completed") {
@@ -162,15 +181,15 @@ function getCallbackTaskPatch(event: Record<string, unknown>): Prisma.TaskUpdate
   }
 
   if (eventType === "execution.failed") {
-    return { status: TaskStatus.blocked, blockedReason: "Constructor execution failed." };
+    return { status: TaskStatus.blocked, blockedReason: t("api.constructorExecutionFailed") };
   }
 
   if (eventType === "execution.timed_out") {
-    return { status: TaskStatus.blocked, blockedReason: "Constructor execution timed out." };
+    return { status: TaskStatus.blocked, blockedReason: t("api.constructorExecutionTimedOut") };
   }
 
   if (eventType === "execution.canceled") {
-    return { status: TaskStatus.blocked, blockedReason: "Constructor execution was canceled." };
+    return { status: TaskStatus.blocked, blockedReason: t("api.constructorExecutionCanceled") };
   }
 
   return null;
@@ -207,13 +226,16 @@ async function claimCallbackReceipt(taskId: string, source: string, eventType: s
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ taskId: string }> }) {
+  const t = await getApiT();
   const { taskId } = await params;
   const task = await db.task.findUnique({
     where: { id: taskId },
     select: {
+      id: true,
       project: {
         select: {
-          workspaceId: true
+          workspaceId: true,
+          slug: true
         }
       },
       assignee: {
@@ -242,17 +264,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   });
 
   if (!task) {
-    return NextResponse.json({ ok: false, error: { message: "Task not found" } }, { status: 404 });
+    return NextResponse.json({ ok: false, error: { message: t("api.taskNotFound") } }, { status: 404 });
   }
 
   const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 
   if (!payload || typeof payload !== "object") {
-    return NextResponse.json({ ok: false, error: { message: "Invalid callback payload" } }, { status: 400 });
+    return NextResponse.json({ ok: false, error: { message: t("api.invalidCallbackPayload") } }, { status: 400 });
   }
 
-  const commentBody = formatCallbackComment(payload);
-  const taskPatch = getCallbackTaskPatch(payload);
+  const commentBody = formatCallbackComment(payload, t);
+  const taskPatch = getCallbackTaskPatch(payload, t);
   const bridgeExecutionId = typeof payload.bridgeExecutionId === "string" ? payload.bridgeExecutionId : null;
   const eventType = typeof payload.eventType === "string" ? payload.eventType : "execution.unknown";
   const source = typeof payload.source === "string" ? payload.source : "constructor";
@@ -292,8 +314,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   });
 
   if (!comment || "error" in comment) {
-    return NextResponse.json({ ok: false, error: { message: "Failed to write callback comment" } }, { status: 500 });
+    return NextResponse.json({ ok: false, error: { message: t("api.callbackCommentWriteFailed") } }, { status: 500 });
   }
+
+  revalidatePath(`/tasks/${task.id}`);
+  revalidatePath(`/projects/${task.project.slug}/tasks/${task.id}`);
+  revalidatePath(`/projects/${task.project.slug}`);
+  revalidatePath("/my-tasks");
+  revalidatePath("/queue");
 
   return NextResponse.json({ ok: true, commentId: comment.id });
 }

@@ -20,8 +20,8 @@ export default async function ProjectTaskPage({
   return (
     <TaskLiveShell
       taskId={taskWorkspace.task.id}
-      status={taskWorkspace.task.status}
-      assigneeType={taskWorkspace.task.assigneeType}
+      rawStatus={taskWorkspace.task.rawStatus ?? taskWorkspace.task.status}
+      rawAssigneeType={taskWorkspace.task.rawAssigneeType ?? taskWorkspace.task.assigneeType}
       assigneeSourceSystem={taskWorkspace.task.assigneeSourceSystem}
     >
       <TaskWorkspace

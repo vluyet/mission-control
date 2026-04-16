@@ -1,6 +1,7 @@
 import { error, ok } from "@/lib/api-response";
 import { createAttachmentInDb, getTaskAttachmentsFromDb, getTaskResourceFromDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
+import { getApiT } from "@/lib/api-i18n";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,7 @@ export async function GET(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "attachments.read");
 
   if (!auth.ok) {
@@ -17,7 +19,7 @@ export async function GET(
   const task = await getTaskResourceFromDb(params.taskId);
 
   if (!task) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   return ok({
@@ -30,6 +32,7 @@ export async function POST(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "attachments.write");
 
   if (!auth.ok) {
@@ -39,7 +42,7 @@ export async function POST(
   const task = await getTaskResourceFromDb(params.taskId);
 
   if (!task) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   const formData = await request.formData().catch(() => null);
@@ -53,7 +56,7 @@ export async function POST(
         : "human";
 
   if (!(file instanceof File) || !file.size) {
-    return error("A file is required", 422, {
+    return error(t("api.fileRequired"), 422, {
       code: "FILE_REQUIRED"
     });
   }
@@ -71,11 +74,11 @@ export async function POST(
   });
 
   if (!attachment) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   if ("error" in attachment) {
-    return error("Agent upload is not allowed for this actor.", 422, {
+    return error(t("api.agentUploadNotAllowed"), 422, {
       code: attachment.error
     });
   }

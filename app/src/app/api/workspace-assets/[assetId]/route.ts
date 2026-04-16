@@ -1,4 +1,5 @@
 import { error } from "@/lib/api-response";
+import { getApiT } from "@/lib/api-i18n";
 import { getWorkspaceAssetDownloadFromDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
 
@@ -8,6 +9,7 @@ export async function GET(
   request: Request,
   { params }: { params: { assetId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "workspaces.read");
 
   if (!auth.ok) {
@@ -17,7 +19,7 @@ export async function GET(
   const asset = await getWorkspaceAssetDownloadFromDb(params.assetId);
 
   if (!asset) {
-    return error("Workspace asset not found", 404, {
+    return error(t("api.workspaceAssetNotFound"), 404, {
       assetId: params.assetId
     });
   }

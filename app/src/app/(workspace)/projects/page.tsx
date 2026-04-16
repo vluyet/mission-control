@@ -1,40 +1,43 @@
 import { getProjectsForUi } from "@/lib/server-data";
 import { EmptyState, PageHeader, ProjectGrid } from "@/components/product/workspace-ui";
 import { AppButton } from "@/components/ui/primitives";
+import { getRequestI18n } from "@/lib/i18n/server";
 
 export default async function ProjectsPage({
   searchParams
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
+  const { t } = await getRequestI18n();
   const includeArchived = searchParams?.scope === "all" || searchParams?.scope === "archived";
+  const archivedLabel = t("projectsServer.archived");
   const projectList = await getProjectsForUi({ includeArchived });
   const filteredProjects =
     searchParams?.scope === "archived"
-      ? projectList.filter((project) => project.lifecycle === "Archived")
+      ? projectList.filter((project) => project.lifecycle === archivedLabel)
       : searchParams?.scope === "all"
         ? projectList
-        : projectList.filter((project) => project.lifecycle !== "Archived");
+        : projectList.filter((project) => project.lifecycle !== archivedLabel);
 
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Projects"
-        title="Projects"
-        description="Active workspaces and their current task load."
+        eyebrow={t("nav.projects")}
+        title={t("nav.projects")}
+        description={t("projectsPage.description")}
         actions={
           <>
             <AppButton tone="secondary" href="/projects">
-              Active
+              {t("projectsPage.active")}
             </AppButton>
             <AppButton tone="secondary" href="/projects?scope=all">
-              All
+              {t("projectsPage.all")}
             </AppButton>
             <AppButton tone="secondary" href="/projects?scope=archived">
-              Archived
+              {t("projectForms.archived")}
             </AppButton>
             <AppButton tone="primary" href="/projects/new">
-              New project
+              {t("projectsPage.newProject")}
             </AppButton>
           </>
         }
@@ -43,11 +46,11 @@ export default async function ProjectsPage({
         <ProjectGrid items={filteredProjects} />
       ) : (
         <EmptyState
-          title="No projects"
-          description="Create the first project when you are ready to organize work."
+          title={t("projectsPage.noProjects")}
+          description={t("projectsPage.noProjectsDescription")}
           action={
             <AppButton tone="primary" href="/projects/new">
-              Create first project
+              {t("projectsPage.createFirstProject")}
             </AppButton>
           }
         />

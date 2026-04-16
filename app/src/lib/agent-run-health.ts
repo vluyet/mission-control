@@ -1,4 +1,7 @@
 import type { TaskRecord } from "@/lib/demo-data";
+import { createTranslator } from "@/lib/i18n/translator";
+import { en } from "@/lib/i18n/messages/en";
+import type { Messages } from "@/lib/i18n/messages";
 
 export type AgentRunHealth = {
   bucket: "review" | "blocked" | "fresh" | "aging" | "stale" | "idle";
@@ -8,35 +11,39 @@ export type AgentRunHealth = {
   needsAttention: boolean;
 };
 
-function formatDistance(updatedAt?: string) {
+function formatDistance(updatedAt?: string, t: (key: string, params?: Record<string, string | number | boolean>) => string = createTranslator(en)) {
   if (!updatedAt) return null;
   const diffMs = Date.now() - new Date(updatedAt).getTime();
   if (!Number.isFinite(diffMs)) return null;
   const minutes = Math.max(0, Math.round(diffMs / 60000));
-  if (minutes <= 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes <= 1) return t("agentRunHealth.justNow");
+  if (minutes < 60) return t("agentRunHealth.minutesAgo", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
+  if (hours < 24) return t("agentRunHealth.hoursAgo", { count: hours });
+  return t("agentRunHealth.daysAgo", { count: Math.round(hours / 24) });
 }
 
-export function getAgentRunHealth(task: TaskRecord, latestUpdatedAt?: string): AgentRunHealth {
+export function getAgentRunHealth(
+  task: TaskRecord,
+  latestUpdatedAt?: string,
+  t: (key: string, params?: Record<string, string | number | boolean>) => string = createTranslator(en)
+): AgentRunHealth {
   const updatedAt = latestUpdatedAt ?? task.updatedAt;
   const diffMs = updatedAt ? Date.now() - new Date(updatedAt).getTime() : Number.NaN;
   const minutes = Number.isFinite(diffMs) ? Math.max(0, Math.round(diffMs / 60000)) : null;
-  const distance = formatDistance(updatedAt);
+  const distance = formatDistance(updatedAt, t);
 
   if (task.status === "In Review" || (task.status === "Done" && task.assigneeType === "Agent")) {
     return {
       bucket: "review",
-      label: task.status === "Done" ? "Completed" : "Ready for review",
+      label: task.status === "Done" ? t("agentRunHealth.completed") : t("agentRunHealth.readyForReview"),
       detail: distance
         ? task.status === "Done"
-          ? `Agent work is complete · updated ${distance}`
-          : `Completed and waiting on human · updated ${distance}`
+          ? t("agentRunHealth.agentWorkCompleteUpdated", { distance })
+          : t("agentRunHealth.completedWaitingOnHumanUpdated", { distance })
         : task.status === "Done"
-          ? "Agent work is complete"
-          : "Completed and waiting on human",
+          ? t("agentRunHealth.agentWorkComplete")
+          : t("agentRunHealth.completedWaitingOnHuman"),
       accentClass: "border-amber-200 bg-amber-50 text-amber-800",
       needsAttention: task.status !== "Done"
     };
@@ -45,8 +52,8 @@ export function getAgentRunHealth(task: TaskRecord, latestUpdatedAt?: string): A
   if (task.status === "Blocked") {
     return {
       bucket: "blocked",
-      label: "Waiting on human",
-      detail: task.blockedReason ?? "Blocked and needs human input before the run can continue.",
+      label: t("agentRunHealth.waitingOnHuman"),
+      detail: task.blockedReason ?? t("agentRunHealth.blockedNeedsHumanInput"),
       accentClass: "border-rose-200 bg-rose-50 text-rose-800",
       needsAttention: true
     };
@@ -56,8 +63,8 @@ export function getAgentRunHealth(task: TaskRecord, latestUpdatedAt?: string): A
     if (minutes === null) {
       return {
         bucket: "aging",
-        label: "In progress",
-        detail: "Run is active, but no freshness signal is available yet.",
+        label: t("agentRunHealth.inProgress"),
+        detail: t("agentRunHealth.noFreshnessSignal"),
         accentClass: "border-sky-200 bg-sky-50 text-sky-800",
         needsAttention: false
       };
@@ -65,8 +72,8 @@ export function getAgentRunHealth(task: TaskRecord, latestUpdatedAt?: string): A
     if (minutes < 10) {
       return {
         bucket: "fresh",
-        label: "Updated just now",
-        detail: distance ? `Healthy run · latest signal ${distance}` : "Healthy run",
+        label: t("agentRunHealth.updatedJustNow"),
+        detail: distance ? t("agentRunHealth.healthyRunLatestSignal", { distance }) : t("agentRunHealth.healthyRun"),
         accentClass: "border-emerald-200 bg-emerald-50 text-emerald-800",
         needsAttention: false
       };
@@ -74,16 +81,16 @@ export function getAgentRunHealth(task: TaskRecord, latestUpdatedAt?: string): A
     if (minutes <= 30) {
       return {
         bucket: "aging",
-        label: `Quiet for ${minutes}m`,
-        detail: "Still in progress, but worth a quick check if more silence continues.",
+        label: t("agentRunHealth.quietForMinutes", { count: minutes }),
+        detail: t("agentRunHealth.stillInProgressWorthChecking"),
         accentClass: "border-amber-200 bg-amber-50 text-amber-800",
         needsAttention: false
       };
     }
     return {
       bucket: "stale",
-      label: "May be stalled",
-      detail: distance ? `No recent progress signal since ${distance}.` : "No recent progress signal.",
+      label: t("agentRunHealth.mayBeStalled"),
+      detail: distance ? t("agentRunHealth.noRecentProgressSince", { distance }) : t("agentRunHealth.noRecentProgress"),
       accentClass: "border-rose-200 bg-rose-50 text-rose-800",
       needsAttention: true
     };
@@ -91,8 +98,8 @@ export function getAgentRunHealth(task: TaskRecord, latestUpdatedAt?: string): A
 
   return {
     bucket: "idle",
-    label: task.status === "Todo" ? "Ready to dispatch" : "Idle",
-    detail: task.status === "Todo" ? "This task is assigned to an agent but has not been dispatched yet." : "No active agent run.",
+    label: task.status === "Todo" ? t("agentRunHealth.readyToDispatch") : t("agentRunHealth.idle"),
+    detail: task.status === "Todo" ? t("agentRunHealth.assignedNotDispatched") : t("agentRunHealth.noActiveRun"),
     accentClass: "border-[var(--line)] bg-[var(--surface-subtle)] text-[var(--text-muted)]",
     needsAttention: false
   };

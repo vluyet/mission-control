@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookIcon, PlusIcon } from "@/components/ui/icons";
+import { useI18n } from "@/components/product/i18n-provider";
 import { AppButton, Panel } from "@/components/ui/primitives";
 
 type TaskViewState = {
@@ -55,6 +56,7 @@ export function SavedTaskViews({
   compact?: boolean;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
 
   useEffect(() => {
@@ -77,7 +79,7 @@ export function SavedTaskViews({
   }
 
   function saveCurrent() {
-    const label = window.prompt("Name this saved view");
+    const label = window.prompt(t("savedTaskViews.promptName"));
     if (!label?.trim()) {
       return;
     }
@@ -106,11 +108,11 @@ export function SavedTaskViews({
           <span className="text-[var(--text-muted)]">
             <BookIcon className="h-3.5 w-3.5" />
           </span>
-          <span>Views</span>
+          <span>{t("savedTaskViews.views")}</span>
         </div>
         <AppButton tone="secondary" onClick={saveCurrent} disabled={!canSave} className="h-8 rounded-full px-3 py-0 text-xs">
           <PlusIcon className="h-3.5 w-3.5" />
-          Save
+          {t("savedTaskViews.save")}
         </AppButton>
         {savedViews.map((view) => (
           <div key={view.id} className="inline-flex h-8 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 text-xs text-[var(--text-strong)]">
@@ -125,9 +127,9 @@ export function SavedTaskViews({
               type="button"
               onClick={() => persist(savedViews.filter((item) => item.id !== view.id))}
               className="text-[var(--text-dim)] hover:text-[var(--text-strong)]"
-              aria-label={`Remove ${view.label}`}
+              aria-label={t("savedTaskViews.removeAria", { label: view.label })}
             >
-              Del
+              {t("savedTaskViews.remove")}
             </button>
           </div>
         ))}
@@ -139,11 +141,11 @@ export function SavedTaskViews({
     <Panel className="p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="section-eyebrow">Saved views</p>
-          <p className="mt-1 text-sm text-[var(--text-dim)]">Save a reusable combination of layout, filters, and sort once you move away from the default view.</p>
+          <p className="section-eyebrow">{t("savedTaskViews.title")}</p>
+          <p className="mt-1 text-sm text-[var(--text-dim)]">{t("savedTaskViews.description")}</p>
         </div>
         <AppButton tone="secondary" onClick={saveCurrent} disabled={!canSave}>
-          Save current view
+          {t("savedTaskViews.saveCurrent")}
         </AppButton>
       </div>
       {savedViews.length ? (
@@ -162,13 +164,13 @@ export function SavedTaskViews({
                 onClick={() => persist(savedViews.filter((item) => item.id !== view.id))}
                 className="text-xs text-[var(--text-dim)]"
               >
-                Remove
+                {t("savedTaskViews.remove")}
               </button>
             </div>
           ))}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-[var(--text-dim)]">No saved views yet. Switch layout or apply filters to create one.</p>
+        <p className="mt-4 text-sm text-[var(--text-dim)]">{t("savedTaskViews.empty")}</p>
       )}
     </Panel>
   );

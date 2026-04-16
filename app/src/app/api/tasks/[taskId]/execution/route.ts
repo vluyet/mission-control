@@ -1,11 +1,13 @@
 import { error, ok } from "@/lib/api-response";
 import { appendExecutionLogInDb, getTaskActivityFromDb, getTaskExecutionFromDb, getTaskResourceFromDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
+import { getApiT } from "@/lib/api-i18n";
 
 export async function GET(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "execution.read");
 
   if (!auth.ok) {
@@ -15,7 +17,7 @@ export async function GET(
   const task = await getTaskResourceFromDb(params.taskId);
 
   if (!task) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   const execution = await getTaskExecutionFromDb(params.taskId);
@@ -33,6 +35,7 @@ export async function POST(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "execution.write");
 
   if (!auth.ok) {
@@ -42,7 +45,7 @@ export async function POST(
   const task = await getTaskResourceFromDb(params.taskId);
 
   if (!task) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   const body = (await request.json().catch(() => null)) as
@@ -52,7 +55,7 @@ export async function POST(
     | null;
 
   if (!body?.line) {
-    return error("Missing required field", 422, { required: ["line"] });
+    return error(t("api.missingRequiredField"), 422, { required: ["line"] });
   }
 
   const log = await appendExecutionLogInDb(
@@ -69,11 +72,11 @@ export async function POST(
   );
 
   if (!log) {
-    return error("No eligible agent available for execution", 409, { taskId: params.taskId });
+    return error(t("api.noEligibleAgentForExecution"), 409, { taskId: params.taskId });
   }
 
   if ("error" in log) {
-    return error("This agent is not allowed to write execution logs.", 403, {
+    return error(t("api.agentNotAllowedToWriteExecutionLogs"), 403, {
       code: log.error
     });
   }

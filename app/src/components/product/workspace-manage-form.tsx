@@ -8,6 +8,8 @@ import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 import { WorkspaceAssetsPanel } from "@/components/product/workspace-assets-panel";
 import { WorkspaceAgentCredentialsPanel } from "@/components/product/workspace-agent-credentials-panel";
 import { WorkspaceConstructorPanel } from "@/components/product/workspace-constructor-panel";
+import { LanguageSwitcher } from "@/components/product/language-switcher";
+import { useI18n } from "@/components/product/i18n-provider";
 
 type WorkspaceDirectoryItem = {
   slug: string;
@@ -78,6 +80,7 @@ type WorkspaceManageValues = {
 
 export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageValues }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -115,7 +118,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
     if (!payload.name.trim()) {
       setSaved(null);
-      setError("Workspace name is required.");
+      setError(t("manageWorkspace.workspaceNameRequired"));
       return;
     }
 
@@ -133,11 +136,11 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setError(result?.error?.message ?? "Workspace could not be updated.");
+      setError(result?.error?.message ?? t("manageWorkspace.workspaceCouldNotBeUpdated"));
       return;
     }
 
-    setSaved("Saved");
+    setSaved(t("manageWorkspace.workspaceUpdated"));
     startSaving(() => {
       router.refresh();
     });
@@ -154,7 +157,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
     if (!payload.name.trim()) {
       setCreateSaved(null);
-      setCreateError("Workspace name is required.");
+      setCreateError(t("manageWorkspace.workspaceNameRequired"));
       return;
     }
 
@@ -172,12 +175,12 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setCreateError(result?.error?.message ?? "Workspace could not be created.");
+      setCreateError(result?.error?.message ?? t("manageWorkspace.workspaceCouldNotBeCreated"));
       return;
     }
 
     event.currentTarget.reset();
-    setCreateSaved(`Created ${result?.workspace?.name ?? "workspace"}.`);
+    setCreateSaved(t("manageWorkspace.workspaceCreated", { name: result?.workspace?.name ?? t("manageWorkspace.workspace") }));
     startCreating(() => {
       router.replace("/manage-workspace");
       router.refresh();
@@ -189,7 +192,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
     if (!targetWorkspaceSlug) {
       setMoveSaved(null);
-      setMoveError("Choose a target workspace first.");
+      setMoveError(t("manageWorkspace.chooseTargetWorkspaceFirst"));
       return;
     }
 
@@ -207,11 +210,16 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setMoveError(result?.error?.message ?? "Project could not be moved.");
+      setMoveError(result?.error?.message ?? t("manageWorkspace.projectCouldNotBeMoved"));
       return;
     }
 
-    setMoveSaved(`Moved ${result?.project?.name ?? "project"} to ${result?.project?.workspaceName ?? "the target workspace"}.`);
+    setMoveSaved(
+      t("manageWorkspace.projectMoved", {
+        project: result?.project?.name ?? t("workspaceUi.project").toLowerCase(),
+        workspace: result?.project?.workspaceName ?? t("manageWorkspace.workspace").toLowerCase()
+      })
+    );
     setMoveTargets((current) => {
       const next = { ...current };
       delete next[projectSlug];
@@ -225,19 +233,17 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
   async function handleDeleteWorkspace() {
     if (!workspace.canDelete) {
       setDeleteSaved(null);
-      setDeleteError("Create another workspace before deleting the last one.");
+      setDeleteError(t("manageWorkspace.createAnotherWorkspaceBeforeDeletingLast"));
       return;
     }
 
     if (deleteConfirm.trim() !== workspace.name) {
       setDeleteSaved(null);
-      setDeleteError("Type the exact workspace name to confirm deletion.");
+      setDeleteError(t("manageWorkspace.typeExactWorkspaceNameToConfirmDeletion"));
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete ${workspace.name}? This will permanently delete its remaining projects, tasks, files, memberships, and Constructor settings.`
-    );
+    const confirmed = window.confirm(t("manageWorkspace.deleteWorkspaceConfirm", { name: workspace.name }));
 
     if (!confirmed) {
       return;
@@ -253,11 +259,11 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setDeleteError(result?.error?.message ?? "Workspace could not be deleted.");
+      setDeleteError(result?.error?.message ?? t("manageWorkspace.workspaceCouldNotBeDeleted"));
       return;
     }
 
-    setDeleteSaved(`Deleted ${workspace.name}.`);
+    setDeleteSaved(t("manageWorkspace.workspaceDeleted", { name: workspace.name }));
     startDeleting(() => {
       router.replace("/manage-workspace");
       router.refresh();
@@ -268,15 +274,15 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
     <div className="space-y-5">
       <div id="workspace-directory">
         <Panel className="overflow-hidden">
-          <PanelHeader eyebrow="Directory" title="Workspace directory" description="Create another workspace, switch into it, or review workspace counts." />
+          <PanelHeader eyebrow={t("manageWorkspace.directory")} title={t("manageWorkspace.workspaceDirectory")} description={t("manageWorkspace.workspaceDirectoryDescription")} />
           <div className="grid gap-5 px-5 py-5 xl:grid-cols-[minmax(0,1fr),320px]">
             <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)]">
               <div className="grid grid-cols-[minmax(0,1.4fr),110px,90px,90px,auto] gap-3 border-b border-[var(--line)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-dim)]">
-                <span>Workspace</span>
-                <span>Access</span>
-                <span>Projects</span>
-                <span>Members</span>
-                <span className="text-right">Action</span>
+                <span>{t("manageWorkspace.workspace")}</span>
+                <span>{t("manageWorkspace.access")}</span>
+                <span>{t("manageWorkspace.projects")}</span>
+                <span>{t("manageWorkspace.members")}</span>
+                <span className="text-right">{t("manageWorkspace.action")}</span>
               </div>
               <div className="divide-y divide-[var(--line)]">
                 {workspace.workspaces.map((item) => (
@@ -286,7 +292,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
                         <p className="truncate font-semibold text-[var(--text-strong)]">{item.name}</p>
                         {item.isActive ? (
                           <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-strong)]">
-                            Active
+                            {t("manageWorkspace.active")}
                           </span>
                         ) : null}
                       </div>
@@ -294,7 +300,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
                     </div>
                     <div className="flex items-center">
                       <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--text-dim)]">
-                        {item.visibility}
+                        {item.visibility === "personal" ? t("manageWorkspace.personal") : t("manageWorkspace.shared")}
                       </span>
                     </div>
                     <div className="flex items-center text-[var(--text-muted)]">{item.projectCount}</div>
@@ -314,10 +320,10 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
                             });
                           }}
                         >
-                          Open
+                          {t("manageWorkspace.open")}
                         </AppButton>
                       ) : (
-                        <span className="text-xs font-medium text-[var(--text-dim)]">Current</span>
+                        <span className="text-xs font-medium text-[var(--text-dim)]">{t("manageWorkspace.current")}</span>
                       )}
                     </div>
                   </div>
@@ -326,17 +332,17 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
             </div>
 
             <form onSubmit={handleCreateWorkspace} className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
-              <p className="section-eyebrow">Create workspace</p>
+              <p className="section-eyebrow">{t("manageWorkspace.createWorkspace")}</p>
               <div className="mt-3 space-y-4">
                 <div>
-                  <label className="section-eyebrow">Name</label>
-                  <input name="newWorkspaceName" className="input-control mt-2" placeholder="New workspace" />
+                  <label className="section-eyebrow">{t("manageWorkspace.name")}</label>
+                  <input name="newWorkspaceName" className="input-control mt-2" placeholder={t("manageWorkspace.newWorkspace")} />
                 </div>
                 <div>
-                  <label className="section-eyebrow">Visibility</label>
+                  <label className="section-eyebrow">{t("manageWorkspace.visibility")}</label>
                   <select name="newWorkspaceVisibility" defaultValue="personal" className="input-control mt-2">
-                    <option value="personal">Owner workspace</option>
-                    <option value="shared">Shared workspace</option>
+                    <option value="personal">{t("manageWorkspace.ownerWorkspace")}</option>
+                    <option value="shared">{t("manageWorkspace.sharedWorkspace")}</option>
                   </select>
                 </div>
                 <div className="text-sm">
@@ -345,11 +351,11 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
                   ) : createSaved ? (
                     <span className="text-emerald-600">{createSaved}</span>
                   ) : (
-                    <span className="text-[var(--text-dim)]">A fresh workspace gets its own owner membership and empty context.</span>
+                    <span className="text-[var(--text-dim)]">{t("manageWorkspace.freshWorkspaceHint")}</span>
                   )}
                 </div>
                 <AppButton type="submit" tone="primary" className={isCreating ? "opacity-70" : ""}>
-                  {isCreating ? "Creating..." : "Create workspace"}
+                  {isCreating ? t("manageWorkspace.creating") : t("manageWorkspace.createWorkspaceAction")}
                 </AppButton>
               </div>
             </form>
@@ -359,29 +365,39 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
       <div id="workspace-settings">
         <Panel className="overflow-hidden">
-          <PanelHeader eyebrow="Basics" title="Workspace settings" description="Name, visibility, and shared context." />
+          <PanelHeader eyebrow={t("manageWorkspace.basics")} title={t("manageWorkspace.workspaceSettings")} description={t("manageWorkspace.workspaceSettingsDescription")} />
+          <div className="border-b border-[var(--line)] px-5 py-5">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr),280px] xl:items-end">
+              <div>
+                <p className="section-eyebrow">{t("manageWorkspace.languageSettings")}</p>
+                <h3 className="mt-1 text-base font-semibold text-[var(--text-strong)]">{t("manageWorkspace.languageSettingsTitle")}</h3>
+                <p className="mt-1 max-w-2xl text-sm text-[var(--text-muted)]">{t("manageWorkspace.languageSettingsDescription")}</p>
+              </div>
+              <LanguageSwitcher />
+            </div>
+          </div>
           <form onSubmit={handleSubmit} className="grid gap-5 px-5 py-5">
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr),220px]">
               <div>
-                <label className="section-eyebrow">Name</label>
+                <label className="section-eyebrow">{t("manageWorkspace.name")}</label>
                 <input name="name" defaultValue={workspace.name} className="input-control mt-2" />
               </div>
               <div>
-                <label className="section-eyebrow">Visibility</label>
+                <label className="section-eyebrow">{t("manageWorkspace.visibility")}</label>
                 <select name="visibility" defaultValue={workspace.visibility} className="input-control mt-2">
-                  <option value="personal">Owner workspace</option>
-                  <option value="shared">Shared workspace</option>
+                  <option value="personal">{t("manageWorkspace.ownerWorkspace")}</option>
+                  <option value="shared">{t("manageWorkspace.sharedWorkspace")}</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="section-eyebrow">Context title</label>
+              <label className="section-eyebrow">{t("manageWorkspace.contextTitle")}</label>
               <input name="contextTitle" defaultValue={workspace.contextTitle} className="input-control mt-2" />
             </div>
 
             <div>
-              <label className="section-eyebrow">Context summary</label>
+              <label className="section-eyebrow">{t("manageWorkspace.contextSummary")}</label>
               <textarea
                 name="contextSummary"
                 defaultValue={workspace.contextSummary}
@@ -390,7 +406,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
             </div>
 
             <div>
-              <label className="section-eyebrow">Context bullets</label>
+              <label className="section-eyebrow">{t("manageWorkspace.contextBullets")}</label>
               <textarea
                 name="contextBullets"
                 defaultValue={workspace.contextBullets.join("\n")}
@@ -400,10 +416,10 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm">
-                {error ? <span className="text-rose-600">{error}</span> : saved ? <span className="text-emerald-600">{saved}</span> : <span className="text-[var(--text-dim)]">Workspace settings</span>}
+                {error ? <span className="text-rose-600">{error}</span> : saved ? <span className="text-emerald-600">{saved}</span> : <span className="text-[var(--text-dim)]">{t("manageWorkspace.workspaceSettingsHint")}</span>}
               </div>
               <AppButton type="submit" tone="primary" className={isSaving ? "opacity-70" : ""}>
-                {isSaving ? "Saving..." : "Save workspace"}
+                {isSaving ? t("manageWorkspace.saving") : t("manageWorkspace.saveWorkspace")}
               </AppButton>
             </div>
           </form>
@@ -412,25 +428,25 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
       <div id="workspace-scope">
         <Panel className="overflow-hidden">
-          <PanelHeader eyebrow="Overview" title="Workspace scope" description="A compact snapshot of the current workspace." />
+          <PanelHeader eyebrow={t("manageWorkspace.overview")} title={t("manageWorkspace.workspaceScope")} description={t("manageWorkspace.workspaceScopeDescription")} />
           <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
-              <p className="section-eyebrow">Projects</p>
+              <p className="section-eyebrow">{t("manageWorkspace.projects")}</p>
               <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{workspace.projectCount}</p>
             </div>
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
-              <p className="section-eyebrow">Members</p>
+              <p className="section-eyebrow">{t("manageWorkspace.members")}</p>
               <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{workspace.memberCount}</p>
             </div>
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
-              <p className="section-eyebrow">Workspace files</p>
+              <p className="section-eyebrow">{t("manageWorkspace.workspaceFiles")}</p>
               <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">{workspace.workspaceAssetCount}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 px-5 pb-5">
-            <Link href="/members" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Members</Link>
-            <Link href="/projects" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Projects</Link>
-            <Link href="/queue" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">Agent queue</Link>
+            <Link href="/members" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">{t("manageWorkspace.members")}</Link>
+            <Link href="/projects" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">{t("manageWorkspace.projects")}</Link>
+            <Link href="/queue" className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-strong)] hover:border-[var(--line-strong)]">{t("manageWorkspace.agentQueue")}</Link>
           </div>
         </Panel>
       </div>
@@ -438,18 +454,18 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
       <div id="workspace-project-transfer">
         <Panel className="overflow-hidden">
           <PanelHeader
-            eyebrow="Project transfer"
-            title="Move projects to another workspace"
-            description="Use this before deleting a workspace when some projects should survive. Tasks stay with the project, while old assignments are cleared to avoid cross-workspace member links."
+            eyebrow={t("manageWorkspace.projectTransfer")}
+            title={t("manageWorkspace.moveProjectsToAnotherWorkspace")}
+            description={t("manageWorkspace.moveProjectsDescription")}
           />
           <div className="space-y-4 px-5 py-5">
             {workspace.projects.length ? (
               <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)]">
                 <div className="grid grid-cols-[minmax(0,1.4fr),90px,minmax(180px,240px),auto] gap-3 border-b border-[var(--line)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-dim)]">
-                  <span>Project</span>
-                  <span>Tasks</span>
-                  <span>Move to</span>
-                  <span className="text-right">Action</span>
+                  <span>{t("workspaceUi.project")}</span>
+                  <span>{t("manageWorkspace.tasks")}</span>
+                  <span>{t("manageWorkspace.moveTo")}</span>
+                  <span className="text-right">{t("manageWorkspace.action")}</span>
                 </div>
                 <div className="divide-y divide-[var(--line)]">
                   {workspace.projects.map((project) => (
@@ -458,7 +474,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="truncate font-semibold text-[var(--text-strong)]">{project.name}</p>
                           <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--text-dim)]">
-                            {project.status}
+                            {project.status === "active" ? t("manageWorkspace.active") : t("manageWorkspace.archived")}
                           </span>
                         </div>
                         <p className="mt-1 truncate text-xs text-[var(--text-dim)]">{project.slug}</p>
@@ -470,7 +486,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
                         onChange={(event) => setMoveTargets((current) => ({ ...current, [project.slug]: event.target.value }))}
                         disabled={!availableTargetWorkspaces.length || isMoving}
                       >
-                        <option value="">Select target workspace</option>
+                        <option value="">{t("manageWorkspace.selectTargetWorkspace")}</option>
                         {availableTargetWorkspaces.map((item) => (
                           <option key={item.slug} value={item.slug}>
                             {item.name}
@@ -479,7 +495,7 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
                       </select>
                       <div className="flex items-center justify-end">
                         <AppButton tone="secondary" onClick={() => handleMoveProject(project.slug)} disabled={!availableTargetWorkspaces.length || isMoving}>
-                          {isMoving ? "Moving..." : "Move"}
+                          {isMoving ? t("manageWorkspace.moving") : t("manageWorkspace.move")}
                         </AppButton>
                       </div>
                     </div>
@@ -488,12 +504,12 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-[var(--line)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                This workspace has no projects to move.
+                {t("manageWorkspace.noProjectsToMove")}
               </div>
             )}
 
             <div className="text-sm">
-              {moveError ? <span className="text-rose-600">{moveError}</span> : moveSaved ? <span className="text-emerald-600">{moveSaved}</span> : <span className="text-[var(--text-dim)]">Move projects one by one into another workspace.</span>}
+              {moveError ? <span className="text-rose-600">{moveError}</span> : moveSaved ? <span className="text-emerald-600">{moveSaved}</span> : <span className="text-[var(--text-dim)]">{t("manageWorkspace.moveProjectsHint")}</span>}
             </div>
           </div>
         </Panel>
@@ -503,17 +519,17 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
       <Panel className="overflow-hidden">
         <PanelHeader
-          eyebrow="Operations"
-          title="Constructor and agent operations"
-          description="These controls support Constructor connectivity and agent API access. They are operational integrations, not basic workspace profile settings."
+          eyebrow={t("manageWorkspace.operations")}
+          title={t("manageWorkspace.constructorAndAgentOperations")}
+          description={t("manageWorkspace.operationsDescription")}
         />
         <div className="space-y-5 px-5 py-5">
           <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4 text-sm text-[var(--text-dim)]">
-            <p className="font-semibold text-[var(--text-strong)]">What belongs here</p>
+            <p className="font-semibold text-[var(--text-strong)]">{t("manageWorkspace.whatBelongsHere")}</p>
             <ul className="mt-2 list-disc space-y-1 pl-4">
-              <li>Constructor endpoint and token configuration</li>
-              <li>Agent API credentials and recent auth activity</li>
-              <li>Operational sync and integration troubleshooting</li>
+              <li>{t("manageWorkspace.constructorEndpointAndToken")}</li>
+              <li>{t("manageWorkspace.agentCredentialsAndAuthActivity")}</li>
+              <li>{t("manageWorkspace.operationalSyncAndTroubleshooting")}</li>
             </ul>
           </div>
 
@@ -532,27 +548,34 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
       <div id="workspace-danger-zone">
         <Panel className="overflow-hidden border border-rose-200">
           <PanelHeader
-            eyebrow="Danger zone"
-            title="Delete this workspace"
-            description="Deleting a workspace permanently deletes its remaining projects, tasks, files, memberships, and Constructor integration. Move projects first if you want to keep them."
+            eyebrow={t("manageWorkspace.dangerZone")}
+            title={t("manageWorkspace.deleteThisWorkspace")}
+            description={t("manageWorkspace.deleteWorkspaceDescription")}
           />
           <div className="space-y-4 px-5 py-5">
             <div className="rounded-2xl border border-rose-200 bg-rose-50/70 px-4 py-4 text-sm text-rose-700">
               <p>
-                Remaining here right now: {workspace.projects.length} project{workspace.projects.length === 1 ? "" : "s"}, {workspace.memberCount} member{workspace.memberCount === 1 ? "" : "s"}, and {workspace.workspaceAssetCount} workspace file{workspace.workspaceAssetCount === 1 ? "" : "s"}.
+                {t("manageWorkspace.remainingHereNow", {
+                  projects: workspace.projects.length,
+                  projectLabel: workspace.projects.length === 1 ? t("manageWorkspace.projectCountLabel") : t("manageWorkspace.projectCountLabelPlural"),
+                  members: workspace.memberCount,
+                  memberLabel: workspace.memberCount === 1 ? t("manageWorkspace.memberCountLabel") : t("manageWorkspace.memberCountLabelPlural"),
+                  files: workspace.workspaceAssetCount,
+                  fileLabel: workspace.workspaceAssetCount === 1 ? t("manageWorkspace.workspaceFileCountLabel") : t("manageWorkspace.workspaceFileCountLabelPlural")
+                })}
               </p>
-              {!workspace.canDelete ? <p className="mt-2">You cannot delete the last remaining workspace.</p> : null}
+              {!workspace.canDelete ? <p className="mt-2">{t("manageWorkspace.cannotDeleteLastWorkspace")}</p> : null}
             </div>
             <div>
-              <label className="section-eyebrow">Type {workspace.name} to confirm</label>
+              <label className="section-eyebrow">{t("manageWorkspace.typeToConfirm", { name: workspace.name })}</label>
               <input value={deleteConfirm} onChange={(event) => setDeleteConfirm(event.target.value)} className="input-control mt-2" />
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm">
-                {deleteError ? <span className="text-rose-600">{deleteError}</span> : deleteSaved ? <span className="text-emerald-600">{deleteSaved}</span> : <span className="text-[var(--text-dim)]">This action cannot be undone.</span>}
+                {deleteError ? <span className="text-rose-600">{deleteError}</span> : deleteSaved ? <span className="text-emerald-600">{deleteSaved}</span> : <span className="text-[var(--text-dim)]">{t("manageWorkspace.actionCannotBeUndone")}</span>}
               </div>
               <AppButton tone="secondary" className="border-rose-300 text-rose-700 hover:bg-rose-50" onClick={handleDeleteWorkspace} disabled={isDeleting || !workspace.canDelete}>
-                {isDeleting ? "Deleting..." : "Delete workspace"}
+                {isDeleting ? t("manageWorkspace.deletingWorkspace") : t("manageWorkspace.deleteWorkspaceAction")}
               </AppButton>
             </div>
           </div>

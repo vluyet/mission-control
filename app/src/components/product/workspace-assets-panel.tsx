@@ -3,6 +3,7 @@
 import { ChangeEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AttachmentRecord } from "@/lib/demo-data";
+import { useI18n } from "@/components/product/i18n-provider";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 import { ArrowUpRightIcon, PaperclipIcon } from "@/components/ui/icons";
 
@@ -12,6 +13,7 @@ export function WorkspaceAssetsPanel({
   assets: AttachmentRecord[];
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [assetType, setAssetType] = useState("reference");
   const [expandedPreviewId, setExpandedPreviewId] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export function WorkspaceAssetsPanel({
 
   async function upload() {
     if (!selectedFile) {
-      setError("Choose a file before uploading.");
+      setError(t("workspaceAssets.chooseFileBeforeUploading"));
       return;
     }
 
@@ -43,7 +45,7 @@ export function WorkspaceAssetsPanel({
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
       setIsUploading(false);
-      setError(payload?.error?.message ?? "File upload failed.");
+      setError(payload?.error?.message ?? t("workspaceAssets.fileUploadFailed"));
       return;
     }
 
@@ -56,7 +58,7 @@ export function WorkspaceAssetsPanel({
 
   return (
     <Panel className="overflow-hidden">
-      <PanelHeader eyebrow="Workspace files" title="Shared documents" />
+      <PanelHeader eyebrow={t("workspaceAssets.workspaceFiles")} title={t("workspaceAssets.sharedDocuments")} />
       <div className="space-y-4 px-5 py-5">
         {assets.length ? (
           <div className="space-y-3">
@@ -69,7 +71,7 @@ export function WorkspaceAssetsPanel({
                       <p className="truncate text-sm font-medium text-[var(--text-strong)]">{asset.name}</p>
                     </div>
                     <p className="mt-1 text-xs text-[var(--text-dim)]">
-                      {asset.artifactType} · {asset.sizeLabel} · {asset.author ?? "Unknown"} · {asset.uploadedAt}
+                      {asset.artifactType} · {asset.sizeLabel} · {asset.author ?? t("workspaceAssets.unknownAuthor")} · {asset.uploadedAt}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -79,15 +81,15 @@ export function WorkspaceAssetsPanel({
                         onClick={() => setExpandedPreviewId((current) => (current === asset.id ? null : asset.id))}
                         className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs text-[var(--text-dim)] transition hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]"
                       >
-                        {expandedPreviewId === asset.id ? "Hide preview" : "Preview"}
+                        {expandedPreviewId === asset.id ? t("workspaceAssets.hidePreview") : t("workspaceAssets.preview")}
                       </button>
                     ) : (
                       <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs text-[var(--text-dim)]">
-                        Download only
+                        {t("workspaceAssets.downloadOnly")}
                       </span>
                     )}
                     <a href={asset.href} className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs text-[var(--text-dim)] transition hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]">
-                      Download
+                      {t("workspaceAssets.download")}
                     </a>
                     <ArrowUpRightIcon className="h-4 w-4 text-[var(--text-dim)]" />
                   </div>
@@ -103,7 +105,7 @@ export function WorkspaceAssetsPanel({
                 ) : null}
                 {!asset.previewable ? (
                   <div className="mt-3 rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-dim)]">
-                    Preview is unavailable for this format. Download the file to inspect it.
+                    {t("workspaceAssets.previewUnavailable")}
                   </div>
                 ) : null}
               </div>
@@ -111,9 +113,9 @@ export function WorkspaceAssetsPanel({
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] px-4 py-5">
-            <h3 className="text-sm font-semibold text-[var(--text-strong)]">No shared documents</h3>
+            <h3 className="text-sm font-semibold text-[var(--text-strong)]">{t("workspaceAssets.noSharedDocuments")}</h3>
             <p className="mt-1 text-sm text-[var(--text-dim)]">
-              Upload policies, briefs, and playbooks here so projects do not need to duplicate them.
+              {t("workspaceAssets.noSharedDocumentsDescription")}
             </p>
           </div>
         )}
@@ -122,17 +124,17 @@ export function WorkspaceAssetsPanel({
           <div className="grid gap-3">
             <input type="file" onChange={handleFileChange} className="text-sm text-[var(--text-muted)]" />
             <select value={assetType} onChange={(event) => setAssetType(event.target.value)} className="input-control">
-              <option value="reference">Reference</option>
-              <option value="policy">Policy</option>
-              <option value="playbook">Playbook</option>
-              <option value="brief">Brief</option>
+              <option value="reference">{t("workspaceAssets.reference")}</option>
+              <option value="policy">{t("workspaceAssets.policy")}</option>
+              <option value="playbook">{t("workspaceAssets.playbook")}</option>
+              <option value="brief">{t("workspaceAssets.brief")}</option>
             </select>
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-[var(--text-dim)]">
-                {selectedFile ? `${selectedFile.name} selected` : "Shared files live at workspace scope, not on a single task."}
+                {selectedFile ? t("workspaceAssets.fileSelected", { name: selectedFile.name }) : t("workspaceAssets.workspaceScopeHint")}
               </span>
               <AppButton tone="secondary" className="px-3 py-2" disabled={isPending || isUploading} onClick={upload}>
-                {isPending || isUploading ? "Uploading..." : "Upload file"}
+                {isPending || isUploading ? t("workspaceAssets.uploading") : t("workspaceAssets.uploadFile")}
               </AppButton>
             </div>
             {error ? (

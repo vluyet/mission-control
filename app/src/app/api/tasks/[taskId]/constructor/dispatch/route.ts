@@ -8,6 +8,7 @@ import {
   getActiveWorkspaceConstructorIntegrationRecord,
   getTaskResourceFromDb
 } from "@/lib/server-data";
+import { getApiT } from "@/lib/api-i18n";
 
 type ConstructorConfig =
   | { error: "CONSTRUCTOR_DISABLED" }
@@ -106,7 +107,7 @@ function formatBulletSection(title: string, lines: Array<string | null | undefin
   return `${title}:\n${filtered.map((line) => `- ${line}`).join("\n")}`;
 }
 
-function formatContextLayer(title: string, value: unknown) {
+function formatContextLayer(title: string, value: unknown, t: Awaited<ReturnType<typeof getApiT>>) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
@@ -119,13 +120,13 @@ function formatContextLayer(title: string, value: unknown) {
   const layerTitle = typeof record.title === "string" ? record.title.trim() : "";
 
   return formatBulletSection(title, [
-    layerTitle && layerTitle !== title ? `Title: ${layerTitle}` : null,
-    summary ? `Summary: ${summary}` : null,
+    layerTitle && layerTitle !== title ? t("constructorDispatch.contextTitleLabel", { value: layerTitle }) : null,
+    summary ? t("constructorDispatch.contextSummaryLabel", { value: summary }) : null,
     ...bullets
   ]);
 }
 
-function formatCompactEffectiveContext(value: unknown) {
+function formatCompactEffectiveContext(value: unknown, t: Awaited<ReturnType<typeof getApiT>>) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
@@ -145,12 +146,12 @@ function formatCompactEffectiveContext(value: unknown) {
     : [];
   const taskHint = typeof record.taskHint === "string" && record.taskHint.trim() ? record.taskHint.trim() : null;
 
-  return formatBulletSection("Effective context", [
+  return formatBulletSection(t("constructorDispatch.effectiveContext"), [
     ...summary,
     ...bullets,
-    ...principles.map((value) => `Principle: ${value}`),
-    ...constraints.map((value) => `Constraint: ${value}`),
-    taskHint ? `Task hint: ${taskHint}` : null
+    ...principles.map((value) => t("constructorDispatch.principleLabel", { value })),
+    ...constraints.map((value) => t("constructorDispatch.constraintLabel", { value })),
+    taskHint ? t("constructorDispatch.taskHintLabel", { value: taskHint }) : null
   ]);
 }
 
@@ -201,7 +202,10 @@ function buildMissionControlContext(taskResource: NonNullable<Awaited<ReturnType
   };
 }
 
-function validateTaskForConstructorDispatch(taskResource: NonNullable<Awaited<ReturnType<typeof getTaskResourceFromDb>>>): TaskDispatchReadiness {
+function validateTaskForConstructorDispatch(
+  taskResource: NonNullable<Awaited<ReturnType<typeof getTaskResourceFromDb>>>,
+  t: Awaited<ReturnType<typeof getApiT>>
+): TaskDispatchReadiness {
   const task = taskResource.task;
   const description = normalizeTaskText(task.description);
   const placeholderDescription = /^(tbd|todo|later|same as title|n\/?a)$/i.test(description);
@@ -219,8 +223,7 @@ function validateTaskForConstructorDispatch(taskResource: NonNullable<Awaited<Re
     return {
       ok: false,
       code: "CONSTRUCTOR_TASK_UNDERSPECIFIED",
-      message:
-        "Add a task description before dispatch. Include the requested deliverable, key constraints, and any source material or context the agent should use."
+      message: t("constructorDispatch.taskUnderspecified")
     };
   }
 
@@ -228,61 +231,81 @@ function validateTaskForConstructorDispatch(taskResource: NonNullable<Awaited<Re
     return {
       ok: false,
       code: "CONSTRUCTOR_TASK_UNDERSPECIFIED",
-      message:
-        "Add a clearer task description before dispatch. State the requested deliverable, the important constraints, and any source material or context the agent should use."
+      message: t("constructorDispatch.taskUnderspecifiedClearer")
     };
   }
 
   return { ok: true };
 }
 
-function formatTaskInstruction(taskResource: NonNullable<Awaited<ReturnType<typeof getTaskResourceFromDb>>>) {
+function formatTaskInstruction(
+  taskResource: NonNullable<Awaited<ReturnType<typeof getTaskResourceFromDb>>>,
+  t: Awaited<ReturnType<typeof getApiT>>
+) {
   const task = taskResource?.task;
   const childTaskSection = formatBulletSection(
-    "Child tasks",
-    (taskResource?.child_tasks ?? []).map((child) => `${child.id}: ${child.title} (${child.status})`)
+    t("constructorDispatch.childTasks"),
+    (taskResource?.child_tasks ?? []).map((child) =>
+      t("constructorDispatch.childTaskLine", { id: child.id, title: child.title, status: child.status })
+    )
   );
   const commentSection = formatBulletSection(
-    "Recent comments",
-    taskResource?.comments?.slice(0, 8).reverse().map((comment) => `${comment.author} (${comment.role}): ${comment.body.replace(/\s+/g, " ").trim()}`) ?? []
+    t("constructorDispatch.recentComments"),
+    taskResource?.comments?.slice(0, 8).reverse().map((comment) =>
+      t("constructorDispatch.commentByline", {
+        author: comment.author,
+        role: comment.role,
+        body: comment.body.replace(/\s+/g, " ").trim()
+      })
+    ) ?? []
   );
   const attachmentSection = formatBulletSection(
-    "Attachments",
-    taskResource?.attachments?.slice(0, 8).map((attachment) => `${attachment.name} (${attachment.artifactType}) by ${attachment.author}`) ?? []
+    t("constructorDispatch.attachments"),
+    taskResource?.attachments?.slice(0, 8).map((attachment) =>
+      t("constructorDispatch.attachmentByline", {
+        name: attachment.name,
+        artifactType: attachment.artifactType,
+        author: attachment.author
+      })
+    ) ?? []
   );
-  const taskDetailSection = formatBulletSection("Task details", [
-    task?.status ? `Current Mission Control status: ${task.status}` : null,
-    task?.priority ? `Priority: ${task.priority}` : null,
-    task?.assignee ? `Assignee: ${task.assignee}` : null,
-    task?.reviewer ? `Reviewer: ${task.reviewer}` : null,
-    task?.project ? `Project: ${task.project}` : null,
-    task?.projectSlug ? `Project slug: ${task.projectSlug}` : null,
-    task?.tags?.length ? `Labels: ${task.tags.join(", ")}` : null,
-    task?.startDate ? `Start date: ${task.startDate}` : null,
-    task?.due ? `Due date: ${task.due}` : null,
-    task?.blockedReason ? `Blocked reason: ${task.blockedReason}` : null,
-    task?.contextHint ? `Task hint: ${task.contextHint}` : null,
-    task?.parentTaskId ? `Parent task: ${task.parentTaskId}${task.parentTaskTitle ? ` · ${task.parentTaskTitle}` : ""}` : null
+  const taskDetailSection = formatBulletSection(t("constructorDispatch.taskDetails"), [
+    task?.status ? t("constructorDispatch.currentMissionControlStatus", { value: task.status }) : null,
+    task?.priority ? t("constructorDispatch.priorityLabel", { value: task.priority }) : null,
+    task?.assignee ? t("constructorDispatch.assigneeLabel", { value: task.assignee }) : null,
+    task?.reviewer ? t("constructorDispatch.reviewerLabel", { value: task.reviewer }) : null,
+    task?.project ? t("constructorDispatch.projectLabel", { value: task.project }) : null,
+    task?.projectSlug ? t("constructorDispatch.projectSlugLabel", { value: task.projectSlug }) : null,
+    task?.tags?.length ? t("constructorDispatch.labelsLabel", { value: task.tags.join(", ") }) : null,
+    task?.startDate ? t("constructorDispatch.startDateLabel", { value: task.startDate }) : null,
+    task?.due ? t("constructorDispatch.dueDateLabel", { value: task.due }) : null,
+    task?.blockedReason ? t("constructorDispatch.blockedReasonLabel", { value: task.blockedReason }) : null,
+    task?.contextHint ? t("constructorDispatch.taskHintLabel", { value: task.contextHint }) : null,
+    task?.parentTaskId
+      ? t("constructorDispatch.parentTaskLabel", {
+          value: `${task.parentTaskId}${task.parentTaskTitle ? ` · ${task.parentTaskTitle}` : ""}`
+        })
+      : null
   ]);
-  const effectiveContextSection = formatCompactEffectiveContext(taskResource?.resolved_context?.compact?.effective);
+  const effectiveContextSection = formatCompactEffectiveContext(taskResource?.resolved_context?.compact?.effective, t);
   const workspaceContextSection = effectiveContextSection
     ? null
-    : formatContextLayer("Workspace context", taskResource?.resolved_context?.layers?.workspace);
+    : formatContextLayer(t("constructorDispatch.workspaceContext"), taskResource?.resolved_context?.layers?.workspace, t);
   const projectContextSection = effectiveContextSection
     ? null
-    : formatContextLayer("Project context", taskResource?.resolved_context?.layers?.project);
+    : formatContextLayer(t("constructorDispatch.projectContext"), taskResource?.resolved_context?.layers?.project, t);
   const taskContextSection = effectiveContextSection
     ? null
-    : formatBulletSection("Task context", [
+    : formatBulletSection(t("constructorDispatch.taskContext"), [
         typeof taskResource?.resolved_context?.layers?.task?.hint === "string" && taskResource.resolved_context.layers.task.hint.trim()
           ? taskResource.resolved_context.layers.task.hint.trim()
           : null
       ]);
 
   return [
-    "You are working on a Mission Control task.",
-    `Requested deliverable:\n${task?.description?.trim()}`,
-    `Task title: ${task?.title ?? "Untitled task"}`,
+    t("constructorDispatch.instructionIntro"),
+    t("constructorDispatch.requestedDeliverable", { value: task?.description?.trim() ?? "" }),
+    t("constructorDispatch.taskTitle", { value: task?.title ?? t("constructorDispatch.untitledTask") }),
     taskDetailSection,
     effectiveContextSection,
     workspaceContextSection,
@@ -292,18 +315,18 @@ function formatTaskInstruction(taskResource: NonNullable<Awaited<ReturnType<type
     commentSection,
     attachmentSection,
     [
-      "Execution rules:",
-      "- Use only the information supplied in this task payload.",
-      "- Do not attempt to access Mission Control directly.",
-      "- Do not inspect the app or post comments yourself."
+      t("constructorDispatch.executionRules"),
+      `- ${t("constructorDispatch.ruleUseOnlyPayload")}`,
+      `- ${t("constructorDispatch.ruleNoDirectAccess")}`,
+      `- ${t("constructorDispatch.ruleNoSelfPosting")}`
     ].join("\n"),
     [
-      "Response requirements:",
-      "- Return the actual deliverable or answer requested above.",
-      "- Write it so Mission Control can post it directly as a task comment.",
-      '- Do not reply with a generic acknowledgement like "Done" unless the task explicitly asks for that.',
-      "- Keep assumptions brief and include them only when they materially affect the result.",
-      "- If the request still cannot be completed from the supplied information, say exactly what is missing."
+      t("constructorDispatch.responseRequirements"),
+      `- ${t("constructorDispatch.responseReturnDeliverable")}`,
+      `- ${t("constructorDispatch.responseDirectComment")}`,
+      `- ${t("constructorDispatch.responseNoGenericDone")}`,
+      `- ${t("constructorDispatch.responseKeepAssumptionsBrief")}`,
+      `- ${t("constructorDispatch.responseSayWhatIsMissing")}`
     ].join("\n")
   ]
     .filter(Boolean)
@@ -447,10 +470,11 @@ export async function getLatestConstructorSession(taskId: string) {
 }
 
 export async function dispatchMissionControlTaskToConstructor(input: ConstructorDispatchOptions) {
+  const t = await getApiT();
   const task = await getTaskResourceFromDb(input.taskId);
 
   if (!task) {
-    return { ok: false as const, status: 404, message: "Task not found", details: { taskId: input.taskId } };
+    return { ok: false as const, status: 404, message: t("api.taskNotFound"), details: { taskId: input.taskId } };
   }
 
   const requestUrl = new URL(input.requestUrl);
@@ -467,16 +491,16 @@ export async function dispatchMissionControlTaskToConstructor(input: Constructor
 
   if ("error" in constructorConfig) {
     await appendSystemExecutionLogInDb(taskInfo.id, "CONSTRUCTOR_DISPATCH_FAILED reason=constructor_disabled", "Constructor");
-    return { ok: false as const, status: 409, message: "Constructor dispatch is disabled for this workspace.", details: { code: constructorConfig.error } };
+    return { ok: false as const, status: 409, message: t("api.constructorDispatchDisabled"), details: { code: constructorConfig.error } };
   }
 
   if (!constructorConfig.apiToken) {
     await appendSystemExecutionLogInDb(taskInfo.id, "CONSTRUCTOR_DISPATCH_FAILED reason=missing_api_token", "Constructor");
-    return { ok: false as const, status: 409, message: "Constructor API token is required before dispatch.", details: { code: "CONSTRUCTOR_API_TOKEN_REQUIRED" } };
+    return { ok: false as const, status: 409, message: t("api.constructorDispatchApiTokenRequired"), details: { code: "CONSTRUCTOR_API_TOKEN_REQUIRED" } };
   }
 
   if (!targetAgent) {
-    return { ok: false as const, status: 404, message: "Task not found", details: { taskId: input.taskId } };
+    return { ok: false as const, status: 404, message: t("api.taskNotFound"), details: { taskId: input.taskId } };
   }
 
   if ("error" in targetAgent) {
@@ -484,12 +508,12 @@ export async function dispatchMissionControlTaskToConstructor(input: Constructor
     return {
       ok: false as const,
       status: 422,
-      message: "Assign the task to a Constructor agent or sync a default Constructor agent before dispatch.",
+      message: t("api.constructorTargetAgentRequired"),
       details: { code: targetAgent.error }
     };
   }
 
-  const taskReadiness = validateTaskForConstructorDispatch(task);
+  const taskReadiness = validateTaskForConstructorDispatch(task, t);
 
   if (!taskReadiness.ok) {
     await appendSystemExecutionLogInDb(taskInfo.id, "CONSTRUCTOR_DISPATCH_FAILED reason=underspecified_task", "Constructor");
@@ -507,7 +531,7 @@ export async function dispatchMissionControlTaskToConstructor(input: Constructor
         idempotencyKey,
         ...(sessionId ? { sessionId } : {}),
         targetAgent: targetAgent.targetAgent,
-        instruction: input.instruction?.trim() || formatTaskInstruction(task),
+        instruction: input.instruction?.trim() || formatTaskInstruction(task, t),
         context: {
           missionControl: buildMissionControlContext(task),
           constructor: {
@@ -542,7 +566,7 @@ export async function dispatchMissionControlTaskToConstructor(input: Constructor
     return {
       ok: false as const,
       status: 502,
-      message: "Constructor is unreachable.",
+      message: t("api.constructorUnreachable"),
       details: {
         code: "CONSTRUCTOR_UNREACHABLE",
         constructorBaseUrl: constructorConfig.baseUrl
@@ -553,7 +577,7 @@ export async function dispatchMissionControlTaskToConstructor(input: Constructor
   const upstreamJson = upstreamResult.payload;
 
   if (!upstreamResult.response.ok || !upstreamJson?.accepted) {
-    const failureMessage = upstreamJson?.rejection?.reason ?? upstreamJson?.message ?? upstreamJson?.error ?? "Constructor rejected the task.";
+    const failureMessage = upstreamJson?.rejection?.reason ?? upstreamJson?.message ?? upstreamJson?.error ?? t("api.constructorRejectedTask");
 
     await appendSystemExecutionLogInDb(
       taskInfo.id,
@@ -611,13 +635,14 @@ export async function dispatchMissionControlTaskToConstructor(input: Constructor
         targetAgent: targetAgent.targetAgent,
         targetSource: targetAgent.targetSource,
         targetAgentLabel: targetAgent.targetAgentLabel,
-        message: upstreamJson.message ?? "Task accepted by Constructor. Mission Control will post the final answer to task comments after the callback arrives."
+        message: upstreamJson.message ?? t("api.constructorTaskAccepted")
       }
     }
   };
 }
 
 export async function POST(request: Request, { params }: { params: { taskId: string } }) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request);
 
   if (!auth.ok) {
@@ -625,7 +650,7 @@ export async function POST(request: Request, { params }: { params: { taskId: str
   }
 
   if (auth.actor.type !== "owner") {
-    return error("Owner access required.", 403, { code: "OWNER_ACCESS_REQUIRED" });
+    return error(t("api.ownerAccessRequired"), 403, { code: "OWNER_ACCESS_REQUIRED" });
   }
 
   const result = await dispatchMissionControlTaskToConstructor({

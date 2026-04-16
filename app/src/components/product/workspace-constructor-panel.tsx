@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState, useTransition } from "react";
+import { useI18n } from "@/components/product/i18n-provider";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 
 type ConstructorState = {
@@ -50,6 +51,7 @@ function TokenActionButton({
 
 export function WorkspaceConstructorPanel({ integration }: { integration: ConstructorState }) {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const [label, setLabel] = useState(integration?.label ?? "");
   const [baseUrl, setBaseUrl] = useState(integration?.baseUrl ?? "");
   const [enabled, setEnabled] = useState(integration?.enabled ?? true);
@@ -97,11 +99,11 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
       await navigator.clipboard.writeText(value);
       setError(null);
       setSyncMessage(null);
-      setSaved(`${labelText} copied.`);
+      setSaved(t("constructorPanel.copied", { label: labelText }));
     } catch {
       setSaved(null);
       setSyncMessage(null);
-      setError(`Could not copy ${labelText.toLowerCase()}.`);
+      setError(t("constructorPanel.copyFailed", { label: labelText.toLowerCase() }));
     }
   }
 
@@ -112,7 +114,7 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
     setShowApiToken(true);
     setError(null);
     setSyncMessage(null);
-    setSaved("New Constructor API token ready. Save settings, then paste the same value into Constructor as CONSTRUCTOR_API_TOKEN.");
+    setSaved(t("constructorPanel.newApiTokenReady"));
   }
 
   function createCallbackToken() {
@@ -122,7 +124,7 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
     setShowCallbackToken(true);
     setError(null);
     setSyncMessage(null);
-    setSaved("New Constructor callback token ready. Save settings before testing callbacks.");
+    setSaved(t("constructorPanel.newCallbackTokenReady"));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -130,13 +132,13 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
 
     const trimmedBaseUrl = baseUrl.trim();
     if (!trimmedBaseUrl) {
-      setError("Constructor base URL is required.");
+      setError(t("constructorPanel.baseUrlRequired"));
       setSaved(null);
       return;
     }
 
     if (!apiTokenReady) {
-      setError("Constructor API token is required. Create one here or paste the token already configured in Constructor.");
+      setError(t("constructorPanel.apiTokenRequired"));
       setSaved(null);
       return;
     }
@@ -177,11 +179,11 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setError(result?.error?.message ?? "Constructor settings could not be saved.");
+      setError(result?.error?.message ?? t("constructorPanel.settingsSaveFailed"));
       return;
     }
 
-    setSaved("Constructor settings saved.");
+    setSaved(t("constructorPanel.settingsSaved"));
     startTransition(() => router.refresh());
   }
 
@@ -198,68 +200,64 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setError(result?.error?.message ?? "Constructor agent sync failed.");
+      setError(result?.error?.message ?? t("constructorPanel.syncFailed"));
       return;
     }
 
     const count = Array.isArray(result?.data?.agents) ? result.data.agents.length : 0;
-    setSyncMessage(`Synced ${count} Constructor agent${count === 1 ? "" : "s"}.`);
+    setSyncMessage(t(count === 1 ? "constructorPanel.syncedOneAgent" : "constructorPanel.syncedManyAgents", { count }));
     startSyncTransition(() => router.refresh());
   }
 
   return (
     <Panel className="overflow-hidden">
-      <PanelHeader eyebrow="Constructor" title="Execution link" description="Configure the Constructor public API endpoint Mission Control uses for agent sync, task dispatch, and callbacks." />
+      <PanelHeader eyebrow={t("constructorPanel.eyebrow")} title={t("constructorPanel.title")} description={t("constructorPanel.description")} />
       <form onSubmit={handleSubmit} className="space-y-4 px-5 py-5">
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-secondary)] px-4 py-4 text-sm text-[var(--text-dim)]">
-          <p className="font-semibold text-[var(--text-strong)]">Public API requirements</p>
+          <p className="font-semibold text-[var(--text-strong)]">{t("constructorPanel.publicApiRequirements")}</p>
           <ul className="mt-3 list-disc space-y-1 pl-4">
-            <li>Mission Control calls <code>GET /api/v1/agents</code> and <code>POST /api/v1/tasks</code> on the configured Constructor base URL.</li>
-            <li>An API token is required for every public API request. Generate it here, save it, then set the same value in Constructor as <code>CONSTRUCTOR_API_TOKEN</code>.</li>
-            <li>Callbacks return to Mission Control at <code>/api/tasks/:taskId/constructor/callback</code>. Constructor currently does not sign callbacks, so callback delivery depends only on the URL being reachable and returning a 2xx response.</li>
+            <li>{t("constructorPanel.requirementAgentsAndTasks")}</li>
+            <li>{t("constructorPanel.requirementApiToken")}</li>
+            <li>{t("constructorPanel.requirementCallbacks")}</li>
           </ul>
         </div>
 
         <div>
-          <label className="section-eyebrow">Instance label</label>
+          <label className="section-eyebrow">{t("constructorPanel.instanceLabel")}</label>
           <input
             name="label"
             value={label}
             onChange={(event) => setLabel(event.target.value)}
-            placeholder="Primary Constructor"
+            placeholder={t("constructorPanel.instancePlaceholder")}
             className="input-control mt-2"
           />
         </div>
 
         <div>
-          <label className="section-eyebrow">Base URL</label>
+          <label className="section-eyebrow">{t("constructorPanel.baseUrl")}</label>
           <input
             name="baseUrl"
             value={baseUrl}
             onChange={(event) => setBaseUrl(event.target.value)}
-            placeholder="http://127.0.0.1:8787 or http://127.0.0.1:8787/api/v1"
+            placeholder={t("constructorPanel.baseUrlPlaceholder")}
             className="input-control mt-2"
           />
-          <p className="mt-2 text-xs text-[var(--text-dim)]">
-            Required. Mission Control accepts either the Constructor root URL or a URL already ending in <code>/api/v1</code>.
-          </p>
+          <p className="mt-2 text-xs text-[var(--text-dim)]">{t("constructorPanel.baseUrlHelp")}</p>
         </div>
 
         <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <label className="section-eyebrow">API token</label>
-              <p className="mt-1 text-xs text-[var(--text-dim)]">
-                Required bearer token for Constructor public API requests.
-              </p>
+              <label className="section-eyebrow">{t("constructorPanel.apiToken")}</label>
+              <p className="mt-1 text-xs text-[var(--text-dim)]">{t("constructorPanel.apiTokenHelp")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <TokenActionButton onClick={createApiToken}>Create token</TokenActionButton>
+              <TokenActionButton onClick={createApiToken}>{t("constructorPanel.createToken")}</TokenActionButton>
               <TokenActionButton onClick={() => setShowApiToken((value) => !value)} disabled={!apiToken && apiTokenMode !== "replace"}>
-                {showApiToken ? "Hide" : "Show"}
+                {showApiToken ? t("constructorPanel.hide") : t("constructorPanel.show")}
               </TokenActionButton>
-              <TokenActionButton onClick={() => copyToClipboard(apiToken, "API token")} disabled={!apiToken}>
-                Copy
+              <TokenActionButton onClick={() => copyToClipboard(apiToken, t("constructorPanel.apiTokenLabel"))} disabled={!apiToken}>
+                {t("constructorPanel.copy")}
               </TokenActionButton>
             </div>
           </div>
@@ -273,7 +271,7 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
               setApiToken(nextValue);
               setApiTokenMode(nextValue.trim() ? "replace" : integration?.apiTokenConfigured ? "keep" : "replace");
             }}
-            placeholder={integration?.apiTokenConfigured ? "Saved token retained unless you replace it here" : "Constructor public API bearer token"}
+            placeholder={integration?.apiTokenConfigured ? t("constructorPanel.savedTokenRetained") : t("constructorPanel.apiTokenPlaceholder")}
             className="input-control"
             autoComplete="off"
           />
@@ -281,32 +279,30 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--text-dim)]">
             <span>
               {apiTokenMode === "replace"
-                ? "New token ready to save."
+                ? t("constructorPanel.newTokenReady")
                 : integration?.apiToken
-                  ? "Saved token is loaded from workspace settings and will stay in place until you replace it."
+                  ? t("constructorPanel.savedTokenLoaded")
                   : integration?.apiTokenConfigured
-                    ? "Constructor is using an environment token. Save a workspace token here if you want to reopen it later."
-                  : "No API token saved yet."}
+                    ? t("constructorPanel.environmentTokenInUse")
+                    : t("constructorPanel.noApiTokenSaved")}
             </span>
-            <span>{apiTokenReady ? "API token available" : "API token required"}</span>
+            <span>{apiTokenReady ? t("constructorPanel.apiTokenAvailable") : t("constructorPanel.apiTokenRequiredShort")}</span>
           </div>
         </div>
 
         <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <label className="section-eyebrow">Callback token</label>
-              <p className="mt-1 text-xs text-[var(--text-dim)]">
-                Saved for future use, but not enforced by the current Constructor public API because callbacks are unsigned.
-              </p>
+              <label className="section-eyebrow">{t("constructorPanel.callbackToken")}</label>
+              <p className="mt-1 text-xs text-[var(--text-dim)]">{t("constructorPanel.callbackTokenHelp")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <TokenActionButton onClick={createCallbackToken}>Create token</TokenActionButton>
+              <TokenActionButton onClick={createCallbackToken}>{t("constructorPanel.createToken")}</TokenActionButton>
               <TokenActionButton onClick={() => setShowCallbackToken((value) => !value)} disabled={!callbackToken && !callbackTokenReady}>
-                {showCallbackToken ? "Hide" : "Show"}
+                {showCallbackToken ? t("constructorPanel.hide") : t("constructorPanel.show")}
               </TokenActionButton>
-              <TokenActionButton onClick={() => copyToClipboard(callbackToken, "Callback token")} disabled={!callbackToken}>
-                Copy
+              <TokenActionButton onClick={() => copyToClipboard(callbackToken, t("constructorPanel.callbackTokenLabel"))} disabled={!callbackToken}>
+                {t("constructorPanel.copy")}
               </TokenActionButton>
               <TokenActionButton
                 onClick={() => {
@@ -315,11 +311,11 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
                   setShowCallbackToken(false);
                   setError(null);
                   setSyncMessage(null);
-                  setSaved("Callback token will be removed the next time you save Constructor settings.");
+                  setSaved(t("constructorPanel.callbackTokenWillBeRemoved"));
                 }}
                 disabled={!integration?.callbackTokenConfigured && !callbackToken}
               >
-                Clear
+                {t("constructorPanel.clear")}
               </TokenActionButton>
             </div>
           </div>
@@ -333,7 +329,7 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
               setCallbackToken(nextValue);
               setCallbackTokenMode(nextValue.trim() ? "replace" : integration?.callbackTokenConfigured ? "keep" : "keep");
             }}
-            placeholder={integration?.callbackTokenConfigured ? "Saved callback token retained unless you replace or clear it" : "Optional callback shared secret"}
+            placeholder={integration?.callbackTokenConfigured ? t("constructorPanel.savedCallbackTokenRetained") : t("constructorPanel.callbackTokenPlaceholder")}
             className="input-control"
             autoComplete="off"
           />
@@ -341,27 +337,27 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--text-dim)]">
             <span>
               {callbackTokenMode === "replace"
-                ? "New callback token ready to save."
+                ? t("constructorPanel.newCallbackTokenReadyShort")
                 : callbackTokenMode === "clear"
-                  ? "Callback token will be cleared on save."
+                  ? t("constructorPanel.callbackTokenClearedOnSave")
                   : integration?.callbackToken
-                    ? "Saved callback token is loaded from workspace settings and will stay in place until you replace or clear it."
-                    : "Callback token not configured."}
+                    ? t("constructorPanel.savedCallbackTokenLoaded")
+                    : t("constructorPanel.callbackTokenNotConfigured")}
             </span>
-            <span>{callbackTokenReady ? "Callback token available" : "No callback token configured"}</span>
+            <span>{callbackTokenReady ? t("constructorPanel.callbackTokenAvailable") : t("constructorPanel.noCallbackTokenConfigured")}</span>
           </div>
         </div>
 
         <label className="flex items-center gap-3 text-sm text-[var(--text-strong)]">
           <input type="checkbox" name="enabled" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
-          Enable Constructor dispatch for this workspace
+          {t("constructorPanel.enableDispatch")}
         </label>
 
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-secondary)] px-4 py-3 text-sm text-[var(--text-dim)]">
-          <div className="property-row"><span>API token saved</span><span>{integration?.apiTokenConfigured ? "Yes" : "No"}</span></div>
-          <div className="property-row"><span>Callback token saved</span><span>{integration?.callbackTokenConfigured ? "Yes" : "No"}</span></div>
-          <div className="property-row"><span>Last sync</span><span>{integration?.lastSyncAt ? new Date(integration.lastSyncAt).toLocaleString() : "Never"}</span></div>
-          <div className="property-row"><span>Status</span><span>{integration?.lastSyncStatus ?? (integration?.enabled === false ? "Disabled" : integration?.baseUrl ? "Configured" : "Not configured")}</span></div>
+          <div className="property-row"><span>{t("constructorPanel.apiTokenSaved")}</span><span>{integration?.apiTokenConfigured ? t("constructorPanel.yes") : t("constructorPanel.no")}</span></div>
+          <div className="property-row"><span>{t("constructorPanel.callbackTokenSaved")}</span><span>{integration?.callbackTokenConfigured ? t("constructorPanel.yes") : t("constructorPanel.no")}</span></div>
+          <div className="property-row"><span>{t("constructorPanel.lastSync")}</span><span>{integration?.lastSyncAt ? new Date(integration.lastSyncAt).toLocaleString(locale) : t("constructorPanel.never")}</span></div>
+          <div className="property-row"><span>{t("constructorPanel.status")}</span><span>{integration?.lastSyncStatus ?? (integration?.enabled === false ? t("constructorPanel.disabled") : integration?.baseUrl ? t("constructorPanel.configured") : t("constructorPanel.notConfigured"))}</span></div>
           {integration?.lastSyncError ? <p className="mt-3 text-rose-600">{integration.lastSyncError}</p> : null}
         </div>
 
@@ -374,19 +370,19 @@ export function WorkspaceConstructorPanel({ integration }: { integration: Constr
             ) : syncMessage ? (
               <span className="text-emerald-600">{syncMessage}</span>
             ) : isPending && lastAction === "save" ? (
-              <span className="text-[var(--text-muted)]">Saving Constructor settings and refreshing workspace settings…</span>
+              <span className="text-[var(--text-muted)]">{t("constructorPanel.savingAndRefreshing")}</span>
             ) : isSyncing && lastAction === "sync" ? (
-              <span className="text-[var(--text-muted)]">Syncing available Constructor agents and refreshing the member list…</span>
+              <span className="text-[var(--text-muted)]">{t("constructorPanel.syncingAndRefreshing")}</span>
             ) : (
-              <span className="text-[var(--text-dim)]">Save the base URL and API token first, then sync agents from Constructor before dispatch testing.</span>
+              <span className="text-[var(--text-dim)]">{t("constructorPanel.saveThenSyncHint")}</span>
             )}
           </div>
           <div className="flex flex-wrap gap-3">
             <AppButton type="submit" tone="primary" className={isPending ? "opacity-70" : ""}>
-              {isPending ? "Saving..." : "Save Constructor settings"}
+              {isPending ? t("constructorPanel.saving") : t("constructorPanel.saveSettings")}
             </AppButton>
             <AppButton type="button" tone="secondary" onClick={handleSync} disabled={isSyncing || isPending || !baseUrl.trim() || !apiTokenReady}>
-              {isSyncing ? "Syncing..." : "Sync agents"}
+              {isSyncing ? t("constructorPanel.syncing") : t("constructorPanel.syncAgents")}
             </AppButton>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
+import { useI18n } from "@/components/product/i18n-provider";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 
 type ProjectMemberOption = {
@@ -27,6 +28,7 @@ export function ProjectMembersForm({
   selectedRoles: Record<string, string>;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedMemberIds);
   const [memberRoles, setMemberRoles] = useState<Record<string, string>>(selectedRoles);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export function ProjectMembersForm({
     });
 
     if (!response.ok) {
-      setError("Project members could not be updated.");
+      setError(t("projectForms.projectMembersUpdateFailed"));
       return;
     }
 
@@ -72,9 +74,9 @@ export function ProjectMembersForm({
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
-        eyebrow="Project members"
-        title={`Manage ${projectName}`}
-        description="Project membership defines task scope. Viewer-role members can follow work, but they should not own tasks."
+        eyebrow={t("projectForms.membersEyebrow")}
+        title={t("projectForms.membersTitle", { name: projectName })}
+        description={t("projectForms.membersDescription")}
       />
       <form onSubmit={handleSubmit} className="space-y-5 px-5 py-5">
         <div className="grid gap-3 xl:grid-cols-2">
@@ -99,7 +101,7 @@ export function ProjectMembersForm({
                 <div>
                   <p className="text-sm font-semibold text-[var(--text-strong)]">{member.name}</p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">
-                    {member.role} · {member.type}
+                    {member.role} · {member.type === "Human" ? t("projectForms.human") : t("projectForms.agent")}
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     {member.workspaceRole ? (
@@ -113,14 +115,14 @@ export function ProjectMembersForm({
                         onChange={(event) => setRole(member.id, event.target.value)}
                         className="input-control min-w-[150px] bg-white py-2 text-sm"
                       >
-                        <option value="lead">Lead</option>
-                        <option value="member">Member</option>
-                        <option value="observer">Observer</option>
+                        <option value="lead">{t("projectForms.lead")}</option>
+                        <option value="member">{t("projectForms.member")}</option>
+                        <option value="observer">{t("projectForms.observer")}</option>
                       </select>
                     ) : null}
                   </div>
                   {selected && memberRoles[member.id] === "observer" ? (
-                    <p className="mt-2 text-xs text-[var(--text-dim)]">Observers can review and follow work, but they cannot own tasks.</p>
+                    <p className="mt-2 text-xs text-[var(--text-dim)]">{t("projectForms.observerHint")}</p>
                   ) : null}
                 </div>
               </label>
@@ -128,9 +130,9 @@ export function ProjectMembersForm({
           })}
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {error ? <span className="text-sm text-rose-600">{error}</span> : <span className="text-sm text-[var(--text-dim)]">Task assignments are automatically constrained to this member set.</span>}
+          {error ? <span className="text-sm text-rose-600">{error}</span> : <span className="text-sm text-[var(--text-dim)]">{t("projectForms.assignmentsHint")}</span>}
           <AppButton type="submit" tone="primary" className={isPending ? "opacity-70" : ""}>
-            {isPending ? "Saving..." : "Save members"}
+            {isPending ? t("projectForms.saving") : t("projectForms.saveMembers")}
           </AppButton>
         </div>
       </form>

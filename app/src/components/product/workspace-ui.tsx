@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { activityFeed, agentDocsSections, ContextBlock, Metric, ProjectSummary, TaskRecord } from "@/lib/demo-data";
@@ -11,17 +13,14 @@ import {
   PriorityBadge,
   StatusBadge
 } from "@/components/ui/primitives";
-import type { ResolvedTaskContext } from "@/lib/context-resolver";
-import { AgentEnabledToggle } from "@/components/product/agent-enabled-toggle";
-import { TaskStatusActions } from "@/components/product/task-status-actions";
-import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { BoardGridInteractive } from "@/components/product/board-grid-interactive";
 import { SavedTaskViews } from "@/components/product/saved-task-views";
+import { useI18n } from "@/components/product/i18n-provider";
 export { TaskWorkspace } from "@/components/product/task-workspace";
 export { MemberDirectory } from "@/components/product/member-directory";
 
 type BoardColumn = {
-  title: TaskRecord["status"];
+  title: string;
   count: number;
   accent: "slate" | "blue" | "gold" | "red" | "emerald";
   cards: Array<{
@@ -48,10 +47,11 @@ export function ContextPanel({
   compact?: boolean;
 }) {
   const filtered = blocks.filter(Boolean) as ContextBlock[];
+  const { t } = useI18n();
 
   return (
     <Panel className="overflow-hidden">
-      <PanelHeader eyebrow="Context" title={title} />
+      <PanelHeader eyebrow={t("workspaceUi.context")} title={title} />
       <div className={`grid gap-3 px-5 py-4 ${compact ? "xl:grid-cols-3" : "xl:grid-cols-2"}`}>
         {filtered.map((block) => (
           <div key={block.title + block.summary} className="rounded-3xl border border-[var(--line)] bg-[var(--surface-subtle)] p-4">
@@ -124,18 +124,21 @@ export function MetricStrip({ items }: { items: Metric[] }) {
 
 export function FocusQueuePanel({
   items,
-  title = "Needs attention"
+  title
 }: {
   items: TaskRecord[];
   title?: string;
 }) {
+  const { t } = useI18n();
+  const resolvedTitle = title ?? t("workspaceUi.needsAttention");
+
   return (
     <Panel className="overflow-hidden">
-      <PanelHeader eyebrow="Focus" title={title} action={<AppButton tone="secondary" href="/my-tasks">Open tasks</AppButton>} />
+      <PanelHeader eyebrow={t("workspaceUi.focus")} title={resolvedTitle} action={<AppButton tone="secondary" href="/my-tasks">{t("workspaceUi.openTasks")}</AppButton>} />
       <div className="divide-y divide-[var(--line)]">
         {items.length ? (
           items.map((task) => {
-            const health = getAgentRunHealth(task);
+            const health = getAgentRunHealth(task, undefined, t);
             return (
               <Link key={task.id} href={`/tasks/${task.id}`} className="dashboard-list-row">
                 <div className="min-w-0">
@@ -159,7 +162,7 @@ export function FocusQueuePanel({
             );
           })
         ) : (
-          <div className="px-5 py-6 text-sm text-[var(--text-muted)]">Nothing needs attention yet.</div>
+          <div className="px-5 py-6 text-sm text-[var(--text-muted)]">{t("workspaceUi.nothingNeedsAttentionYet")}</div>
         )}
       </div>
     </Panel>
@@ -168,14 +171,17 @@ export function FocusQueuePanel({
 
 export function ProjectSnapshotPanel({
   items,
-  title = "Active projects"
+  title
 }: {
   items: ProjectSummary[];
   title?: string;
 }) {
+  const { t } = useI18n();
+  const resolvedTitle = title ?? t("workspaceUi.activeProjects");
+
   return (
     <Panel className="overflow-hidden">
-      <PanelHeader eyebrow="Projects" title={title} action={<AppButton tone="secondary" href="/projects">All projects</AppButton>} />
+      <PanelHeader eyebrow={t("workspaceUi.projectsEyebrow")} title={resolvedTitle} action={<AppButton tone="secondary" href="/projects">{t("workspaceUi.allProjects")}</AppButton>} />
       <div className="divide-y divide-[var(--line)]">
         {items.length ? (
           items.map((project) => (
@@ -184,18 +190,18 @@ export function ProjectSnapshotPanel({
                 <h3 className="text-sm font-semibold text-[var(--text-strong)]">{project.name}</h3>
                 <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{project.description}</p>
                 <p className="mt-2 text-xs uppercase tracking-[0.16em] text-[var(--text-dim)]">
-                  Open {project.open} · Review {project.review} · Blocked {project.blocked}
+                  {t("common.open")} {project.open} · {t("common.review")} {project.review} · {t("common.blocked")} {project.blocked}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-medium text-[var(--text-muted)]">
-                  {project.status}
+                  {getProjectStatusLabel(project.status, t)}
                 </span>
               </div>
             </Link>
           ))
         ) : (
-          <div className="px-5 py-6 text-sm text-[var(--text-muted)]">No projects yet.</div>
+          <div className="px-5 py-6 text-sm text-[var(--text-muted)]">{t("workspaceUi.noProjectsYet")}</div>
         )}
       </div>
     </Panel>
@@ -211,45 +217,107 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ProjectGrid({ items }: { items: ProjectSummary[] }) {
+const PROJECT_STATUS_CONFIG: Record<ProjectSummary["status"], { labelKey: string; toneClass: string }> = {
+  "On track": {
+    labelKey: "workspaceUi.onTrack",
+    toneClass: "border-emerald-200 bg-emerald-50 text-emerald-700"
+  },
+  "Needs review": {
+    labelKey: "workspaceUi.needsReview",
+    toneClass: "border-amber-200 bg-amber-50 text-amber-700"
+  },
+  "At risk": {
+    labelKey: "workspaceUi.atRisk",
+    toneClass: "border-rose-200 bg-rose-50 text-rose-700"
+  }
+};
+
+function getProjectStatusLabel(value: ProjectSummary["status"], t: (key: string) => string) {
+  return t(PROJECT_STATUS_CONFIG[value].labelKey);
+}
+
+function ProjectStatusBadge({ value }: { value: ProjectSummary["status"] }) {
+  const { t } = useI18n();
+
   return (
-    <div className="grid gap-3 2xl:grid-cols-2">
-      {items.map((project) => (
-        <Link key={project.slug} href={`/projects/${project.slug}`}>
-          <Panel className="project-card p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h3 className="text-lg font-semibold tracking-[-0.03em] text-[var(--text-strong)]">{project.name}</h3>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--text-muted)]">{project.description}</p>
-              </div>
-              <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-medium text-[var(--text-muted)]">
-                {project.status}
-              </span>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--text-dim)]">
-              {project.lifecycle ? <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-1">{project.lifecycle}</span> : null}
-              {project.visibility ? <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-1">{project.visibility}</span> : null}
-            </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-4">
-              <Stat label="Open" value={String(project.open)} />
-              <Stat label="Review" value={String(project.review)} />
-              <Stat label="Blocked" value={String(project.blocked)} />
-              <Stat label="Due" value={project.due} />
-            </div>
-          </Panel>
-        </Link>
-      ))}
-    </div>
+    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${PROJECT_STATUS_CONFIG[value].toneClass}`}>
+      {getProjectStatusLabel(value, t)}
+    </span>
+  );
+}
+
+export function ProjectGrid({ items }: { items: ProjectSummary[] }) {
+  const { t } = useI18n();
+
+  return (
+    <Panel className="overflow-hidden">
+      <PanelHeader
+        eyebrow={t("workspaceUi.projectsEyebrow")}
+        title={t("workspaceUi.visibleProjects")}
+        description={t("workspaceUi.visibleProjectsDescription")}
+      />
+      {items.length ? (
+        <>
+          <div className="task-table-header">
+            <span>{t("workspaceUi.project")}</span>
+            <span>{t("common.status")}</span>
+            <span>{t("workspaceUi.load")}</span>
+            <span>{t("workspaceUi.access")}</span>
+            <span>{t("common.due")}</span>
+          </div>
+          <div className="divide-y divide-[var(--line)]">
+            {items.map((project) => (
+              <Link key={project.slug} href={`/projects/${project.slug}`} className="task-row">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <h3 className="truncate text-sm font-semibold text-[var(--text-strong)]">{project.name}</h3>
+                  </div>
+                  <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{project.description}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-dim)]">
+                    {project.lifecycle ? (
+                      <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">
+                        {project.lifecycle}
+                      </span>
+                    ) : null}
+                    <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">
+                      {project.members} {t("common.members")}
+                    </span>
+                    {project.completionRate ? <span>{project.completionRate} {t("common.complete")}</span> : null}
+                  </div>
+                </div>
+                <div className="flex justify-start">
+                  <ProjectStatusBadge value={project.status} />
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-[var(--text-dim)]">
+                  <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">{t("common.open")} {project.open}</span>
+                  <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">{t("common.review")} {project.review}</span>
+                  {project.blocked ? <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">{t("common.blocked")} {project.blocked}</span> : null}
+                </div>
+                <div className="text-sm text-[var(--text-muted)]">{project.visibility ?? t("common.workspace")}</div>
+                <div className="text-right text-sm font-medium text-[var(--text-strong)]">{project.due}</div>
+              </Link>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="px-5 py-8">
+          <div className="rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] px-4 py-5">
+            <h3 className="text-sm font-semibold text-[var(--text-strong)]">{t("workspaceUi.noProjectsYet")}</h3>
+            <p className="mt-1 text-sm text-[var(--text-dim)]">{t("workspaceUi.createFirstProject")}</p>
+          </div>
+        </div>
+      )}
+    </Panel>
   );
 }
 
 export function TaskTable({
   items,
-  title = "Task list",
+  title,
   description,
   projectScoped = false,
-  emptyTitle = "No tasks yet",
-  emptyDescription = "Create the first task to start tracking work."
+  emptyTitle,
+  emptyDescription
 }: {
   items: TaskRecord[];
   title?: string;
@@ -258,21 +326,26 @@ export function TaskTable({
   emptyTitle?: string;
   emptyDescription?: string;
 }) {
+  const { t } = useI18n();
+  const resolvedTitle = title ?? t("workspaceUi.taskList");
+  const resolvedEmptyTitle = emptyTitle ?? t("workspaceUi.noTasksYet");
+  const resolvedEmptyDescription = emptyDescription ?? t("workspaceUi.createFirstTask");
+
   return (
     <Panel className="overflow-hidden">
-      <PanelHeader eyebrow="Tasks" title={title} description={description} />
+      <PanelHeader eyebrow={t("workspaceUi.tasksEyebrow")} title={resolvedTitle} description={description} />
       {items.length ? (
         <>
           <div className="task-table-header">
-            <span>Task</span>
-            <span>Status</span>
-            <span>Priority</span>
-            <span>Owner</span>
-            <span>Due</span>
+            <span>{t("workspaceUi.project") === t("common.workspace") ? t("workspaceUi.project") : t("workspaceUi.project")}</span>
+            <span>{t("common.status")}</span>
+            <span>{t("common.priority")}</span>
+            <span>{t("common.owner")}</span>
+            <span>{t("common.due")}</span>
           </div>
           <div className="divide-y divide-[var(--line)]">
             {items.map((task) => {
-              const health = task.assigneeType === "Agent" ? getAgentRunHealth(task) : null;
+              const health = task.assigneeType === "Agent" ? getAgentRunHealth(task, undefined, t) : null;
               return (
                 <Link key={task.id} href={projectScoped ? `/projects/${task.projectSlug}/tasks/${task.id}` : `/tasks/${task.id}`} className="task-row">
                   <div className="min-w-0">
@@ -290,12 +363,12 @@ export function TaskTable({
                       ) : null}
                       {task.parentTaskTitle ? (
                         <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">
-                          Subtask
+                          {t("common.subtask")}
                         </span>
                       ) : null}
                       {task.childCount ? (
                         <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">
-                          {task.childCount} subtasks
+                          {task.childCount} {t("common.subtasks")}
                         </span>
                       ) : null}
                       {task.tags.slice(0, 1).map((tag) => (
@@ -332,8 +405,8 @@ export function TaskTable({
       ) : (
         <div className="px-5 py-8">
           <div className="rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] px-4 py-5">
-            <h3 className="text-sm font-semibold text-[var(--text-strong)]">{emptyTitle}</h3>
-            <p className="mt-1 text-sm text-[var(--text-dim)]">{emptyDescription}</p>
+            <h3 className="text-sm font-semibold text-[var(--text-strong)]">{resolvedEmptyTitle}</h3>
+            <p className="mt-1 text-sm text-[var(--text-dim)]">{resolvedEmptyDescription}</p>
           </div>
         </div>
       )}
@@ -425,11 +498,12 @@ export function TaskViewToolbar({
   preservedParams?: Record<string, string>;
   savedViewsKey?: string;
 }) {
+  const { t } = useI18n();
   const activeFilters = [
-    current.status ? `Status: ${statusLabel(current.status)}` : null,
-    current.timing ? `Timing: ${timingLabel(current.timing)}` : null,
-    current.tag ? `Tag: ${current.tag}` : null,
-    current.sort !== "due" ? `Sort: ${sortLabel(current.sort)}` : null
+    current.status ? t("workspaceUi.focusSummary", { value: statusLabel(current.status, t) }) : null,
+    current.timing ? t("workspaceUi.timingSummary", { value: timingLabel(current.timing, t) }) : null,
+    current.tag ? t("workspaceUi.tagSummary", { value: current.tag }) : null,
+    current.sort !== "due" ? t("workspaceUi.sortSummary", { value: sortLabel(current.sort, t) }) : null
   ].filter(Boolean) as string[];
   const clearHref = buildTaskViewHref(
     basePath,
@@ -438,33 +512,33 @@ export function TaskViewToolbar({
     preservedParams
   );
   const modeOptions = [
-    { label: "List", value: "list" as const, icon: <StackIcon className="h-3.5 w-3.5" /> },
-    { label: "Board", value: "board" as const, icon: <BoardIcon className="h-3.5 w-3.5" /> }
+    { label: t("workspaceUi.list"), value: "list" as const, icon: <StackIcon className="h-3.5 w-3.5" /> },
+    { label: t("workspaceUi.board"), value: "board" as const, icon: <BoardIcon className="h-3.5 w-3.5" /> }
   ];
   const statusOptions = [
-    { label: "All statuses", value: "" },
-    { label: "Todo", value: "todo" },
-    { label: "In progress", value: "in-progress" },
-    { label: "In review", value: "in-review" },
-    { label: "Blocked", value: "blocked" }
+    { label: t("workspaceUi.allStatuses"), value: "" },
+    { label: t("workspaceUi.todo"), value: "todo" },
+    { label: t("workspaceUi.inProgress"), value: "in-progress" },
+    { label: t("workspaceUi.inReview"), value: "in-review" },
+    { label: t("common.blocked"), value: "blocked" }
   ];
   const timingOptions = [
-    { label: "All timing", value: "" },
-    { label: "Due soon", value: "due-soon" },
-    { label: "Overdue", value: "overdue" }
+    { label: t("workspaceUi.allTiming"), value: "" },
+    { label: t("workspaceUi.dueSoon"), value: "due-soon" },
+    { label: t("workspaceUi.overdue"), value: "overdue" }
   ];
   const sortOptions = [
-    { label: "Due date", value: "due" },
-    { label: "Priority", value: "priority" },
-    { label: "Updated", value: "updated" },
-    { label: "Created", value: "created" }
+    { label: t("workspaceUi.dueDate"), value: "due" },
+    { label: t("common.priority"), value: "priority" },
+    { label: t("workspaceUi.updated"), value: "updated" },
+    { label: t("workspaceUi.created"), value: "created" }
   ];
 
   return (
     <Panel className="overflow-hidden p-3">
       {activeFilters.length ? (
         <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-[var(--line)] pb-3">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-dim)]">Active</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-dim)]">{t("common.active")}</span>
           {activeFilters.map((filter) => (
             <span
               key={filter}
@@ -474,13 +548,13 @@ export function TaskViewToolbar({
             </span>
           ))}
           <Link href={clearHref} className="text-xs font-medium text-[var(--accent-strong)] hover:underline">
-            Clear filters
+            {t("workspaceUi.clearFilters")}
           </Link>
         </div>
       ) : null}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-sm whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex items-center gap-2 pr-1">
-          <TaskViewControlLabel label="View" icon={<SparkIcon className="h-3.5 w-3.5" />} />
+          <TaskViewControlLabel label={t("workspaceUi.view")} icon={<SparkIcon className="h-3.5 w-3.5" />} />
           {modeOptions.map((option) => (
             <TaskViewControlChip
               key={option.label}
@@ -495,7 +569,7 @@ export function TaskViewToolbar({
         <div className="h-5 w-px shrink-0 bg-[var(--line)]" />
 
         <div className="flex items-center gap-2 pr-1">
-          <TaskViewControlLabel label="Status" icon={<SearchIcon className="h-3.5 w-3.5" />} />
+          <TaskViewControlLabel label={t("common.status")} icon={<SearchIcon className="h-3.5 w-3.5" />} />
           {statusOptions.map((option) => (
             <TaskViewControlChip
               key={option.label}
@@ -509,7 +583,7 @@ export function TaskViewToolbar({
         <div className="h-5 w-px shrink-0 bg-[var(--line)]" />
 
         <div className="flex items-center gap-2 pr-1">
-          <TaskViewControlLabel label="Timing" icon={<CalendarIcon className="h-3.5 w-3.5" />} />
+          <TaskViewControlLabel label={t("workspaceUi.allTiming")} icon={<CalendarIcon className="h-3.5 w-3.5" />} />
           {timingOptions.map((option) => (
             <TaskViewControlChip
               key={option.label}
@@ -524,20 +598,20 @@ export function TaskViewToolbar({
           <>
             <div className="h-5 w-px shrink-0 bg-[var(--line)]" />
             <div className="flex items-center gap-2 pr-1">
-              <TaskViewControlLabel label="Tags" icon={<FolderIcon className="h-3.5 w-3.5" />} />
+              <TaskViewControlLabel label={t("common.tags")} icon={<FolderIcon className="h-3.5 w-3.5" />} />
               <TaskViewControlChip
                 href={buildTaskViewHref(basePath, current, { tag: "" }, preservedParams)}
-                label="All tags"
+                label={t("workspaceUi.allTags")}
                 active={!current.tag}
               />
-            {tagOptions.map((tag) => (
-              <TaskViewControlChip
-                key={tag}
-                href={buildTaskViewHref(basePath, current, { tag }, preservedParams)}
-                label={tag}
-                active={current.tag === tag}
-              />
-            ))}
+              {tagOptions.map((tag) => (
+                <TaskViewControlChip
+                  key={tag}
+                  href={buildTaskViewHref(basePath, current, { tag }, preservedParams)}
+                  label={tag}
+                  active={current.tag === tag}
+                />
+              ))}
             </div>
           </>
         ) : null}
@@ -545,7 +619,7 @@ export function TaskViewToolbar({
         <div className="h-5 w-px shrink-0 bg-[var(--line)]" />
 
         <div className="flex items-center gap-2">
-          <TaskViewControlLabel label="Sort" icon={<ChartIcon className="h-3.5 w-3.5" />} />
+          <TaskViewControlLabel label={t("common.sort")} icon={<ChartIcon className="h-3.5 w-3.5" />} />
           {sortOptions.map((option) => (
             <TaskViewControlChip
               key={option.label}
@@ -573,34 +647,34 @@ export function TaskViewToolbar({
   );
 }
 
-function statusLabel(value: string) {
+function statusLabel(value: string, t: ReturnType<typeof useI18n>["t"]) {
   const labels: Record<string, string> = {
-    "": "All statuses",
-    todo: "Todo",
-    "in-progress": "In progress",
-    "in-review": "In review",
-    blocked: "Blocked"
+    "": t("workspaceUi.allStatuses"),
+    todo: t("workspaceUi.todo"),
+    "in-progress": t("workspaceUi.inProgress"),
+    "in-review": t("workspaceUi.inReview"),
+    blocked: t("common.blocked")
   };
 
   return labels[value] ?? value;
 }
 
-function timingLabel(value: string) {
+function timingLabel(value: string, t: ReturnType<typeof useI18n>["t"]) {
   const labels: Record<string, string> = {
-    "": "All timing",
-    "due-soon": "Due soon",
-    overdue: "Overdue"
+    "": t("workspaceUi.allTiming"),
+    "due-soon": t("workspaceUi.dueSoon"),
+    overdue: t("workspaceUi.overdue")
   };
 
   return labels[value] ?? value;
 }
 
-function sortLabel(value: string) {
+function sortLabel(value: string, t: ReturnType<typeof useI18n>["t"]) {
   const labels: Record<string, string> = {
-    due: "Due date",
-    priority: "Priority",
-    updated: "Updated",
-    created: "Created"
+    due: t("workspaceUi.dueDate"),
+    priority: t("common.priority"),
+    updated: t("workspaceUi.updated"),
+    created: t("workspaceUi.created")
   };
 
   return labels[value] ?? value;
@@ -608,21 +682,23 @@ function sortLabel(value: string) {
 
 export function BoardGrid({
   columns,
-  title = "Kanban board"
+  title
 }: {
   columns: BoardColumn[];
   title?: string;
 }) {
-  return <BoardGridInteractive columns={columns} title={title} />;
+  const { t } = useI18n();
+  return <BoardGridInteractive columns={columns} title={title ?? t("workspaceUi.kanbanBoard")} />;
 }
 
-
 export function ActivityPanel({ items = activityFeed }: { items?: ActivityFeedItem[] }) {
+  const { t } = useI18n();
+
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
-        eyebrow="Activity"
-        title="Recent changes"
+        eyebrow={t("workspaceUi.activity")}
+        title={t("workspaceUi.recentChanges")}
         action={undefined}
       />
       <div className="space-y-3 px-5 py-4">
@@ -640,7 +716,7 @@ export function ActivityPanel({ items = activityFeed }: { items?: ActivityFeedIt
           ))
         ) : (
           <div className="rounded-2xl border border-dashed border-[var(--line-strong)] bg-[var(--surface-subtle)] px-4 py-5 text-sm text-[var(--text-dim)]">
-            No activity yet.
+            {t("common.noActivityYet")}
           </div>
         )}
       </div>
@@ -649,7 +725,8 @@ export function ActivityPanel({ items = activityFeed }: { items?: ActivityFeedIt
 }
 
 export function AgentDocsOverview() {
-  return <ContextPanel title="Agent integration contract" blocks={agentDocsSections} compact />;
+  const { t } = useI18n();
+  return <ContextPanel title={t("workspaceUi.agentIntegrationContract")} blocks={agentDocsSections} compact />;
 }
 
 export function EmptyState({

@@ -1,4 +1,5 @@
 import { error } from "@/lib/api-response";
+import { getApiT } from "@/lib/api-i18n";
 import { getAttachmentPreviewFromDb } from "@/lib/server-data";
 
 export const runtime = "nodejs";
@@ -7,16 +8,17 @@ export async function GET(
   _request: Request,
   { params }: { params: { attachmentId: string } }
 ) {
+  const t = await getApiT();
   const attachment = await getAttachmentPreviewFromDb(params.attachmentId);
 
   if (!attachment) {
-    return error("Attachment not found", 404, {
+    return error(t("api.attachmentNotFound"), 404, {
       attachmentId: params.attachmentId
     });
   }
 
   if ("error" in attachment) {
-    return error("Preview is not supported for this file type.", 422, {
+    return error(t("api.previewNotSupportedForFileType"), 422, {
       code: attachment.error
     });
   }

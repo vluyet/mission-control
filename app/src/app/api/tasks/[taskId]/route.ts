@@ -2,11 +2,13 @@ import { error, ok } from "@/lib/api-response";
 import { deleteTaskInDb, getTaskResourceFromDb, updateTaskInDb } from "@/lib/server-data";
 import { logAppEvent } from "@/lib/logger";
 import { resolveApiActor } from "@/lib/api-auth";
+import { getApiT } from "@/lib/api-i18n";
 
 export async function GET(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "tasks.read");
 
   if (!auth.ok) {
@@ -16,7 +18,7 @@ export async function GET(
   const payload = await getTaskResourceFromDb(params.taskId);
 
   if (!payload) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   return ok(payload);
@@ -26,6 +28,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "tasks.write");
 
   if (!auth.ok) {
@@ -35,7 +38,7 @@ export async function PATCH(
   const task = await getTaskResourceFromDb(params.taskId);
 
   if (!task) {
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   const body = (await request.json().catch(() => null)) as
@@ -55,7 +58,7 @@ export async function PATCH(
     | null;
 
   if (!body || Object.keys(body).length === 0) {
-    return error("No task updates were provided", 422, {
+    return error(t("api.noTaskUpdatesProvided"), 422, {
       code: "EMPTY_UPDATE"
     });
   }
@@ -77,7 +80,7 @@ export async function PATCH(
 
   if (!updated) {
     logAppEvent("error", "task.update.failed", { taskId: params.taskId, reason: "task_not_found" });
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   if ("error" in updated) {
@@ -92,19 +95,19 @@ export async function PATCH(
       | "INVALID_HUMAN_STATUS_TRANSITION"
       | "AGENT_PERMISSION_DENIED";
     const errorMap: Record<string, string> = {
-      ASSIGNEE_NOT_IN_PROJECT: "Assignee must belong to the project",
-      ASSIGNEE_DISABLED: "Disabled agents cannot be assigned",
-      ASSIGNEE_VIEWER: "Viewer members cannot own tasks",
-      ASSIGNEE_OBSERVER: "Observer project members cannot own tasks",
-      PARENT_NOT_IN_PROJECT: "Parent task must belong to the same project",
-      PARENT_SELF_REFERENCE: "A task cannot be its own parent",
-      INVALID_AGENT_STATUS_TRANSITION: "This transition is not allowed for agent-owned work",
-      INVALID_HUMAN_STATUS_TRANSITION: "This transition is not allowed for human operators",
-      AGENT_PERMISSION_DENIED: "The assigned agent does not have permission for this task action"
+      ASSIGNEE_NOT_IN_PROJECT: t("api.assigneeMustBelongToProject"),
+      ASSIGNEE_DISABLED: t("api.disabledAgentsCannotBeAssigned"),
+      ASSIGNEE_VIEWER: t("api.viewerMembersCannotOwnTasks"),
+      ASSIGNEE_OBSERVER: t("api.observerMembersCannotOwnTasks"),
+      PARENT_NOT_IN_PROJECT: t("api.parentTaskMustBelongToSameProject"),
+      PARENT_SELF_REFERENCE: t("api.taskCannotBeOwnParent"),
+      INVALID_AGENT_STATUS_TRANSITION: t("api.invalidAgentStatusTransition"),
+      INVALID_HUMAN_STATUS_TRANSITION: t("api.invalidHumanStatusTransition"),
+      AGENT_PERMISSION_DENIED: t("api.assignedAgentPermissionDenied")
     };
 
     logAppEvent("warn", "task.update.rejected", { taskId: params.taskId, code });
-    return error(errorMap[code] ?? "Task update failed", code === "AGENT_PERMISSION_DENIED" ? 403 : 422, {
+    return error(errorMap[code] ?? t("api.taskUpdateFailed"), code === "AGENT_PERMISSION_DENIED" ? 403 : 422, {
       code
     });
   }
@@ -120,6 +123,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "tasks.write");
 
   if (!auth.ok) {
@@ -130,7 +134,7 @@ export async function DELETE(
 
   if (!deleted) {
     logAppEvent("error", "task.delete.failed", { taskId: params.taskId, reason: "task_not_found" });
-    return error("Task not found", 404, { taskId: params.taskId });
+    return error(t("api.taskNotFound"), 404, { taskId: params.taskId });
   }
 
   logAppEvent("info", "task.deleted", { taskId: params.taskId });

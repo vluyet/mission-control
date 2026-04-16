@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { TaskCreateForm } from "@/components/product/task-create-form";
 import { PageHeader } from "@/components/product/workspace-ui";
 import { getTaskCreateFormData } from "@/lib/server-data";
+import { getRequestI18n } from "@/lib/i18n/server";
 
 export default async function NewProjectTaskPage({
   params
@@ -9,6 +10,7 @@ export default async function NewProjectTaskPage({
   params: { slug: string };
 }) {
   const data = await getTaskCreateFormData(params.slug);
+  const { t } = await getRequestI18n();
 
   if (!data) {
     notFound();
@@ -17,9 +19,9 @@ export default async function NewProjectTaskPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="New task"
-        title={`${data.project.name} · Create task`}
-        description="Tasks should be quick to add, with assignment kept inside the project member boundary."
+        eyebrow={t("taskForms.newTaskEyebrow")}
+        title={t("taskForms.newTaskTitle", { name: data.project.name })}
+        description={t("taskForms.newTaskDescription")}
       />
       <TaskCreateForm
         projectSlug={data.project.slug}

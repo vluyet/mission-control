@@ -3,12 +3,14 @@ import { db } from "@/lib/db";
 import { error, ok } from "@/lib/api-response";
 import { resolveApiActor } from "@/lib/api-auth";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, getActiveWorkspaceCookieOptions } from "@/lib/workspace-session";
+import { getApiT } from "@/lib/api-i18n";
 
 type WorkspaceBody = {
   slug?: string;
 };
 
 export async function POST(request: Request) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request);
 
   if (!auth.ok) {
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   if (auth.actor.type !== "owner") {
-    return error("Owner access required.", 403, {
+    return error(t("api.ownerAccessRequired"), 403, {
       code: "OWNER_ACCESS_REQUIRED"
     });
   }
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as WorkspaceBody | null;
 
   if (!body?.slug) {
-    return error("Workspace slug is required.", 400, {
+    return error(t("api.workspaceSlugRequired"), 400, {
       code: "WORKSPACE_REQUIRED"
     });
   }
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
   });
 
   if (!workspace) {
-    return error("Workspace not found.", 404, {
+    return error(t("api.workspaceNotFound"), 404, {
       code: "WORKSPACE_NOT_FOUND"
     });
   }

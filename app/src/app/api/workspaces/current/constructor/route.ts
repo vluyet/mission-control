@@ -4,8 +4,10 @@ import {
   upsertActiveWorkspaceConstructorIntegrationInDb
 } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
+import { getApiT } from "@/lib/api-i18n";
 
 export async function GET(request: Request) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request);
 
   if (!auth.ok) {
@@ -13,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   if (auth.actor.type !== "owner") {
-    return error("Owner access required.", 403, { code: "OWNER_ACCESS_REQUIRED" });
+    return error(t("api.ownerAccessRequired"), 403, { code: "OWNER_ACCESS_REQUIRED" });
   }
 
   const integration = await getActiveWorkspaceConstructorIntegration();
@@ -21,6 +23,7 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request);
 
   if (!auth.ok) {
@@ -28,7 +31,7 @@ export async function PATCH(request: Request) {
   }
 
   if (auth.actor.type !== "owner") {
-    return error("Owner access required.", 403, { code: "OWNER_ACCESS_REQUIRED" });
+    return error(t("api.ownerAccessRequired"), 403, { code: "OWNER_ACCESS_REQUIRED" });
   }
 
   const body = (await request.json().catch(() => null)) as
@@ -36,7 +39,7 @@ export async function PATCH(request: Request) {
     | null;
 
   if (!body?.baseUrl?.trim()) {
-    return error("Constructor base URL is required.", 422, { code: "CONSTRUCTOR_BASE_URL_REQUIRED" });
+    return error(t("api.constructorBaseUrlRequired"), 422, { code: "CONSTRUCTOR_BASE_URL_REQUIRED" });
   }
 
   const result = await upsertActiveWorkspaceConstructorIntegrationInDb({
@@ -48,7 +51,7 @@ export async function PATCH(request: Request) {
   });
 
   if (!result) {
-    return error("Workspace not found.", 404, { code: "WORKSPACE_NOT_FOUND" });
+    return error(t("api.workspaceNotFound"), 404, { code: "WORKSPACE_NOT_FOUND" });
   }
 
   return ok({ integration: result });

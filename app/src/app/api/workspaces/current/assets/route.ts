@@ -1,10 +1,12 @@
 import { error, ok } from "@/lib/api-response";
 import { createWorkspaceAssetInDb, getWorkspaceAssetsFromDb } from "@/lib/server-data";
 import { resolveApiActor } from "@/lib/api-auth";
+import { getApiT } from "@/lib/api-i18n";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "workspaces.read");
 
   if (!auth.ok) {
@@ -14,7 +16,7 @@ export async function GET(request: Request) {
   const assets = await getWorkspaceAssetsFromDb();
 
   if (!assets) {
-    return error("Workspace not found", 404, {
+    return error(t("api.workspaceNotFound"), 404, {
       code: "WORKSPACE_NOT_FOUND"
     });
   }
@@ -25,6 +27,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request, "attachments.write");
 
   if (!auth.ok) {
@@ -36,7 +39,7 @@ export async function POST(request: Request) {
   const assetType = typeof formData?.get("assetType") === "string" ? String(formData?.get("assetType")) : "reference";
 
   if (!(file instanceof File) || !file.size) {
-    return error("A file is required", 422, {
+    return error(t("api.fileRequired"), 422, {
       code: "FILE_REQUIRED"
     });
   }
@@ -51,7 +54,7 @@ export async function POST(request: Request) {
   });
 
   if (!asset) {
-    return error("Workspace not found", 404, {
+    return error(t("api.workspaceNotFound"), 404, {
       code: "WORKSPACE_NOT_FOUND"
     });
   }

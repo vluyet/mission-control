@@ -2,8 +2,9 @@ import { notFound } from "next/navigation";
 import { getProjectWorkspaceForUi } from "@/lib/server-data";
 import { BoardGrid, FocusQueuePanel, PageHeader, TaskTable, TaskViewToolbar } from "@/components/product/workspace-ui";
 import { AppButton } from "@/components/ui/primitives";
-import { applyTaskView, buildBoardColumns, getTagOptions, parseTaskViewState } from "@/lib/task-view";
+import { applyTaskView, buildBoardColumns, getTagOptions, getTaskStatusKey, parseTaskViewState } from "@/lib/task-view";
 import { getAgentRunHealth } from "@/lib/agent-run-health";
+import { getRequestI18n } from "@/lib/i18n/server";
 
 export default async function ProjectWorkspacePage({
   params,
@@ -14,6 +15,7 @@ export default async function ProjectWorkspacePage({
 }) {
   const workspace = await getProjectWorkspaceForUi(params.slug);
   const view = parseTaskViewState(searchParams);
+  const { t } = await getRequestI18n();
 
   if (!workspace?.workspaceContext) {
     notFound();
@@ -21,28 +23,34 @@ export default async function ProjectWorkspacePage({
   const { project, tasks } = workspace;
   const visibleTasks = applyTaskView(tasks, view);
   const tags = getTagOptions(tasks);
-  const reviewItems = visibleTasks.filter((task) => task.status === "In Review");
-  const blockedItems = visibleTasks.filter((task) => task.status === "Blocked");
-  const staleItems = visibleTasks.filter((task) => task.assigneeType === "Agent" && task.status === "In Progress" && getAgentRunHealth(task).bucket === "stale");
+  const reviewItems = visibleTasks.filter((task) => getTaskStatusKey(task.rawStatus ?? task.status) === "inReview");
+  const blockedItems = visibleTasks.filter((task) => getTaskStatusKey(task.rawStatus ?? task.status) === "blocked");
+  const staleItems = visibleTasks.filter((task) => (task.rawAssigneeType ?? task.assigneeType) === "Agent" && getTaskStatusKey(task.rawStatus ?? task.status) === "inProgress" && getAgentRunHealth(task).bucket === "stale");
   const attentionItems = [...reviewItems, ...blockedItems, ...staleItems].slice(0, 6);
-  const visibleBoard = buildBoardColumns(visibleTasks);
+  const visibleBoard = buildBoardColumns(visibleTasks, {
+    todo: t("common.todo"),
+    inProgress: t("common.inProgress"),
+    inReview: t("common.inReview"),
+    blocked: t("common.blocked"),
+    done: t("common.done")
+  });
 
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Project"
+        eyebrow={t("common.project")}
         title={project.name}
         description={project.description}
         actions={
           <>
             <AppButton tone="secondary" href={`/projects/${project.slug}/members`}>
-              Project access
+              {t("projectForms.projectAccess")}
             </AppButton>
             <AppButton tone="secondary" href={`/projects/${project.slug}/edit`}>
-              Edit project
+              {t("projectForms.editProject")}
             </AppButton>
             <AppButton tone="primary" href={`/projects/${project.slug}/tasks/new`}>
-              Add task
+              {t("projectForms.addTask")}
             </AppButton>
           </>
         }
@@ -51,10 +59,10 @@ export default async function ProjectWorkspacePage({
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs uppercase tracking-[0.12em] text-[var(--text-dim)]">
-            {project.lifecycle}
+            {project.lifecycle === "Active" ? t("common.active") : t("projectForms.archived")}
           </span>
           <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs uppercase tracking-[0.12em] text-[var(--text-dim)]">
-            {project.visibility}
+            {project.visibility === "Workspace" ? t("projectForms.visibleToWorkspace") : t("projectForms.visibleToProjectMembersOnly")}
           </span>
         </div>
 
@@ -68,14 +76,14 @@ export default async function ProjectWorkspacePage({
         />
 
         {view.mode === "board" ? (
-          <BoardGrid columns={visibleBoard} title="Board" />
+          <BoardGrid columns={visibleBoard} title={t("workspaceUi.board")} />
         ) : attentionItems.length ? (
           <div className="space-y-6">
-            <FocusQueuePanel items={attentionItems} title="Needs attention" />
-            <TaskTable items={visibleTasks} projectScoped title="Project tasks" />
+            <FocusQueuePanel items={attentionItems} title={t("workspaceUi.needsAttention")} />
+            <TaskTable items={visibleTasks} projectScoped title={t("projectForms.projectTasks")} />
           </div>
         ) : (
-          <TaskTable items={visibleTasks} projectScoped title="Project tasks" />
+          <TaskTable items={visibleTasks} projectScoped title={t("projectForms.projectTasks")} />
         )}
       </div>
     </div>

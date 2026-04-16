@@ -1,4 +1,5 @@
 import { agentDocsSections, workspaceContext } from "@/lib/demo-data";
+import type { Translator } from "@/lib/i18n/translator";
 
 export function apiMeta() {
   return {
@@ -8,17 +9,17 @@ export function apiMeta() {
   };
 }
 
-export function getAgentDocsPayload() {
+export function getAgentDocsPayload(t: Translator) {
   return {
     summary:
-      "Mission Control is being shaped so agents can operate against stable task, project, and execution contracts without relying on UI scraping.",
+      t("agentDocsApi.summary"),
     auth: {
-      owner: "Cookie-backed owner session for product access.",
-      agent: "Bearer token credentials scoped per agent member for API access.",
+      owner: t("agentDocsApi.auth.owner"),
+      agent: t("agentDocsApi.auth.agent"),
       notes: [
-        "Agent credentials are created from Manage Workspace.",
-        "Tokens are shown once at creation time.",
-        "Agent scopes gate read and write API access."
+        t("agentDocsApi.auth.notes.0"),
+        t("agentDocsApi.auth.notes.1"),
+        t("agentDocsApi.auth.notes.2")
       ]
     },
     principles: agentDocsSections,
@@ -26,178 +27,178 @@ export function getAgentDocsPayload() {
       {
         method: "GET",
         path: "/api/workspaces/default/context",
-        purpose: "Read workspace context and operational rules."
+        purpose: t("agentDocsApi.resources.workspaceContextPurpose")
       },
       {
         method: "GET",
         path: "/api/projects/:slug/context",
-        purpose: "Read project scope and inherited workspace context."
+        purpose: t("agentDocsApi.resources.projectContextPurpose")
       },
       {
         method: "POST",
         path: "/api/projects",
-        purpose: "Create a new project in the default workspace with a simple visibility rule."
+        purpose: t("agentDocsApi.resources.projectCreatePurpose")
       },
       {
         method: "GET",
         path: "/api/projects/:slug",
-        purpose: "Read project governance settings including lifecycle and visibility."
+        purpose: t("agentDocsApi.resources.projectGovernanceReadPurpose")
       },
       {
         method: "PATCH",
         path: "/api/projects/:slug",
-        purpose: "Update project lifecycle and visibility without changing routes or task structure."
+        purpose: t("agentDocsApi.resources.projectGovernanceUpdatePurpose")
       },
       {
         method: "GET",
         path: "/api/projects/:slug/members",
-        purpose: "Read the current project member scope and available workspace members."
+        purpose: t("agentDocsApi.resources.projectMembersReadPurpose")
       },
       {
         method: "PUT",
         path: "/api/projects/:slug/members",
-        purpose: "Replace the member scope for a project."
+        purpose: t("agentDocsApi.resources.projectMembersUpdatePurpose")
       },
       {
         method: "PATCH",
         path: "/api/members/:memberId",
-        purpose: "Update workspace role metadata and, for agents, manage enabled state and allowed action permissions."
+        purpose: t("agentDocsApi.resources.memberUpdatePurpose")
       },
       {
         method: "GET",
         path: "/api/workspaces/current/constructor",
-        purpose: "Read the active Constructor workspace integration settings."
+        purpose: t("agentDocsApi.resources.constructorReadPurpose")
       },
       {
         method: "PATCH",
         path: "/api/workspaces/current/constructor",
-        purpose: "Create or update the active Constructor workspace integration settings."
+        purpose: t("agentDocsApi.resources.constructorUpdatePurpose")
       },
       {
         method: "POST",
         path: "/api/workspaces/current/constructor/sync",
-        purpose: "Discover available agents through Constructor public API and sync them into workspace members for Constructor use."
+        purpose: t("agentDocsApi.resources.constructorSyncPurpose")
       },
       {
         method: "POST",
         path: "/api/tasks/:taskId/constructor/dispatch",
         purpose:
-          "Owner-only Constructor dispatch using a server-authored Mission Control prompt. Dispatch is rejected when the task description is too underspecified for safe agent execution."
+          t("agentDocsApi.resources.constructorDispatchPurpose")
       },
       {
         method: "GET",
         path: "/api/tasks/:taskId/constructor/status",
-        purpose: "Poll Constructor execution state for an in-flight dispatched task and sync the local Mission Control task status."
+        purpose: t("agentDocsApi.resources.constructorStatusPurpose")
       },
       {
         method: "POST",
         path: "/api/tasks/:taskId/constructor/callback",
-        purpose: "Receive Constructor completion callbacks and project the final response into Mission Control comments and execution state."
+        purpose: t("agentDocsApi.resources.constructorCallbackPurpose")
       },
       {
         method: "GET",
         path: "/api/workspaces/current/agent-credentials",
-        purpose: "Owner-only listing of issued agent credentials and available scopes."
+        purpose: t("agentDocsApi.resources.agentCredentialsListPurpose")
       },
       {
         method: "POST",
         path: "/api/workspaces/current/agent-credentials",
-        purpose: "Create a scoped bearer credential for an enabled agent member."
+        purpose: t("agentDocsApi.resources.agentCredentialsCreatePurpose")
       },
       {
         method: "PATCH",
         path: "/api/agent-credentials/:credentialId",
-        purpose: "Enable or revoke an existing agent credential."
+        purpose: t("agentDocsApi.resources.agentCredentialUpdatePurpose")
       },
       {
         method: "GET",
         path: "/api/search?q=:query",
-        purpose: "Search tasks and projects inside the active workspace."
+        purpose: t("agentDocsApi.resources.searchPurpose")
       },
       {
         method: "POST",
         path: "/api/projects/:slug/tasks",
-        purpose: "Create a task inside a project with assignee options constrained to project members."
+        purpose: t("agentDocsApi.resources.taskCreatePurpose")
       },
       {
         method: "GET",
         path: "/api/tasks/:taskId",
-        purpose: "Read task metadata with resolved workspace and project context."
+        purpose: t("agentDocsApi.resources.taskReadPurpose")
       },
       {
         method: "PATCH",
         path: "/api/tasks/:taskId",
-        purpose: "Update core task metadata from a stable mutation endpoint, including actor-type workflow rules and permission checks."
+        purpose: t("agentDocsApi.resources.taskUpdatePurpose")
       },
       {
         method: "GET",
         path: "/api/tasks/:taskId/watchers",
-        purpose: "Read follower/watcher membership for a task without mixing it into assignment ownership."
+        purpose: t("agentDocsApi.resources.taskWatchersReadPurpose")
       },
       {
         method: "GET",
         path: "/api/tasks/:taskId/attachments",
-        purpose: "Read attachment metadata for a task."
+        purpose: t("agentDocsApi.resources.taskAttachmentsReadPurpose")
       },
       {
         method: "POST",
         path: "/api/tasks/:taskId/attachments",
-        purpose: "Upload a file onto a task using the Docker-local storage contract, including agent-attributed output uploads."
+        purpose: t("agentDocsApi.resources.taskAttachmentsCreatePurpose")
       },
       {
         method: "GET",
         path: "/api/attachments/:attachmentId",
-        purpose: "Download a stored task attachment by id."
+        purpose: t("agentDocsApi.resources.attachmentDownloadPurpose")
       },
       {
         method: "GET",
         path: "/api/attachments/:attachmentId/preview",
-        purpose: "Preview supported image, document, and text artifact types inline."
+        purpose: t("agentDocsApi.resources.attachmentPreviewPurpose")
       },
       {
         method: "PUT",
         path: "/api/tasks/:taskId/watchers",
-        purpose: "Replace the task watcher list so humans and agents can follow work without owning it."
+        purpose: t("agentDocsApi.resources.taskWatchersUpdatePurpose")
       },
       {
         method: "GET",
         path: "/api/tasks/:taskId/context",
-        purpose: "Read the deterministic context resolution payload for a task."
+        purpose: t("agentDocsApi.resources.taskContextPurpose")
       },
       {
         method: "GET",
         path: "/api/tasks/:taskId/comments",
-        purpose: "Read human-facing discussion."
+        purpose: t("agentDocsApi.resources.taskCommentsReadPurpose")
       },
       {
         method: "POST",
         path: "/api/tasks/:taskId/comments",
-        purpose: "Append a human-facing comment."
+        purpose: t("agentDocsApi.resources.taskCommentsCreatePurpose")
       },
       {
         method: "GET",
         path: "/api/tasks/:taskId/activity",
-        purpose: "Read audit-style task history."
+        purpose: t("agentDocsApi.resources.taskActivityPurpose")
       },
       {
         method: "GET",
         path: "/api/tasks/:taskId/execution",
-        purpose: "Read machine-facing execution logs."
+        purpose: t("agentDocsApi.resources.taskExecutionReadPurpose")
       },
       {
         method: "POST",
         path: "/api/tasks/:taskId/execution",
-        purpose: "Append an execution log entry."
+        purpose: t("agentDocsApi.resources.taskExecutionCreatePurpose")
       },
       {
         method: "GET",
         path: "/api/docs/agents",
-        purpose: "Read the current human-readable and machine-readable integration summary."
+        purpose: t("agentDocsApi.resources.docsReadPurpose")
       },
       {
         method: "GET",
         path: "/api/docs/agents/contract",
-        purpose: "Export a constrained machine-readable contract bundle for autonomous clients."
+        purpose: t("agentDocsApi.resources.docsContractPurpose")
       }
     ],
     exports: [
@@ -216,34 +217,34 @@ export function getAgentDocsPayload() {
   };
 }
 
-export function getAgentContractPayload() {
+export function getAgentContractPayload(t: Translator) {
   return {
     contract: "mission-control-agent-api",
     version: "2026-03-16",
     description:
-      "Machine-readable contract bundle for autonomous clients. Keep this stable, additive, and easier to consume than UI pages.",
+      t("agentDocsApi.contract.description"),
     semantics: {
       authentication: {
-        owner: "Authenticated product routes and owner-only APIs use the mission_control_session cookie.",
-        agent: "Scoped API access uses Authorization: Bearer <token>.",
+        owner: t("agentDocsApi.contract.authentication.owner"),
+        agent: t("agentDocsApi.contract.authentication.agent"),
         notes: [
-          "Owner-only admin endpoints do not accept agent credentials.",
-          "Agent tokens are scope-limited and revocable.",
-          "Workspace Constructor linking is owner-only and stores integration tokens server-side."
+          t("agentDocsApi.contract.authentication.notes.0"),
+          t("agentDocsApi.contract.authentication.notes.1"),
+          t("agentDocsApi.contract.authentication.notes.2")
         ]
       },
       context_resolution: {
         resolution_order: ["workspace", "project", "task"],
         notes: [
-          "Workspace defines broad operational rules.",
-          "Project narrows scope and can override workspace fields.",
-          "Task adds a focused hint and should not duplicate inherited context."
+          t("agentDocsApi.contract.contextResolution.notes.0"),
+          t("agentDocsApi.contract.contextResolution.notes.1"),
+          t("agentDocsApi.contract.contextResolution.notes.2")
         ]
       },
       channels: {
-        comments: "Human-facing communication.",
-        activity: "Audit history of meaningful task events.",
-        execution: "Machine-facing run state and logs."
+        comments: t("agentDocsApi.contract.channels.comments"),
+        activity: t("agentDocsApi.contract.channels.activity"),
+        execution: t("agentDocsApi.contract.channels.execution")
       }
     },
     resources: {
@@ -267,8 +268,8 @@ export function getAgentContractPayload() {
         path: "/api/projects/:slug",
         request_shape: ["status?", "visibility?"],
         notes: [
-          "visibility is constrained to workspace or project_members.",
-          "status is constrained to active or archived."
+          t("agentDocsApi.contract.notes.projectGovernanceVisibility"),
+          t("agentDocsApi.contract.notes.projectGovernanceStatus")
         ]
       },
       project_members: {
@@ -281,8 +282,8 @@ export function getAgentContractPayload() {
         path: "/api/projects/:slug/members",
         request_shape: ["membershipIds[]", "memberRoles{}"],
         notes: [
-          "Project roles are lead, member, and observer.",
-          "Observer project members can follow work but cannot own tasks."
+          t("agentDocsApi.contract.notes.projectMembersRoles"),
+          t("agentDocsApi.contract.notes.projectMembersObserver")
         ]
       },
       constructor_link_read: {
@@ -295,10 +296,10 @@ export function getAgentContractPayload() {
         path: "/api/workspaces/current/constructor",
         request_shape: ["label?", "baseUrl", "apiToken?", "callbackToken?", "enabled?"],
         notes: [
-          "Owner-authenticated reads return stored workspace apiToken and callbackToken values so generated tokens can be revealed and copied again from Manage Workspace.",
-          "Leave apiToken blank on update to keep the existing saved token.",
-          "Leave callbackToken blank on update to keep the existing saved token.",
-          "Constructor's current public API does not sign callbacks, so callbackToken is stored but not enforced on callback delivery."
+          t("agentDocsApi.contract.notes.constructorLinkReadReveal"),
+          t("agentDocsApi.contract.notes.constructorLinkKeepApiToken"),
+          t("agentDocsApi.contract.notes.constructorLinkKeepCallbackToken"),
+          t("agentDocsApi.contract.notes.constructorLinkUnsignedCallbacks")
         ]
       },
       constructor_sync: {
@@ -306,8 +307,8 @@ export function getAgentContractPayload() {
         path: "/api/workspaces/current/constructor/sync",
         response_shape: ["integration", "agents[]"],
         notes: [
-          "Mission Control calls Constructor GET /api/v1/agents for the active workspace.",
-          "Synced agents are created or updated as workspace agent members with sourceSystem=constructor."
+          t("agentDocsApi.contract.notes.constructorSyncFetchAgents"),
+          t("agentDocsApi.contract.notes.constructorSyncSourceSystem")
         ]
       },
       constructor_dispatch: {
@@ -315,9 +316,9 @@ export function getAgentContractPayload() {
         path: "/api/tasks/:taskId/constructor/dispatch",
         response_shape: ["dispatch.bridgeExecutionId", "dispatch.externalTaskId", "dispatch.executionState", "dispatch.accepted"],
         notes: [
-          "Owner-authenticated only.",
-          "Dispatch uses the assigned Constructor agent when present, otherwise the synced default Constructor agent.",
-          "Mission Control authors the final human-facing prompt and keeps task comments and state as the source of truth."
+          t("agentDocsApi.contract.notes.constructorDispatchOwnerOnly"),
+          t("agentDocsApi.contract.notes.constructorDispatchAgentSelection"),
+          t("agentDocsApi.contract.notes.constructorDispatchSourceOfTruth")
         ]
       },
       constructor_status: {
@@ -325,8 +326,8 @@ export function getAgentContractPayload() {
         path: "/api/tasks/:taskId/constructor/status",
         response_shape: ["tracked", "active", "refresh", "summary?"],
         notes: [
-          "Polls Constructor execution state using the last tracked bridgeExecutionId.",
-          "Mission Control appends deduplicated execution log lines as state changes arrive."
+          t("agentDocsApi.contract.notes.constructorStatusTrackedExecution"),
+          t("agentDocsApi.contract.notes.constructorStatusDedupedLogs")
         ]
       },
       constructor_callback: {
@@ -334,8 +335,8 @@ export function getAgentContractPayload() {
         path: "/api/tasks/:taskId/constructor/callback",
         response_shape: ["ok", "commentId?", "duplicate?"],
         notes: [
-          "Receives Constructor terminal callbacks for previously dispatched tasks.",
-          "Mission Control deduplicates repeated callbacks and writes the final answer into task comments as the responding agent."
+          t("agentDocsApi.contract.notes.constructorCallbackTerminal"),
+          t("agentDocsApi.contract.notes.constructorCallbackDeduped")
         ]
       },
       member_update: {
@@ -343,9 +344,9 @@ export function getAgentContractPayload() {
         path: "/api/members/:memberId",
         request_shape: ["workspaceRole?", "enabled?", "agentPermissions?"],
         notes: [
-          "Workspace roles can be updated for any member.",
-          "Only agent members can be enabled, disabled, or permission-scoped through this endpoint.",
-          "Supported permissions are comment, change_status, and log_execution."
+          t("agentDocsApi.contract.notes.memberUpdateRoles"),
+          t("agentDocsApi.contract.notes.memberUpdateAgentOnly"),
+          t("agentDocsApi.contract.notes.memberUpdatePermissions")
         ]
       },
       agent_credentials: {
@@ -353,8 +354,8 @@ export function getAgentContractPayload() {
         path: "/api/workspaces/current/agent-credentials",
         request_shape: ["membershipId", "name", "scopes[]"],
         notes: [
-          "Returns a newly created token once.",
-          "Only owner-authenticated clients can create or revoke credentials."
+          t("agentDocsApi.contract.notes.agentCredentialsReturnsTokenOnce"),
+          t("agentDocsApi.contract.notes.agentCredentialsOwnerOnly")
         ]
       },
       agent_credential_update: {
@@ -366,16 +367,16 @@ export function getAgentContractPayload() {
         method: "GET",
         path: "/api/search?q=:query",
         response_shape: ["query", "projects[]", "tasks[]", "total"],
-        notes: ["Search is currently scoped to projects and tasks in the active workspace."]
+        notes: [t("agentDocsApi.contract.notes.searchScope")]
       },
       task_create: {
         method: "POST",
         path: "/api/projects/:slug/tasks",
         request_shape: ["title", "description?", "status?", "priority?", "assigneeId?", "parentTaskId?", "tags[]?", "startDate?", "dueDate?"],
         notes: [
-          "Assignees must belong to the project.",
-          "Viewer workspace members and observer project members cannot own tasks.",
-          "Parent tasks must belong to the same project."
+          t("agentDocsApi.contract.notes.taskCreateAssignees"),
+          t("agentDocsApi.contract.notes.taskCreateViewerObserver"),
+          t("agentDocsApi.contract.notes.taskCreateParentProject")
         ]
       },
       task: {
@@ -402,16 +403,16 @@ export function getAgentContractPayload() {
         path: "/api/tasks/:taskId/attachments",
         request_shape: ["file", "artifactType?", "actorType?"],
         notes: [
-          "actorType supports human and agent.",
-          "Agent-attributed uploads require the named actor to resolve to an enabled agent in the task workspace.",
-          "Agent uploads are useful for generated outputs and deliverables."
+          t("agentDocsApi.contract.notes.taskAttachmentCreateActorTypes"),
+          t("agentDocsApi.contract.notes.taskAttachmentCreateEnabledAgent"),
+          t("agentDocsApi.contract.notes.taskAttachmentCreateOutputs")
         ]
       },
       attachment_preview: {
         method: "GET",
         path: "/api/attachments/:attachmentId/preview",
         response_shape: ["binary inline response"],
-        notes: ["Supported preview types currently include images, pdf, text, markdown, json, and xml files."]
+        notes: [t("agentDocsApi.contract.notes.attachmentPreviewSupported")]
       },
       task_context: {
         method: "GET",
@@ -423,13 +424,13 @@ export function getAgentContractPayload() {
         path: "/api/tasks/:taskId",
         request_shape: ["title?", "description?", "status?", "priority?", "assigneeId?", "parentTaskId?", "tags[]?", "startDate?", "dueDate?", "blockedReason?", "actorType?"],
         notes: [
-          "Disabled agents cannot be assigned.",
-          "Viewer-role members cannot own tasks.",
-          "Observer project members cannot own tasks.",
-          "Human-triggered transitions and agent-triggered transitions are validated against different workflow policies.",
-          "Agent-owned tasks follow a constrained status model: todo -> in_progress -> review/done or blocked.",
-          "Agent-owned transitions require the change_status permission.",
-          "When an agent-owned task reaches done and the agent can comment, a human-readable completion summary is posted automatically."
+          t("agentDocsApi.contract.notes.taskUpdateDisabledAgents"),
+          t("agentDocsApi.contract.notes.taskUpdateViewerRole"),
+          t("agentDocsApi.contract.notes.taskUpdateObserverRole"),
+          t("agentDocsApi.contract.notes.taskUpdateTransitionPolicies"),
+          t("agentDocsApi.contract.notes.taskUpdateAgentStatusModel"),
+          t("agentDocsApi.contract.notes.taskUpdateAgentPermission"),
+          t("agentDocsApi.contract.notes.taskUpdateDoneSummary")
         ]
       },
       task_watchers: {
@@ -441,15 +442,15 @@ export function getAgentContractPayload() {
         method: "PUT",
         path: "/api/tasks/:taskId/watchers",
         request_shape: ["membershipIds[]"],
-        notes: ["Watchers follow a task without becoming the assignee."]
+        notes: [t("agentDocsApi.contract.notes.taskWatchersUpdateMeaning")]
       },
       task_attachment_upload: {
         method: "POST",
         path: "/api/tasks/:taskId/attachments",
         request_shape: ["multipart:file", "artifactType?", "actorType?", "actorName?"],
         notes: [
-          "Files are stored on the Docker-local app filesystem through a simple storage contract.",
-          "Agent-attributed uploads require an enabled agent actor in the same task workspace."
+          t("agentDocsApi.contract.notes.taskAttachmentUploadStorage"),
+          t("agentDocsApi.contract.notes.taskAttachmentUploadEnabledAgent")
         ]
       },
       attachment_download: {
@@ -466,15 +467,15 @@ export function getAgentContractPayload() {
         path: "/api/tasks/:taskId/comments",
         request_shape: ["author", "role", "tone", "body"],
         notes: [
-          "Agent-authored comments require the comment permission.",
-          "Inline @Name mentions are preserved as part of the comment body for human-facing coordination."
+          t("agentDocsApi.contract.notes.taskCommentCreatePermission"),
+          t("agentDocsApi.contract.notes.taskCommentCreateMentions")
         ]
       },
       task_comment_update: {
         method: "PATCH",
         path: "/api/tasks/:taskId/comments/:commentId",
         request_shape: ["body"],
-        notes: ["This version supports editing human-authored comments while keeping activity history intact."]
+        notes: [t("agentDocsApi.contract.notes.taskCommentUpdateHumanOnly")]
       },
       task_activity: {
         method: "GET",
@@ -488,9 +489,9 @@ export function getAgentContractPayload() {
         method: "POST",
         path: "/api/tasks/:taskId/execution",
         request_shape: ["line"],
-        notes: ["Appending execution logs requires the log_execution permission."]
+        notes: [t("agentDocsApi.contract.notes.taskExecutionAppendPermission")]
       }
     },
-    examples: getAgentDocsPayload()
+    examples: getAgentDocsPayload(t)
   };
 }

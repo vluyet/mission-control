@@ -11,6 +11,9 @@ import { cookies } from "next/headers";
 import type { ActivityFeedItem, AttachmentRecord, Member, Metric, ProjectSummary, TaskRecord, WatcherRecord } from "@/lib/demo-data";
 import { mapContextBlock } from "@/lib/context-block";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
+import { getRequestI18n } from "@/lib/i18n/server";
+import type { Messages } from "@/lib/i18n/messages/en";
+import type { Translator } from "@/lib/i18n/translator";
 export { syncActiveWorkspaceConstructorAgentsInDb } from "@/lib/server/constructor-server";
 export {
   getMembersForUi,
@@ -90,41 +93,41 @@ function formatPriority(priority: string): TaskRecord["priority"] {
   return (priority.charAt(0).toUpperCase() + priority.slice(1)) as TaskRecord["priority"];
 }
 
-function formatWorkspaceRole(role: string): NonNullable<Member["workspaceRole"]> {
+function formatWorkspaceRole(role: string, t: Translator): NonNullable<Member["workspaceRole"]> {
   switch (role) {
     case "owner":
-      return "Owner";
+      return t("membersServer.owner") as NonNullable<Member["workspaceRole"]>;
     case "admin":
-      return "Admin";
+      return t("membersServer.admin") as NonNullable<Member["workspaceRole"]>;
     case "viewer":
-      return "Viewer";
+      return t("membersServer.viewer") as NonNullable<Member["workspaceRole"]>;
     default:
-      return "Member";
+      return t("membersServer.member") as NonNullable<Member["workspaceRole"]>;
   }
 }
 
-function formatProjectRole(role: string) {
+function formatProjectRole(role: string, t: Translator) {
   switch (role) {
     case "lead":
-      return "Lead";
+      return t("membersServer.lead");
     case "observer":
-      return "Observer";
+      return t("membersServer.observer");
     default:
-      return "Member";
+      return t("membersServer.member");
   }
 }
 
-function formatProjectVisibility(visibility: string): NonNullable<ProjectSummary["visibility"]> {
-  return visibility === "project_members" ? "Project members" : "Workspace";
+function formatProjectVisibility(visibility: string, t: Translator): NonNullable<ProjectSummary["visibility"]> {
+  return (visibility === "project_members" ? t("projectsServer.projectMembersVisibility") : t("projectsServer.workspaceVisibility")) as NonNullable<ProjectSummary["visibility"]>;
 }
 
-function formatProjectLifecycle(status: string): NonNullable<ProjectSummary["lifecycle"]> {
-  return status === "archived" ? "Archived" : "Active";
+function formatProjectLifecycle(status: string, t: Translator): NonNullable<ProjectSummary["lifecycle"]> {
+  return (status === "archived" ? t("projectsServer.archived") : t("projectsServer.active")) as NonNullable<ProjectSummary["lifecycle"]>;
 }
 
-function formatShortDate(date: Date | null | undefined) {
+function formatShortDate(date: Date | null | undefined, t: Translator) {
   if (!date) {
-    return "No date";
+    return t("taskServer.noDate");
   }
 
   const now = new Date();
@@ -133,15 +136,15 @@ function formatShortDate(date: Date | null | undefined) {
   const dayDiff = Math.round((startOfDate.getTime() - startOfNow.getTime()) / 86400000);
 
   if (dayDiff === 0) {
-    return "Today";
+    return t("taskServer.today");
   }
 
   if (dayDiff === 1) {
-    return "Tomorrow";
+    return t("taskServer.tomorrow");
   }
 
   if (dayDiff === -1) {
-    return "Yesterday";
+    return t("taskServer.yesterday");
   }
 
   return new Intl.DateTimeFormat("en-US", {
@@ -150,21 +153,25 @@ function formatShortDate(date: Date | null | undefined) {
   }).format(date);
 }
 
-function formatRelativeTime(date: Date) {
+function formatRelativeTime(date: Date, t: Translator) {
   const diffMinutes = Math.max(1, Math.round((Date.now() - date.getTime()) / 60000));
 
+  if (diffMinutes <= 1) {
+    return t("taskServer.justNow");
+  }
+
   if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
+    return t("taskServer.minutesAgo", { count: diffMinutes });
   }
 
   const diffHours = Math.round(diffMinutes / 60);
 
   if (diffHours < 24) {
-    return `${diffHours}h ago`;
+    return t("taskServer.hoursAgo", { count: diffHours });
   }
 
   const diffDays = Math.round(diffHours / 24);
-  return `${diffDays}d ago`;
+  return t("taskServer.daysAgo", { count: diffDays });
 }
 
 function formatBytes(bytes: number) {
@@ -199,61 +206,68 @@ function getAttachmentPreviewKind(mimeType: string): AttachmentRecord["previewKi
   return null;
 }
 
-const HUMAN_STATUS_TRANSITIONS: Record<string, Array<{ value: "todo" | "in_progress" | "review" | "blocked" | "done"; label: string }>> = {
+const HUMAN_STATUS_TRANSITIONS: Record<string, Array<{ value: "todo" | "in_progress" | "review" | "blocked" | "done"; labelKey: keyof Messages["taskServer"]["transitionActions"] }>> = {
   todo: [
-    { value: "in_progress", label: "Start work" },
-    { value: "blocked", label: "Mark blocked" },
-    { value: "done", label: "Mark done" }
+    { value: "in_progress", labelKey: "startWork" },
+    { value: "blocked", labelKey: "markBlocked" },
+    { value: "done", labelKey: "markDone" }
   ],
   in_progress: [
-    { value: "review", label: "Move to review" },
-    { value: "blocked", label: "Mark blocked" },
-    { value: "done", label: "Mark done" },
-    { value: "todo", label: "Move back to todo" }
+    { value: "review", labelKey: "moveToReview" },
+    { value: "blocked", labelKey: "markBlocked" },
+    { value: "done", labelKey: "markDone" },
+    { value: "todo", labelKey: "moveBackToTodo" }
   ],
   review: [
-    { value: "in_progress", label: "Resume work" },
-    { value: "blocked", label: "Mark blocked" },
-    { value: "done", label: "Approve done" }
+    { value: "in_progress", labelKey: "resumeWork" },
+    { value: "blocked", labelKey: "markBlocked" },
+    { value: "done", labelKey: "approveDone" }
   ],
   blocked: [
-    { value: "todo", label: "Move to todo" },
-    { value: "in_progress", label: "Resume work" },
-    { value: "done", label: "Close as done" }
+    { value: "todo", labelKey: "moveToTodo" },
+    { value: "in_progress", labelKey: "resumeWork" },
+    { value: "done", labelKey: "closeAsDone" }
   ],
-  done: [{ value: "in_progress", label: "Reopen task" }]
+  done: [{ value: "in_progress", labelKey: "reopenTask" }]
 };
 
-const AGENT_STATUS_TRANSITIONS: Record<string, Array<{ value: "todo" | "in_progress" | "review" | "blocked" | "done"; label: string }>> = {
-  todo: [{ value: "in_progress", label: "Start execution" }],
+const AGENT_STATUS_TRANSITIONS: Record<string, Array<{ value: "todo" | "in_progress" | "review" | "blocked" | "done"; labelKey: keyof Messages["taskServer"]["transitionActions"] }>> = {
+  todo: [{ value: "in_progress", labelKey: "startExecution" }],
   in_progress: [
-    { value: "review", label: "Move to review" },
-    { value: "done", label: "Mark done" },
-    { value: "blocked", label: "Mark blocked" }
+    { value: "review", labelKey: "moveToReview" },
+    { value: "done", labelKey: "markDone" },
+    { value: "blocked", labelKey: "markBlocked" }
   ],
   review: [
-    { value: "in_progress", label: "Resume work" },
-    { value: "done", label: "Approve done" },
-    { value: "blocked", label: "Mark blocked" }
+    { value: "in_progress", labelKey: "resumeWork" },
+    { value: "done", labelKey: "approveDone" },
+    { value: "blocked", labelKey: "markBlocked" }
   ],
-  blocked: [{ value: "in_progress", label: "Resume work" }],
+  blocked: [{ value: "in_progress", labelKey: "resumeWork" }],
   done: []
 };
 
-function getAgentTransitionOptions(status: string) {
-  return AGENT_STATUS_TRANSITIONS[status] ?? [];
+function mapTransitionOptions(options: Array<{ value: "todo" | "in_progress" | "review" | "blocked" | "done"; labelKey: keyof Messages["taskServer"]["transitionActions"] }>, t: Translator) {
+  return options.map((option) => ({
+    value: option.value,
+    label: t(`taskServer.transitionActions.${option.labelKey}`)
+  }));
 }
 
-function getHumanTransitionOptions(status: string) {
-  return HUMAN_STATUS_TRANSITIONS[status] ?? [];
+function getAgentTransitionOptions(status: string, t: Translator) {
+  return mapTransitionOptions(AGENT_STATUS_TRANSITIONS[status] ?? [], t);
+}
+
+function getHumanTransitionOptions(status: string, t: Translator) {
+  return mapTransitionOptions(HUMAN_STATUS_TRANSITIONS[status] ?? [], t);
 }
 
 function isAllowedAgentTransition(from: string, to: string) {
-  return getAgentTransitionOptions(from).some((option) => option.value === to);
+  return (AGENT_STATUS_TRANSITIONS[from] ?? []).some((option) => option.value === to);
 }
 
 function isAllowedHumanTransition(from: string, to: string) {
-  return getHumanTransitionOptions(from).some((option) => option.value === to);
+  return (HUMAN_STATUS_TRANSITIONS[from] ?? []).some((option) => option.value === to);
 }
 
 function agentHasPermission(member: { kind: string; agentPermissions: string[] } | null | undefined, permission: string) {
@@ -289,21 +303,22 @@ function mapWatcher(membership: {
   id: string;
   name: string;
   kind: string;
-}): WatcherRecord {
+}, t: Translator): WatcherRecord {
   return {
     id: membership.id,
     name: membership.name,
-    type: membership.kind === "agent" ? "Agent" : "Human"
+    type: (membership.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as WatcherRecord["type"]
   };
 }
 
 async function logPermissionDenied(taskId: string, actorId: string | null, actorName: string, detail: string) {
+  const { t } = await getRequestI18n();
   await db.taskActivity.create({
     data: {
       taskId,
       actorId: actorId ?? undefined,
       actorName,
-      label: "Permission denied",
+      label: t("taskServer.permissionDenied"),
       detail
     }
   });
@@ -393,7 +408,7 @@ function mapTaskRecord(task: {
   childTasks?: { id: string }[];
   assignee: { name: string; kind: string; sourceSystem: string | null; capabilities: string[]; enabled: boolean; agentPermissions: string[] } | null;
   reviewer?: { name: string } | null;
-}): TaskRecord {
+}, t: Translator): TaskRecord {
   return {
     id: task.id,
     title: task.title,
@@ -402,12 +417,12 @@ function mapTaskRecord(task: {
     description: task.description ?? "",
     status: formatStatus(task.status),
     priority: formatPriority(task.priority),
-    assignee: task.assignee?.name ?? "Unassigned",
-    assigneeType: task.assignee?.kind === "agent" ? "Agent" : "Human",
+    assignee: task.assignee?.name ?? t("taskServer.unassigned"),
+    assigneeType: (task.assignee?.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as TaskRecord["assigneeType"],
     assigneeSourceSystem: task.assignee?.sourceSystem ?? null,
     reviewer: task.reviewer?.name ?? undefined,
-    due: formatShortDate(task.dueDate),
-    startDate: formatShortDate(task.startDate),
+    due: formatShortDate(task.dueDate, t),
+    startDate: formatShortDate(task.startDate, t),
     tags: task.tags,
     effort: (task.effort ?? "S") as TaskRecord["effort"],
     contextHint: task.contextHint ?? "",
@@ -422,26 +437,46 @@ function mapTaskRecord(task: {
     assigneeCapabilities: task.assignee?.kind === "agent" ? task.assignee.capabilities : undefined,
     assigneeEnabled: task.assignee?.enabled,
     assigneePermissions: task.assignee?.kind === "agent" ? task.assignee.agentPermissions : undefined,
-    humanTransitionOptions: getHumanTransitionOptions(task.status),
-    transitionOptions: task.assignee?.kind === "agent" ? getAgentTransitionOptions(task.status) : undefined
+    humanTransitionOptions: getHumanTransitionOptions(task.status, t),
+    transitionOptions: task.assignee?.kind === "agent" ? getAgentTransitionOptions(task.status, t) : undefined
   };
 }
 
+function getTaskStatusKey(status: TaskRecord["status"] | string) {
+  switch (status) {
+    case "In Progress":
+      return "inProgress";
+    case "In Review":
+      return "inReview";
+    case "Blocked":
+      return "blocked";
+    case "Done":
+      return "done";
+    default:
+      return "todo";
+  }
+}
+
 function buildBoardColumns(items: TaskRecord[]) {
-  const config: Array<{ title: TaskRecord["status"]; accent: "slate" | "blue" | "gold" | "red" | "emerald" }> = [
-    { title: "Todo", accent: "slate" },
-    { title: "In Progress", accent: "blue" },
-    { title: "In Review", accent: "gold" },
-    { title: "Blocked", accent: "red" },
-    { title: "Done", accent: "emerald" }
+  const config: Array<{
+    title: string;
+    statusKey: "todo" | "inProgress" | "inReview" | "blocked" | "done";
+    accent: "slate" | "blue" | "gold" | "red" | "emerald";
+  }> = [
+    { title: "todo", statusKey: "todo", accent: "slate" },
+    { title: "in-progress", statusKey: "inProgress", accent: "blue" },
+    { title: "in-review", statusKey: "inReview", accent: "gold" },
+    { title: "blocked", statusKey: "blocked", accent: "red" },
+    { title: "done", statusKey: "done", accent: "emerald" }
   ];
 
   return config.map((column) => ({
     title: column.title,
-    count: items.filter((task) => task.status === column.title).length,
+    statusKey: column.statusKey,
+    count: items.filter((task) => getTaskStatusKey(task.status) === column.statusKey).length,
     accent: column.accent,
     cards: items
-      .filter((task) => task.status === column.title)
+      .filter((task) => getTaskStatusKey(task.status) === column.statusKey)
       .map((task) => ({
         id: task.id,
         title: task.title,
@@ -468,13 +503,13 @@ function mapMembership(member: {
   capabilities: string[];
   agentPermissions: string[];
   enabled: boolean;
-}) {
+}, t: Translator) {
   return {
     id: member.id,
     name: member.name,
-    type: member.kind === "agent" ? "Agent" : "Human",
-    role: member.roleLabel ?? (member.kind === "agent" ? "Agent" : "Member"),
-    workspaceRole: formatWorkspaceRole(member.workspaceRole),
+    type: (member.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as "Agent" | "Human",
+    role: member.roleLabel ?? (member.kind === "agent" ? t("membersServer.agent") : t("membersServer.member")),
+    workspaceRole: formatWorkspaceRole(member.workspaceRole, t),
     email: member.email,
     avatarUrl: member.avatarUrl,
     capabilities: member.capabilities,
@@ -513,7 +548,7 @@ function mapAttachment(attachment: {
   sizeBytes: number;
   createdAt: Date;
   author?: { name: string } | null;
-}): AttachmentRecord {
+}, t: Translator): AttachmentRecord {
   const previewKind = getAttachmentPreviewKind(attachment.mimeType);
   return {
     id: attachment.id,
@@ -525,7 +560,7 @@ function mapAttachment(attachment: {
     previewHref: previewKind ? `/api/attachments/${attachment.id}/preview` : undefined,
     previewKind: previewKind ?? undefined,
     previewable: Boolean(previewKind),
-    uploadedAt: formatRelativeTime(attachment.createdAt),
+    uploadedAt: formatRelativeTime(attachment.createdAt, t),
     author: attachment.author?.name ?? undefined
   };
 }
@@ -538,7 +573,7 @@ function mapWorkspaceAsset(asset: {
   sizeBytes: number;
   createdAt: Date;
   author: { name: string } | null;
-}): AttachmentRecord {
+}, t: Translator): AttachmentRecord {
   const previewKind = getAttachmentPreviewKind(asset.mimeType);
 
   return {
@@ -551,7 +586,7 @@ function mapWorkspaceAsset(asset: {
     previewHref: previewKind ? `/api/workspace-assets/${asset.id}/preview` : undefined,
     previewKind: previewKind ?? undefined,
     previewable: Boolean(previewKind),
-    uploadedAt: formatRelativeTime(asset.createdAt),
+    uploadedAt: formatRelativeTime(asset.createdAt, t),
     author: asset.author?.name ?? undefined
   };
 }
@@ -564,15 +599,15 @@ function mapAgentCredential(credential: {
   lastUsedAt: Date | null;
   createdAt: Date;
   membership: { name: string };
-}) {
+}, t: Translator) {
   return {
     id: credential.id,
     name: credential.name,
     scopes: credential.scopes,
     enabled: credential.enabled,
     agentName: credential.membership.name,
-    lastUsedAt: credential.lastUsedAt ? formatRelativeTime(credential.lastUsedAt) : "Never",
-    createdAt: formatRelativeTime(credential.createdAt)
+    lastUsedAt: credential.lastUsedAt ? formatRelativeTime(credential.lastUsedAt, t) : t("taskServer.never"),
+    createdAt: formatRelativeTime(credential.createdAt, t)
   };
 }
 
@@ -583,14 +618,14 @@ function mapAuthEvent(event: {
   eventType: string;
   detail: string;
   createdAt: Date;
-}) {
+}, t: Translator) {
   return {
     id: event.id,
     actorType: event.actorType,
     actorLabel: event.actorLabel,
     eventType: event.eventType,
     detail: event.detail,
-    time: formatRelativeTime(event.createdAt)
+    time: formatRelativeTime(event.createdAt, t)
   };
 }
 
@@ -613,7 +648,7 @@ function mapActivity(item: {
 }
 
 export async function getWorkspaceContextFromDb() {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
 
   if (!activeWorkspace) {
     return null;
@@ -639,7 +674,7 @@ export async function getWorkspaceContextFromDb() {
       plan: workspace.visibility,
       progress: `${workspace.memberships.length} members`,
       context: workspace.context,
-      members: workspace.memberships.map(mapMembership)
+      members: workspace.memberships.map((member) => mapMembership(member, t))
     }
   };
 }
@@ -712,6 +747,7 @@ export async function getTaskCommentsFromDb(taskId: string) {
 }
 
 export async function getTaskAttachmentsFromDb(taskId: string) {
+  const { t } = await getRequestI18n();
   const attachments = await db.attachment.findMany({
     where: { taskId },
     orderBy: { createdAt: "desc" },
@@ -720,7 +756,7 @@ export async function getTaskAttachmentsFromDb(taskId: string) {
     }
   });
 
-  return attachments.map(mapAttachment);
+  return attachments.map((attachment) => mapAttachment(attachment, t));
 }
 
 export async function getAttachmentDownloadFromDb(attachmentId: string) {
@@ -854,6 +890,7 @@ export async function getWorkspaceAssetPreviewFromDb(assetId: string) {
 }
 
 export async function getTaskActivityFromDb(taskId: string) {
+  const { t } = await getRequestI18n();
   const activity = await db.taskActivity.findMany({
     where: { taskId },
     orderBy: { createdAt: "asc" }
@@ -887,7 +924,7 @@ export async function getTaskExecutionFromDb(taskId: string) {
 }
 
 export async function searchWorkspaceForUi(query: string) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
   const trimmed = query.trim();
 
   if (!trimmed) {
@@ -953,14 +990,14 @@ export async function searchWorkspaceForUi(query: string) {
       description: project.description ?? "",
       status:
         project.tasks.some((task) => task.status === "blocked")
-          ? "At risk"
+          ? (t("projectsServer.atRisk") as ProjectSummary["status"])
           : project.tasks.some((task) => task.status === "review")
-            ? "Needs review"
-            : "On track",
-      lifecycle: formatProjectLifecycle(project.status),
-      visibility: formatProjectVisibility(project.visibility),
+            ? (t("projectsServer.needsReview") as ProjectSummary["status"])
+            : (t("projectsServer.onTrack") as ProjectSummary["status"]),
+      lifecycle: formatProjectLifecycle(project.status, t),
+      visibility: formatProjectVisibility(project.visibility, t),
       contextSummary: mapContextBlock(project.context, "Project context").summary,
-      due: formatShortDate(project.endDate ?? null),
+      due: formatShortDate(project.endDate ?? null, t),
       members: project.memberships.length,
       open: project.tasks.filter((task) => task.status !== "done").length,
       review: project.tasks.filter((task) => task.status === "review").length,
@@ -968,19 +1005,19 @@ export async function searchWorkspaceForUi(query: string) {
       completed: project.tasks.filter((task) => task.status === "done").length,
       completionRate: `${project.tasks.length ? Math.round((project.tasks.filter((task) => task.status === "done").length / project.tasks.length) * 100) : 0}%`
     })),
-    tasks: tasks.map(mapTaskRecord),
+    tasks: tasks.map((task) => mapTaskRecord(task, t)),
     total: projects.length + tasks.length
   };
 }
 
 export async function getWorkspaceContextBlockForUi() {
-  const workspace = await getActiveWorkspaceRecord();
+  const [workspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
 
   return workspace ? mapContextBlock(workspace.context, "Workspace context") : null;
 }
 
 export async function getActivityFeedForUi(limit = 8) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
   const activity = await db.taskActivity.findMany({
     where: activeWorkspace
       ? {
@@ -1000,7 +1037,7 @@ export async function getActivityFeedForUi(limit = 8) {
       id: item.id,
       label: item.actorName ? `${item.actorName} · ${item.label}` : item.label,
       detail: item.detail,
-      time: formatRelativeTime(item.createdAt)
+      time: formatRelativeTime(item.createdAt, t)
     })
   );
 }
@@ -1040,7 +1077,7 @@ export async function getDashboardMetricsForUi() {
 }
 
 export async function getWorkspaceAssetsFromDb() {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
 
   if (!activeWorkspace) {
     return null;
@@ -1058,7 +1095,7 @@ export async function getWorkspaceAssetsFromDb() {
     }
   });
 
-  return assets.map(mapWorkspaceAsset);
+  return assets.map((asset) => mapWorkspaceAsset(asset, t));
 }
 
 export async function getProjectWorkspaceForUi(slug: string) {
@@ -1126,6 +1163,7 @@ export async function createCommentInDb(taskId: string, payload: {
   body: string;
   membershipId?: string | null;
 }) {
+  const { t } = await getRequestI18n();
   const task = await db.task.findUnique({
     where: { id: taskId },
     select: {
@@ -1180,8 +1218,11 @@ export async function createCommentInDb(taskId: string, payload: {
       taskId,
       actorId: membership?.id,
       actorName: authorName,
-      label: "Comment added",
-      detail: `${payload.tone === "agent" ? "Agent" : "User"} ${authorName} wrote a comment`
+      label: t("taskServer.commentAdded"),
+      detail:
+        payload.tone === "agent"
+          ? t("taskServer.agentCommentDetail", { author: authorName })
+          : t("taskServer.userCommentDetail", { author: authorName })
     }
   });
 
@@ -1198,6 +1239,7 @@ export async function createAttachmentInDb(taskId: string, payload: {
   actorType?: "human" | "agent";
   membershipId?: string | null;
 }) {
+  const { t } = await getRequestI18n();
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {
@@ -1220,10 +1262,10 @@ export async function createAttachmentInDb(taskId: string, payload: {
     : await db.membership.findFirst({
         where: {
           workspaceId: task.project.workspaceId,
-          name: payload.actorName?.trim() || defaultHumanMembership?.name || "Workspace Owner"
+          name: payload.actorName?.trim() || defaultHumanMembership?.name || t("taskServer.workspaceOwner")
         }
       });
-  const actorName = membership?.name ?? payload.actorName?.trim() ?? defaultHumanMembership?.name ?? "Workspace Owner";
+  const actorName = membership?.name ?? payload.actorName?.trim() ?? defaultHumanMembership?.name ?? t("taskServer.workspaceOwner");
 
   if (payload.actorType === "agent") {
     if (!membership || membership.kind !== "agent" || !membership.enabled) {
@@ -1254,12 +1296,12 @@ export async function createAttachmentInDb(taskId: string, payload: {
       taskId,
       actorId: membership?.id,
       actorName,
-      label: "Attachment added",
-      detail: `${actorName} uploaded ${payload.originalName}`
+      label: t("taskServer.attachmentAdded"),
+      detail: t("taskServer.attachmentUploadDetail", { author: actorName, fileName: payload.originalName })
     }
   });
 
-  return mapAttachment(attachment);
+  return mapAttachment(attachment, t);
 }
 
 export async function createWorkspaceAssetInDb(payload: {
@@ -1269,7 +1311,7 @@ export async function createWorkspaceAssetInDb(payload: {
   bytes: Uint8Array;
   assetType?: string;
 }) {
-  const workspace = await getActiveWorkspaceRecord();
+  const [workspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
 
   if (!workspace) {
     return null;
@@ -1297,7 +1339,7 @@ export async function createWorkspaceAssetInDb(payload: {
     }
   });
 
-  return mapWorkspaceAsset(asset);
+  return mapWorkspaceAsset(asset, t);
 }
 
 export async function createAgentCredentialInDb(payload: {
@@ -1305,7 +1347,7 @@ export async function createAgentCredentialInDb(payload: {
   name: string;
   scopes: AgentScope[];
 }) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
 
   if (!activeWorkspace) {
     return null;
@@ -1356,13 +1398,13 @@ export async function createAgentCredentialInDb(payload: {
   });
 
   return {
-    credential: mapAgentCredential(credential),
+    credential: mapAgentCredential(credential, t),
     token
   };
 }
 
 export async function updateAgentCredentialInDb(credentialId: string, enabled: boolean) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
 
   if (!activeWorkspace) {
     return null;
@@ -1408,15 +1450,16 @@ export async function updateAgentCredentialInDb(credentialId: string, enabled: b
       actorType: "owner",
       actorLabel: getOwnerAuthConfig().email,
       eventType: enabled ? "agent.credential_enabled" : "agent.credential_revoked",
-      detail: `${enabled ? "Enabled" : "Revoked"} credential ${updated.name} for ${credential.membership.name}`
+      detail: `${enabled ? t("taskServer.credentialEnabled") : t("taskServer.credentialRevoked")} ${updated.name} ${t("taskServer.credentialFor")} ${credential.membership.name}`
     }
   });
 
-  return mapAgentCredential(updated);
+  return mapAgentCredential(updated, t);
 }
 
 
 export async function updateCommentInDb(taskId: string, commentId: string, body: string) {
+  const { t } = await getRequestI18n();
   const existing = await db.comment.findFirst({
     where: {
       id: commentId,
@@ -1444,63 +1487,64 @@ export async function updateCommentInDb(taskId: string, commentId: string, body:
       taskId,
       actorId: existing.authorId,
       actorName: existing.authorName,
-      label: "Comment edited",
-      detail: `User ${existing.authorName} edited a comment`
+      label: t("taskServer.commentEdited"),
+      detail: t("taskServer.userCommentEditedDetail", { authorName: existing.authorName })
     }
   });
 
   return mapComment(updated);
 }
 
-function classifyExecutionLine(line: string) {
+function classifyExecutionLine(line: string, t: Translator) {
   const trimmed = line.trim();
 
   if (trimmed.startsWith("CONSTRUCTOR_DISPATCH_ACCEPTED")) {
-    return { label: "Constructor dispatch accepted", detail: trimmed };
+    return { label: t("taskServer.execution.constructorDispatchAccepted"), detail: trimmed };
   }
 
   if (trimmed.startsWith("CONSTRUCTOR_DISPATCH_FAILED")) {
-    return { label: "Constructor dispatch failed", detail: trimmed };
+    return { label: t("taskServer.execution.constructorDispatchFailed"), detail: trimmed };
   }
 
   if (trimmed.startsWith("CONSTRUCTOR_STATUS")) {
-    return { label: "Constructor status updated", detail: trimmed };
+    return { label: t("taskServer.execution.constructorStatusUpdated"), detail: trimmed };
   }
 
   if (trimmed.startsWith("CONSTRUCTOR_CALLBACK_RECEIVED")) {
-    return { label: "Constructor callback received", detail: trimmed };
+    return { label: t("taskServer.execution.constructorCallbackReceived"), detail: trimmed };
   }
 
   if (trimmed.startsWith("CONSTRUCTOR_CALLBACK_DUPLICATE_IGNORED")) {
-    return { label: "Constructor callback duplicate ignored", detail: trimmed };
+    return { label: t("taskServer.execution.constructorCallbackDuplicateIgnored"), detail: trimmed };
   }
 
   if (trimmed.startsWith("TASK_DISPATCHED")) {
-    return { label: "Task dispatched", detail: trimmed };
+    return { label: t("taskServer.execution.taskDispatched"), detail: trimmed };
   }
 
   if (trimmed.startsWith("AGENT_ACCEPTED_TASK")) {
-    return { label: "Agent accepted task", detail: trimmed };
+    return { label: t("taskServer.execution.agentAcceptedTask"), detail: trimmed };
   }
 
   if (trimmed.startsWith("AGENT_CONTEXT_RETRIEVED")) {
-    return { label: "Agent retrieved context", detail: trimmed };
+    return { label: t("taskServer.execution.agentRetrievedContext"), detail: trimmed };
   }
 
   if (trimmed.startsWith("AGENT_FINISHED_TASK")) {
-    return { label: "Agent finished task", detail: trimmed };
+    return { label: t("taskServer.execution.agentFinishedTask"), detail: trimmed };
   }
 
   if (trimmed.startsWith("AGENT_BLOCKED")) {
-    return { label: "Agent blocked", detail: trimmed };
+    return { label: t("taskServer.execution.agentBlocked"), detail: trimmed };
   }
 
-  return { label: "Execution updated", detail: trimmed };
+  return { label: t("taskServer.execution.updated"), detail: trimmed };
 }
 
 type ExecutionLogActor = { membershipId?: string | null; label?: string | null };
 
 export async function appendExecutionLogInDb(taskId: string, line: string, actor?: ExecutionLogActor) {
+  const { t } = await getRequestI18n();
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {
@@ -1582,9 +1626,9 @@ export async function appendExecutionLogInDb(taskId: string, line: string, actor
     }
   });
 
-  const event = classifyExecutionLine(line);
+  const event = classifyExecutionLine(line, t);
   const actorId = isSystemLogWrite ? null : (agent?.id ?? null);
-  const actorName = actor?.label?.trim() || agent?.name || "System";
+  const actorName = actor?.label?.trim() || agent?.name || t("taskServer.systemActor");
 
   await db.taskActivity.create({
     data: {
@@ -1608,6 +1652,7 @@ export async function appendSystemExecutionLogInDb(taskId: string, line: string,
 }
 
 export async function deleteCommentInDb(taskId: string, commentId: string) {
+  const { t } = await getRequestI18n();
   const comment = await db.comment.findFirst({
     where: { id: commentId, taskId }
   });
@@ -1620,8 +1665,8 @@ export async function deleteCommentInDb(taskId: string, commentId: string) {
       taskId,
       actorId: comment.authorId,
       actorName: comment.authorName,
-      label: "Comment deleted",
-      detail: `User ${comment.authorName} deleted a comment`
+      label: t("taskServer.commentDeleted"),
+      detail: t("taskServer.userCommentDeletedDetail", { authorName: comment.authorName })
     }
   });
 
@@ -1629,6 +1674,7 @@ export async function deleteCommentInDb(taskId: string, commentId: string) {
 }
 
 export async function setTaskWatchersInDb(taskId: string, membershipIds: string[]) {
+  const { t } = await getRequestI18n();
   const task = await db.task.findUnique({
     where: { id: taskId },
     include: {
@@ -1674,6 +1720,6 @@ export async function setTaskWatchersInDb(taskId: string, membershipIds: string[
     watchers: task.project.memberships
       .map((item) => item.membership)
       .filter((member) => nextIds.includes(member.id))
-      .map(mapWatcher)
+      .map((watcher) => mapWatcher(watcher, t))
   };
 }

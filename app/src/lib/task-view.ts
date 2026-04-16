@@ -1,5 +1,24 @@
 import type { TaskRecord } from "@/lib/demo-data";
 
+type StatusKey = "todo" | "inProgress" | "inReview" | "blocked" | "done";
+
+type BoardColumnLabels = Record<StatusKey, string>;
+
+function toStatusSlug(status: TaskRecord["status"] | string) {
+  switch (status) {
+    case "In Progress":
+      return "in-progress";
+    case "In Review":
+      return "review";
+    case "Blocked":
+      return "blocked";
+    case "Done":
+      return "done";
+    default:
+      return "todo";
+  }
+}
+
 export type TaskViewState = {
   mode: "list" | "board";
   status: string;
@@ -32,7 +51,9 @@ function priorityWeight(priority: TaskRecord["priority"]) {
 export function applyTaskView(items: TaskRecord[], view: TaskViewState) {
   const now = new Date();
   const filtered = items.filter((task) => {
-    if (view.status && task.status.toLowerCase().replace(/\s+/g, "-") !== view.status) {
+    const statusForLogic = task.rawStatus ?? task.status;
+
+    if (view.status && toStatusSlug(statusForLogic) !== view.status) {
       return false;
     }
 
@@ -55,7 +76,7 @@ export function applyTaskView(items: TaskRecord[], view: TaskViewState) {
         return false;
       }
 
-      return new Date(task.dueAt).getTime() < now.getTime() && task.status !== "Done";
+      return new Date(task.dueAt).getTime() < now.getTime() && (task.rawStatus ?? task.status) !== "Done";
     }
 
     return true;
@@ -80,18 +101,33 @@ export function applyTaskView(items: TaskRecord[], view: TaskViewState) {
   });
 }
 
-export function buildBoardColumns(items: TaskRecord[]) {
+export function getTaskStatusKey(status: TaskRecord["status"] | string): StatusKey {
+  switch (status) {
+    case "In Progress":
+      return "inProgress";
+    case "In Review":
+      return "inReview";
+    case "Blocked":
+      return "blocked";
+    case "Done":
+      return "done";
+    default:
+      return "todo";
+  }
+}
+
+export function buildBoardColumns(items: TaskRecord[], labels?: Partial<BoardColumnLabels>) {
   const base = [
-    { title: "Todo", accent: "slate" },
-    { title: "In Progress", accent: "blue" },
-    { title: "In Review", accent: "gold" },
-    { title: "Blocked", accent: "red" },
-    { title: "Done", accent: "emerald" }
+    { title: labels?.todo ?? "Todo", statusKey: "todo", accent: "slate" },
+    { title: labels?.inProgress ?? "In Progress", statusKey: "inProgress", accent: "blue" },
+    { title: labels?.inReview ?? "In Review", statusKey: "inReview", accent: "gold" },
+    { title: labels?.blocked ?? "Blocked", statusKey: "blocked", accent: "red" },
+    { title: labels?.done ?? "Done", statusKey: "done", accent: "emerald" }
   ] as const;
 
   return base.map((column) => {
     const cards = items
-      .filter((item) => item.status === column.title)
+      .filter((item) => getTaskStatusKey(item.rawStatus ?? item.status) === column.statusKey)
       .map((item) => ({
         id: item.id,
         title: item.title,
@@ -107,6 +143,7 @@ export function buildBoardColumns(items: TaskRecord[]) {
 
     return {
       title: column.title,
+      statusKey: column.statusKey,
       count: cards.length,
       accent: column.accent,
       cards

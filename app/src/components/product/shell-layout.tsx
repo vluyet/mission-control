@@ -5,7 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useTransition } from "react";
 import { primaryNav, secondaryNav, ShellCounts, workspaceSummary, WorkspaceOption, WorkspaceSummary } from "@/lib/demo-data";
 import type { DeploymentMetadata } from "@/lib/runtime-metadata";
+import type { Locale } from "@/lib/i18n/config";
+import type { Messages } from "@/lib/i18n/messages";
 import { ChevronDownIcon, FolderIcon, HomeIcon, InboxIcon, LogOutIcon, SettingsIcon, SparkIcon, StackIcon, UsersIcon } from "@/components/ui/icons";
+import { I18nProvider, useI18n } from "@/components/product/i18n-provider";
+import { LanguageSwitcher } from "@/components/product/language-switcher";
 
 function iconFor(name: string) {
   switch (name) {
@@ -44,7 +48,7 @@ function getWorkspaceDestination(pathname: string) {
   return "/projects";
 }
 
-export function ProductShell({
+function ProductShellContent({
   children,
   currentWorkspace = workspaceSummary,
   workspaces = [],
@@ -67,6 +71,7 @@ export function ProductShell({
   const pathname = usePathname();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { t } = useI18n();
   const primaryItems = primaryNav.map((item) => ({
     ...item,
     count:
@@ -76,9 +81,24 @@ export function ProductShell({
           ? shellCounts.projects
           : item.href === "/members"
             ? shellCounts.members
-            : item.count
+            : item.count,
+    label:
+      item.href === "/projects"
+        ? t("nav.projects")
+        : item.href === "/my-tasks"
+          ? t("nav.myTasks")
+          : item.href === "/members"
+            ? t("nav.members")
+            : item.href === "/manage-workspace"
+              ? t("nav.settings")
+              : item.label
   }));
-  const secondaryItems = secondaryNav.filter((item) => item.href !== "/sign-in");
+  const secondaryItems = secondaryNav
+    .filter((item) => item.href !== "/sign-in")
+    .map((item) => ({
+      ...item,
+      label: item.href === "/queue" ? t("nav.queue") : item.label
+    }));
 
   function handleSignOut() {
     startTransition(async () => {
@@ -125,8 +145,8 @@ export function ProductShell({
               <SparkIcon className="h-4 w-4" />
             </div>
             <div>
-              <p className="sidebar-brand-title">Mission Control</p>
-              <p className="sidebar-brand-subtitle">Workspace operations</p>
+              <p className="sidebar-brand-title">{t("shell.brandTitle")}</p>
+              <p className="sidebar-brand-subtitle">{t("shell.brandSubtitle")}</p>
             </div>
           </div>
 
@@ -134,7 +154,7 @@ export function ProductShell({
             {workspaces.length ? (
               <div>
                 <label className="sidebar-select-label" htmlFor="workspace-switcher">
-                  Workspace
+                  {t("shell.workspaceLabel")}
                 </label>
                 <div className="workspace-select-wrap">
                   <select
@@ -157,7 +177,7 @@ export function ProductShell({
           </div>
 
           <div className="mt-6">
-            <p className="sidebar-section-label">Navigation</p>
+            <p className="sidebar-section-label">{t("shell.navigationLabel")}</p>
             <nav className="mt-3 space-y-1">
               {primaryItems.map((item) => {
                 const active = matchesPath(pathname, item.href);
@@ -176,7 +196,7 @@ export function ProductShell({
 
           {secondaryItems.length ? (
             <div className="mt-6">
-              <p className="sidebar-section-label">Secondary</p>
+              <p className="sidebar-section-label">{t("shell.secondaryLabel")}</p>
               <nav className="mt-3 space-y-1">
                 {secondaryItems.map((item) => {
                   const active = matchesPath(pathname, item.href);
@@ -195,6 +215,7 @@ export function ProductShell({
           ) : null}
 
           <div className="mt-auto pt-6">
+            <LanguageSwitcher className="px-2 pb-4" />
             <button
               type="button"
               onClick={handleSignOut}
@@ -205,10 +226,17 @@ export function ProductShell({
                 <span className="nav-icon">
                   <LogOutIcon className="h-4 w-4" />
                 </span>
-                <span>{isPending ? "Signing out..." : "Sign out"}</span>
+                <span>{isPending ? t("shell.signingOut") : t("shell.signOut")}</span>
               </span>
             </button>
-            {deployment?.version ? <p className="px-2 pt-3 text-[11px] text-white/42">Version {deployment.version}</p> : null}
+            {deployment?.version ? (
+              <p className="px-2 pt-3 text-[11px] text-white/42">
+                {t("shell.versionLabel")} {deployment.version}
+                {deployment.shortCommit ? ` (${deployment.shortCommit})` : ""}
+              </p>
+            ) : deployment?.shortCommit ? (
+              <p className="px-2 pt-3 text-[11px] text-white/42">{t("shell.commitLabel")} {deployment.shortCommit}</p>
+            ) : null}
           </div>
         </aside>
 
@@ -217,5 +245,44 @@ export function ProductShell({
         </main>
       </div>
     </div>
+  );
+}
+
+export function ProductShell({
+  children,
+  currentWorkspace = workspaceSummary,
+  workspaces = [],
+  shellCounts = {
+    myTasks: primaryNav.find((item) => item.href === "/my-tasks")?.count ?? "0",
+    projects: primaryNav.find((item) => item.href === "/projects")?.count ?? "0",
+    members: primaryNav.find((item) => item.href === "/members")?.count ?? "0",
+    queues: secondaryNav.find((item) => item.href === "/queue")?.count ?? "0"
+  },
+  activeTaskHref: _activeTaskHref = "/projects",
+  deployment,
+  locale,
+  messages
+}: {
+  children: ReactNode;
+  currentWorkspace?: WorkspaceSummary;
+  workspaces?: WorkspaceOption[];
+  shellCounts?: ShellCounts;
+  activeTaskHref?: string;
+  deployment?: DeploymentMetadata;
+  locale: Locale;
+  messages: Messages;
+}) {
+  return (
+    <I18nProvider locale={locale} messages={messages}>
+      <ProductShellContent
+        currentWorkspace={currentWorkspace}
+        workspaces={workspaces}
+        shellCounts={shellCounts}
+        activeTaskHref={_activeTaskHref}
+        deployment={deployment}
+      >
+        {children}
+      </ProductShellContent>
+    </I18nProvider>
   );
 }

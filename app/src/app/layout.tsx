@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
+import { getMessages } from "@/lib/i18n/messages";
+import { resolveRequestLocale } from "@/lib/i18n/server";
 import "./globals.css";
 
 const body = Instrument_Sans({
@@ -14,19 +16,27 @@ const mono = IBM_Plex_Mono({
   variable: "--font-mono"
 });
 
-export const metadata: Metadata = {
-  title: "Mission Control",
-  description: "A task system for human and AI-agent collaboration."
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await resolveRequestLocale();
+  const messages = getMessages(locale);
 
-export default function RootLayout({
+  return {
+    title: messages.metadata.title,
+    description: messages.metadata.description
+  };
+}
+
+export default async function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await resolveRequestLocale();
+  const messages = getMessages(locale);
+
   return (
-    <html lang="en">
-      <body className={`${body.variable} ${mono.variable}`}>
+    <html lang={locale}>
+      <body className={`${body.variable} ${mono.variable}`} data-locale={locale} data-language={messages.common.localeName}>
         {children}
       </body>
     </html>

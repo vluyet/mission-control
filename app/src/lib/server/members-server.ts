@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import type { Member } from "@/lib/demo-data";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
+import { getRequestI18n } from "@/lib/i18n/server";
 
 async function getActiveWorkspaceSlug() {
   const cookieStore = await cookies();
@@ -19,21 +20,23 @@ async function getActiveWorkspaceRecord() {
   return workspace;
 }
 
-function formatWorkspaceRole(role: string): NonNullable<Member["workspaceRole"]> {
+function formatWorkspaceRole(role: string, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]): NonNullable<Member["workspaceRole"]> {
+  type WorkspaceRoleLabel = NonNullable<Member["workspaceRole"]>;
   switch (role) {
     case "owner":
-      return "Owner";
+      return t("membersServer.owner") as WorkspaceRoleLabel;
     case "admin":
-      return "Admin";
+      return t("membersServer.admin") as WorkspaceRoleLabel;
     case "viewer":
-      return "Viewer";
+      return t("membersServer.viewer") as WorkspaceRoleLabel;
     default:
-      return "Member";
+      return t("membersServer.member") as WorkspaceRoleLabel;
   }
 }
 
 export async function getMembersForUi() {
   const activeWorkspace = await getActiveWorkspaceRecord();
+  const { t } = await getRequestI18n();
   const memberships = await db.membership.findMany({
     where: {
       ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {})
@@ -53,14 +56,14 @@ export async function getMembersForUi() {
       id: member.id,
       name: member.name,
       type: member.kind === "agent" ? "Agent" : "Human",
-      role: member.roleLabel ?? (member.kind === "agent" ? "Agent" : "Member"),
-      workspaceRole: formatWorkspaceRole(member.workspaceRole),
+      role: member.roleLabel ?? (member.kind === "agent" ? t("membersServer.agent") : t("membersServer.member")),
+      workspaceRole: formatWorkspaceRole(member.workspaceRole, t),
       email: member.email ?? undefined,
       avatarUrl: member.avatarUrl ?? undefined,
       capabilities: member.capabilities,
       agentPermissions: member.kind === "agent" ? member.agentPermissions : [],
       active: member.enabled,
-      load: member.enabled ? `${member.tasks.length} active tasks` : "Disabled",
+      load: member.enabled ? t("membersServer.activeTasks", { count: member.tasks.length }) : t("membersServer.disabled"),
       projects: Array.from(new Set(member.tasks.map((task) => task.project.name))),
       taskCount: member.tasks.length
     })
@@ -68,6 +71,7 @@ export async function getMembersForUi() {
 }
 
 export async function updateWorkspaceRoleInDb(memberId: string, workspaceRole: "owner" | "admin" | "member" | "viewer") {
+  const { t } = await getRequestI18n();
   const member = await db.membership.findUnique({
     where: { id: memberId },
     include: {
@@ -113,15 +117,15 @@ export async function updateWorkspaceRoleInDb(memberId: string, workspaceRole: "
         taskId: task.id,
         actorId: memberId,
         actorName: member.name,
-        label: "Workspace role changed",
-        detail: `${member.name} became a viewer and was removed from task ownership on ${task.title}.`
+        label: t("membersServer.workspaceRoleChanged"),
+        detail: t("membersServer.becameViewerRemovedFromOwnership", { memberName: member.name, taskTitle: task.title })
       })),
       ...member.reviewingTasks.map((task) => ({
         taskId: task.id,
         actorId: memberId,
         actorName: member.name,
-        label: "Workspace role changed",
-        detail: `${member.name} became a viewer and was removed from review on ${task.title}.`
+        label: t("membersServer.workspaceRoleChanged"),
+        detail: t("membersServer.becameViewerRemovedFromReview", { memberName: member.name, taskTitle: task.title })
       }))
     ];
 
@@ -134,12 +138,13 @@ export async function updateWorkspaceRoleInDb(memberId: string, workspaceRole: "
 
   return {
     id: updated.id,
-    workspaceRole: formatWorkspaceRole(updated.workspaceRole),
+    workspaceRole: formatWorkspaceRole(updated.workspaceRole, t),
     name: updated.name
   };
 }
 
 export async function updateMemberEnabledInDb(memberId: string, enabled: boolean) {
+  const { t } = await getRequestI18n();
   const member = await db.membership.findUnique({
     where: { id: memberId },
     include: {
@@ -191,15 +196,15 @@ export async function updateMemberEnabledInDb(memberId: string, enabled: boolean
         taskId: task.id,
         actorId: memberId,
         actorName: member.name,
-        label: "Agent disabled",
-        detail: `${member.name} was disabled and removed from assignment on ${task.title}.`
+        label: t("membersServer.agentDisabled"),
+        detail: t("membersServer.agentDisabledRemovedFromAssignment", { memberName: member.name, taskTitle: task.title })
       })),
       ...member.reviewingTasks.map((task) => ({
         taskId: task.id,
         actorId: memberId,
         actorName: member.name,
-        label: "Agent disabled",
-        detail: `${member.name} was disabled and removed from review on ${task.title}.`
+        label: t("membersServer.agentDisabled"),
+        detail: t("membersServer.agentDisabledRemovedFromReview", { memberName: member.name, taskTitle: task.title })
       }))
     ];
 

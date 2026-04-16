@@ -3,16 +3,20 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 import { AppButton, Panel } from "@/components/ui/primitives";
-import { signInHighlights } from "@/lib/demo-data";
 import { SparkIcon } from "@/components/ui/icons";
+import type { Locale } from "@/lib/i18n/config";
+import type { Messages } from "@/lib/i18n/messages";
+import { I18nProvider, useI18n } from "@/components/product/i18n-provider";
+import { LanguageSwitcher } from "@/components/product/language-switcher";
 
-export function SignInScreen({ nextPath = "/", reason }: { nextPath?: string; reason?: "expired" }) {
+function SignInScreenContent({ nextPath = "/", reason }: { nextPath?: string; reason?: "expired" }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { t, messages } = useI18n();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,7 +38,7 @@ export function SignInScreen({ nextPath = "/", reason }: { nextPath?: string; re
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
-        setErrorMessage(payload?.error?.message ?? "Sign-in failed. Please try again.");
+        setErrorMessage(payload?.error?.message ?? t("auth.defaultError"));
         return;
       }
 
@@ -52,18 +56,16 @@ export function SignInScreen({ nextPath = "/", reason }: { nextPath?: string; re
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-white/70 px-3 py-1.5 text-xs text-[var(--text-muted)]">
                 <SparkIcon className="h-3.5 w-3.5" />
-                Mission Control
+                {t("auth.missionControl")}
               </div>
               <h1 className="mt-8 max-w-2xl text-[clamp(2.75rem,5vw,4.9rem)] font-semibold leading-[0.94] tracking-[-0.05em] text-[var(--text-strong)]">
-                Serious task orchestration for humans and agents.
+                {t("auth.heroTitle")}
               </h1>
-              <p className="mt-6 max-w-xl text-base leading-7 text-[var(--text-muted)]">
-                A premium operational workspace for project work, execution visibility, and collaboration that stays calm under load.
-              </p>
+              <p className="mt-6 max-w-xl text-base leading-7 text-[var(--text-muted)]">{t("auth.heroBody")}</p>
             </div>
 
             <div className="mt-12 grid gap-3 sm:grid-cols-3">
-              {signInHighlights.map((item) => (
+              {messages.signInHighlights.map((item) => (
                 <div key={item} className="rounded-2xl border border-[var(--line)] bg-white/70 p-4">
                   <p className="text-sm leading-6 text-[var(--text-strong)]">{item}</p>
                 </div>
@@ -75,29 +77,32 @@ export function SignInScreen({ nextPath = "/", reason }: { nextPath?: string; re
         <Panel className="flex items-center px-6 py-8 md:px-8">
           <div className="mx-auto w-full max-w-md">
             <div className="rounded-[24px] border border-[var(--line)] bg-[var(--surface)] p-6">
-              <p className="section-eyebrow">Owner access</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--text-strong)]">Sign in</h2>
-              <p className="mt-2 text-sm text-[var(--text-muted)]">
-                Access your workspace, project queue, and execution review surfaces.
-              </p>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="section-eyebrow">{t("auth.ownerAccessEyebrow")}</p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--text-strong)]">{t("auth.signInTitle")}</h2>
+                  <p className="mt-2 text-sm text-[var(--text-muted)]">{t("auth.signInBody")}</p>
+                </div>
+                <div className="min-w-[140px]">
+                  <LanguageSwitcher />
+                </div>
+              </div>
               {nextPath !== "/" ? (
                 <div className="mt-5 rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-muted)]">
-                  Sign in to continue to <span className="font-medium text-[var(--text-strong)]">{nextPath}</span>.
+                  {t("auth.continueToPath", { path: nextPath })}
                 </div>
               ) : null}
               {reason === "expired" ? (
-                <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Your session expired. Sign in again to continue.
-                </div>
+                <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{t("auth.sessionExpired")}</div>
               ) : null}
 
               <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-[var(--text-strong)]">Email</span>
+                  <span className="mb-2 block text-sm font-medium text-[var(--text-strong)]">{t("auth.emailLabel")}</span>
                   <input
                     className="input-control"
                     type="email"
-                    placeholder="owner@mission-control.app"
+                    placeholder={t("auth.emailPlaceholder")}
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     autoComplete="email"
@@ -105,11 +110,11 @@ export function SignInScreen({ nextPath = "/", reason }: { nextPath?: string; re
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-[var(--text-strong)]">Password</span>
+                  <span className="mb-2 block text-sm font-medium text-[var(--text-strong)]">{t("auth.passwordLabel")}</span>
                   <input
                     className="input-control"
                     type="password"
-                    placeholder="Enter your password"
+                    placeholder={t("auth.passwordPlaceholder")}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete="current-password"
@@ -117,7 +122,7 @@ export function SignInScreen({ nextPath = "/", reason }: { nextPath?: string; re
                   />
                 </label>
 
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between text-sm gap-3">
                   <label className="flex items-center gap-2 text-[var(--text-muted)]">
                     <input
                       type="checkbox"
@@ -125,28 +130,44 @@ export function SignInScreen({ nextPath = "/", reason }: { nextPath?: string; re
                       checked={remember}
                       onChange={(event) => setRemember(event.target.checked)}
                     />
-                    Remember this device
+                    {t("auth.rememberDevice")}
                   </label>
-                  <span className="font-medium text-[var(--text-dim)]">Environment-backed owner access</span>
+                  <span className="font-medium text-[var(--text-dim)]">{t("auth.environmentAccess")}</span>
                 </div>
 
-                {errorMessage ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div>
-                ) : null}
+                {errorMessage ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div> : null}
 
                 <AppButton className="w-full justify-center py-3" tone="primary" type="submit" disabled={isPending}>
-                  {isPending ? "Signing in..." : "Continue to workspace"}
+                  {isPending ? t("auth.submitting") : t("auth.submit")}
                 </AppButton>
               </form>
 
-              <div className="mt-6 flex items-center justify-between rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-muted)]">
-                <span>Local owner access is configured through environment variables.</span>
-                <span className="font-medium text-[var(--text-strong)]">Docker-only workflow</span>
+              <div className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                <span>{t("auth.localOwnerAccess")}</span>
+                <span className="font-medium text-[var(--text-strong)]">{t("auth.dockerWorkflow")}</span>
               </div>
             </div>
           </div>
         </Panel>
       </div>
     </div>
+  );
+}
+
+export function SignInScreen({
+  nextPath = "/",
+  reason,
+  locale,
+  messages
+}: {
+  nextPath?: string;
+  reason?: "expired";
+  locale: Locale;
+  messages: Messages;
+}) {
+  return (
+    <I18nProvider locale={locale} messages={messages}>
+      <SignInScreenContent nextPath={nextPath} reason={reason} />
+    </I18nProvider>
   );
 }

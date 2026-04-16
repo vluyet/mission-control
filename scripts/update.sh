@@ -20,6 +20,8 @@ Environment overrides:
   MC_HEALTHCHECK_URL
   MC_HEALTHCHECK_RETRIES
   MC_HEALTHCHECK_DELAY
+  MC_APP_START_CMD
+  MC_APP_STOP_CMD
   MC_APP_RESTART_CMD
   MC_DB_PORT
 USAGE
@@ -165,34 +167,101 @@ EOF
   echo "Deployment metadata stamped: ${version} (${branch:-detached}@${short_commit})"
 }
 
-update_host_app() {
-  echo "Installing app dependencies and building host app..."
+prepare_host_app() {
+  echo "Installing app dependencies and preparing host app..."
   (
     load_dotenv_exports
     cd app
     npm ci
     if [ "$no_build" != "1" ]; then
-      npm run build
+      rm -rf .next-build.__new
+      rm -rf .next
+      NEXT_DIST_DIR=.next-build.__new node scripts/with-root-env.mjs ./node_modules/.bin/next build
     fi
     npm run db:deploy
     npm run db:bootstrap
   )
 }
 
-restart_host_app() {
-  local restart_cmd="${MC_APP_RESTART_CMD:-}"
+app_start_cmd=""
+app_stop_cmd=""
+app_restart_cmd=""
 
-  if [ -z "$restart_cmd" ] && command -v systemctl >/dev/null 2>&1 && systemctl --user status mission-control-app.service >/dev/null 2>&1; then
-    restart_cmd="systemctl --user restart mission-control-app.service"
+resolve_app_commands() {
+  app_start_cmd="${MC_APP_START_CMD:-}"
+  app_stop_cmd="${MC_APP_STOP_CMD:-}"
+  app_restart_cmd="${MC_APP_RESTART_CMD:-}"
+
+  if [ -z "$app_start_cmd" ] && [ -z "$app_stop_cmd" ] && command -v systemctl >/dev/null 2>&1 && systemctl --user cat mission-control-app.service >/dev/null 2>&1; then
+    app_stop_cmd="systemctl --user stop mission-control-app.service"
+    app_start_cmd="systemctl --user start mission-control-app.service"
+    app_restart_cmd="systemctl --user restart mission-control-app.service"
+  fi
+}
+
+stop_host_app() {
+  if [ -z "$app_stop_cmd" ]; then
+    echo "No host app stop command configured. Set MC_APP_STOP_CMD if your test machine does not use mission-control-app.service." >&2
+    return 1
   fi
 
-  if [ -z "$restart_cmd" ]; then
-    echo "No host app restart command configured. Set MC_APP_RESTART_CMD if your test machine does not use mission-control-app.service." >&2
+  echo "Stopping host app..."
+  sh -lc "$app_stop_cmd"
+}
+
+start_host_app() {
+  if [ -z "$app_start_cmd" ]; then
+    echo "No host app start command configured. Set MC_APP_START_CMD if your test machine does not use mission-control-app.service." >&2
+    return 1
+  fi
+
+  echo "Starting host app..."
+  sh -lc "$app_start_cmd"
+}
+
+restart_host_app() {
+  if [ -n "$app_restart_cmd" ]; then
+    echo "Restarting host app..."
+    sh -lc "$app_restart_cmd"
     return 0
   fi
 
-  echo "Restarting host app..."
-  sh -lc "$restart_cmd"
+  stop_host_app
+  start_host_app
+}
+
+promote_candidate_build() {
+  if [ "$no_build" = "1" ]; then
+    return 0
+  fi
+
+  echo "Promoting private candidate build into .next-build..."
+  (
+    cd app
+    rm -rf .next-build-prev
+    if [ -d .next-build ]; then
+      mv .next-build .next-build-prev
+    fi
+    mv .next-build.__new .next-build
+  )
+}
+
+rollback_host_build() {
+  if [ "$no_build" = "1" ]; then
+    return 0
+  fi
+
+  if [ ! -d app/.next-build-prev ]; then
+    echo "No previous host build is available for rollback." >&2
+    return 1
+  fi
+
+  echo "Rolling back to the previous host build..."
+  (
+    cd app
+    rm -rf .next-build
+    mv .next-build-prev .next-build
+  )
 }
 
 wait_for_health() {
@@ -270,6 +339,18 @@ current_ref="$(git describe --tags --always 2>/dev/null || git rev-parse --short
 app_port="$(awk -F= '$1=="APP_PORT" {print $2}' .env | tail -n1)"
 app_port="${app_port:-3000}"
 
+resolve_app_commands
+
+if [ "$no_build" != "1" ] && { [ -z "$app_stop_cmd" ] || [ -z "$app_start_cmd" ]; }; then
+  echo "Safe host cutover requires stop/start commands. Set MC_APP_STOP_CMD and MC_APP_START_CMD if your test machine does not use mission-control-app.service." >&2
+  exit 1
+fi
+
+if [ "$no_build" = "1" ] && [ -z "$app_restart_cmd" ] && { [ -z "$app_stop_cmd" ] || [ -z "$app_start_cmd" ]; }; then
+  echo "No host app restart path configured. Set MC_APP_RESTART_CMD or MC_APP_STOP_CMD plus MC_APP_START_CMD." >&2
+  exit 1
+fi
+
 if [ -z "$healthcheck_url" ]; then
   healthcheck_url="http://127.0.0.1:${app_port}/api/health"
 fi
@@ -295,12 +376,26 @@ else
   docker compose -f docker-compose.prod.yml up -d --build
 fi
 
-update_host_app
-restart_host_app
+prepare_host_app
+
+if [ "$no_build" = "1" ]; then
+  restart_host_app
+else
+  stop_host_app
+  promote_candidate_build
+  start_host_app
+fi
 
 echo "Waiting for Mission Control health endpoint..."
 if ! wait_for_health "$healthcheck_url" "$healthcheck_retries" "$healthcheck_delay"; then
   echo "Mission Control failed health verification. Recent logs:" >&2
+  if [ "$no_build" != "1" ] && [ -d app/.next-build-prev ]; then
+    echo "Attempting rollback to the previous host build..." >&2
+    stop_host_app || true
+    rollback_host_build || true
+    start_host_app || true
+    wait_for_health "$healthcheck_url" "$healthcheck_retries" "$healthcheck_delay" || true
+  fi
   docker compose -f docker-compose.prod.yml logs --tail=200 db >&2 || true
   exit 1
 fi

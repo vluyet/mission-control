@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
+import { useI18n } from "@/components/product/i18n-provider";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 
 type AssigneeOption = {
@@ -43,6 +44,7 @@ export function TaskEditForm({
   parentOptions: ParentOption[];
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -68,7 +70,7 @@ export function TaskEditForm({
     };
 
     if (!payload.title.trim()) {
-      setError("Task title is required.");
+      setError(t("taskForms.taskTitleRequired"));
       return;
     }
 
@@ -84,7 +86,7 @@ export function TaskEditForm({
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      setError(payload?.error?.message ?? "Task could not be updated.");
+      setError(payload?.error?.message ?? t("taskForms.taskUpdateFailed"));
       return;
     }
 
@@ -95,13 +97,13 @@ export function TaskEditForm({
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Permanently delete task ${task.id}? All comments, attachments, and execution history will be removed. This cannot be undone.`)) return;
+    if (!window.confirm(t("taskForms.deleteTaskConfirm", { id: task.id }))) return;
     setIsDeleting(true);
     setError(null);
     const response = await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
     if (!response.ok) {
       setIsDeleting(false);
-      setError("Task could not be deleted.");
+      setError(t("taskForms.taskDeleteFailed"));
       return;
     }
     startTransition(() => {
@@ -113,18 +115,18 @@ export function TaskEditForm({
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
-        eyebrow="Edit task"
-        title={`Update ${task.id}`}
-        description={`Keep ${projectName} moving without overcomplicating the workflow.`}
+        eyebrow={t("taskForms.editEyebrow")}
+        title={t("taskForms.editTitle", { id: task.id })}
+        description={t("taskForms.editDescription", { name: projectName })}
       />
       <form onSubmit={handleSubmit} className="grid gap-5 px-5 py-5 xl:grid-cols-[minmax(0,1.2fr),minmax(320px,0.8fr)]">
         <div className="space-y-4">
           <div>
-            <label className="section-eyebrow">Title</label>
+            <label className="section-eyebrow">{t("taskForms.title")}</label>
             <input name="title" defaultValue={task.title} className="input-control mt-2" />
           </div>
           <div>
-            <label className="section-eyebrow">Description</label>
+            <label className="section-eyebrow">{t("taskForms.descriptionLabel")}</label>
             <textarea
               name="description"
               defaultValue={task.description}
@@ -132,49 +134,49 @@ export function TaskEditForm({
             />
           </div>
           <div>
-            <label className="section-eyebrow">Blocked reason</label>
+            <label className="section-eyebrow">{t("taskForms.blockedReason")}</label>
             <input
               name="blockedReason"
               defaultValue={task.blockedReason}
               className="input-control mt-2"
-              placeholder="Only needed if the task is blocked."
+              placeholder={t("taskForms.blockedReasonPlaceholder")}
             />
           </div>
           <div>
-            <label className="section-eyebrow">Tags</label>
+            <label className="section-eyebrow">{t("taskForms.tags")}</label>
             <input
               name="tags"
               defaultValue={task.tags}
               className="input-control mt-2"
-              placeholder="UI, Review, Delivery"
+              placeholder={t("taskForms.tagsPlaceholder")}
             />
           </div>
         </div>
         <div className="space-y-4 rounded-3xl border border-[var(--line)] bg-[var(--surface-subtle)] p-4">
           <div>
-            <label className="section-eyebrow">Status</label>
+            <label className="section-eyebrow">{t("taskForms.status")}</label>
             <select name="status" defaultValue={task.status} className="input-control mt-2">
-              <option value="todo">Todo</option>
-              <option value="in_progress">In Progress</option>
-              <option value="review">In Review</option>
-              <option value="blocked">Blocked</option>
-              <option value="done">Done</option>
+              <option value="todo">{t("taskForms.todo")}</option>
+              <option value="in_progress">{t("taskForms.inProgress")}</option>
+              <option value="review">{t("taskForms.inReview")}</option>
+              <option value="blocked">{t("taskForms.blocked")}</option>
+              <option value="done">{t("taskForms.done")}</option>
             </select>
-            <p className="mt-2 text-xs text-[var(--text-dim)]">Status changes are now actor-aware: human and agent workflows follow different allowed transitions.</p>
+            <p className="mt-2 text-xs text-[var(--text-dim)]">{t("taskForms.statusHint")}</p>
           </div>
           <div>
-            <label className="section-eyebrow">Priority</label>
+            <label className="section-eyebrow">{t("taskForms.priority")}</label>
             <select name="priority" defaultValue={task.priority} className="input-control mt-2">
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
+              <option value="low">{t("taskForms.low")}</option>
+              <option value="medium">{t("taskForms.medium")}</option>
+              <option value="high">{t("taskForms.high")}</option>
+              <option value="urgent">{t("taskForms.urgent")}</option>
             </select>
           </div>
           <div>
-            <label className="section-eyebrow">Assignee</label>
+            <label className="section-eyebrow">{t("taskForms.assignee")}</label>
             <select name="assigneeId" defaultValue={task.assigneeId} className="input-control mt-2">
-              <option value="">Unassigned</option>
+              <option value="">{t("taskForms.unassigned")}</option>
               {assignees.map((assignee) => (
                 <option key={assignee.id} value={assignee.id}>
                   {assignee.label}
@@ -183,9 +185,9 @@ export function TaskEditForm({
             </select>
           </div>
           <div>
-            <label className="section-eyebrow">Parent task</label>
+            <label className="section-eyebrow">{t("taskForms.parentTask")}</label>
             <select name="parentTaskId" defaultValue={task.parentTaskId} className="input-control mt-2">
-              <option value="">No parent task</option>
+              <option value="">{t("taskForms.noParentTask")}</option>
               {parentOptions.map((parent) => (
                 <option key={parent.id} value={parent.id}>
                   {parent.label}
@@ -195,30 +197,30 @@ export function TaskEditForm({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="section-eyebrow">Start date</label>
+              <label className="section-eyebrow">{t("taskForms.startDate")}</label>
               <input name="startDate" type="date" defaultValue={task.startDate} className="input-control mt-2" />
             </div>
             <div>
-              <label className="section-eyebrow">Due date</label>
+              <label className="section-eyebrow">{t("taskForms.dueDate")}</label>
               <input name="dueDate" type="date" defaultValue={task.dueDate} className="input-control mt-2" />
             </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {error ? <span className="text-sm text-rose-600">{error}</span> : <span className="text-sm text-[var(--text-dim)]">Task changes are recorded in activity.</span>}
+            {error ? <span className="text-sm text-rose-600">{error}</span> : <span className="text-sm text-[var(--text-dim)]">{t("taskForms.activityHint")}</span>}
             <AppButton type="submit" tone="primary" className={isPending ? "opacity-70" : ""}>
-              {isPending ? "Saving..." : "Save changes"}
+              {isPending ? t("taskForms.saving") : t("taskForms.saveChanges")}
             </AppButton>
           </div>
           <div className="border-t border-[var(--line)] pt-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-600">Danger zone</p>
-            <p className="mt-2 text-sm text-[var(--text-muted)]">Permanently delete this task and all its history.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-600">{t("taskForms.dangerZone")}</p>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">{t("taskForms.deleteTaskDescription")}</p>
             <button
               type="button"
               onClick={handleDelete}
               disabled={isDeleting || isPending}
               className="mt-3 inline-flex items-center rounded-2xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:pointer-events-none disabled:opacity-50"
             >
-              {isDeleting ? "Deleting..." : "Delete task"}
+              {isDeleting ? t("taskForms.deleting") : t("taskForms.deleteTask")}
             </button>
           </div>
         </div>

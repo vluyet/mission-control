@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import { useI18n } from "@/components/product/i18n-provider";
 import { cn } from "@/lib/utils";
 
 type PanelProps = {
@@ -135,12 +136,20 @@ export function SegmentedTabs({
 }
 
 export function StatusBadge({ value }: { value: string }) {
+  const { t } = useI18n();
   const styles: Record<string, string> = {
     Todo: "bg-slate-100 text-slate-700 border-slate-200",
     "In Progress": "bg-blue-50 text-blue-700 border-blue-200",
     "In Review": "bg-amber-50 text-amber-700 border-amber-200",
     Blocked: "bg-rose-50 text-rose-700 border-rose-200",
     Done: "bg-emerald-50 text-emerald-700 border-emerald-200"
+  };
+  const labels: Record<string, string> = {
+    Todo: t("taskStatus.todo"),
+    "In Progress": t("taskStatus.inProgress"),
+    "In Review": t("taskStatus.inReview"),
+    Blocked: t("taskStatus.blocked"),
+    Done: t("taskStatus.done")
   };
 
   return (
@@ -150,17 +159,24 @@ export function StatusBadge({ value }: { value: string }) {
         styles[value] ?? styles.Todo
       )}
     >
-      {value}
+      {labels[value] ?? value}
     </span>
   );
 }
 
 export function PriorityBadge({ value }: { value: string }) {
+  const { t } = useI18n();
   const styles: Record<string, string> = {
     Low: "bg-slate-100 text-slate-600",
     Medium: "bg-indigo-50 text-indigo-700",
     High: "bg-orange-50 text-orange-700",
     Urgent: "bg-rose-50 text-rose-700"
+  };
+  const labels: Record<string, string> = {
+    Low: t("taskForms.low"),
+    Medium: t("taskForms.medium"),
+    High: t("taskForms.high"),
+    Urgent: t("taskForms.urgent")
   };
 
   return (
@@ -170,7 +186,7 @@ export function PriorityBadge({ value }: { value: string }) {
         styles[value] ?? styles.Medium
       )}
     >
-      {value}
+      {labels[value] ?? value}
     </span>
   );
 }

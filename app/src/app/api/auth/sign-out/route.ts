@@ -2,8 +2,10 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, getClearedSessionCookieOptions, verifySessionTokenDetailed } from "@/lib/auth";
 import { ok } from "@/lib/api-response";
 import { logAuthEvent } from "@/lib/api-auth";
+import { getApiT } from "@/lib/api-i18n";
 
 export async function POST() {
+  const t = await getApiT();
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
   const session = await verifySessionTokenDetailed(token);
@@ -13,7 +15,7 @@ export async function POST() {
       actorType: "owner",
       actorLabel: session.session.email,
       eventType: "owner.sign_out",
-      detail: "Owner signed out"
+      detail: t("authAudit.ownerSignedOut")
     });
   }
 

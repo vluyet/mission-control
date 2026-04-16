@@ -3,6 +3,7 @@ import { ProjectGovernanceForm } from "@/components/product/project-governance-f
 import { ProjectMembersForm } from "@/components/product/project-members-form";
 import { PageHeader } from "@/components/product/workspace-ui";
 import { getProjectMembersForUi } from "@/lib/server-data";
+import { getRequestI18n } from "@/lib/i18n/server";
 
 export default async function ProjectMembersPage({
   params
@@ -10,6 +11,7 @@ export default async function ProjectMembersPage({
   params: { slug: string };
 }) {
   const data = await getProjectMembersForUi(params.slug);
+  const { t } = await getRequestI18n();
 
   if (!data) {
     notFound();
@@ -18,9 +20,9 @@ export default async function ProjectMembersPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Project members"
-        title={`${data.project.name} member scope`}
-        description="Project membership is the assignment boundary for tasks in this project."
+        eyebrow={t("projectForms.membersEyebrow")}
+        title={t("projectForms.memberScopeTitle", { name: data.project.name })}
+        description={t("projectForms.memberScopeDescription")}
       />
       <ProjectMembersForm
         projectSlug={data.project.slug}

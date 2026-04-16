@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SearchIcon } from "@/components/ui/icons";
+import { useI18n } from "@/components/product/i18n-provider";
 
 export function GlobalSearchBar() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export function GlobalSearchBar() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [isPending, startTransition] = useTransition();
+  const { t } = useI18n();
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
@@ -28,7 +30,7 @@ export function GlobalSearchBar() {
     });
   }
 
-  const shortcut = pathname === "/search" ? "Enter" : "/";
+  const shortcut = pathname === "/search" ? t("globalSearch.submitShortcut") : t("globalSearch.searchShortcut");
 
   return (
     <form onSubmit={handleSubmit} className="command-bar max-w-[760px]">
@@ -37,7 +39,7 @@ export function GlobalSearchBar() {
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         className="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-strong)] outline-none placeholder:text-[var(--text-dim)]"
-        placeholder="Search tasks and projects"
+        placeholder={t("globalSearch.placeholder")}
       />
       <button
         type="submit"

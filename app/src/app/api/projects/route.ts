@@ -2,8 +2,10 @@ import { error, ok } from "@/lib/api-response";
 import { createProjectInDb } from "@/lib/server-data";
 import { logAppEvent } from "@/lib/logger";
 import { resolveApiActor } from "@/lib/api-auth";
+import { getApiT } from "@/lib/api-i18n";
 
 export async function POST(request: Request) {
+  const t = await getApiT();
   const auth = await resolveApiActor(request);
 
   if (!auth.ok) {
@@ -11,7 +13,7 @@ export async function POST(request: Request) {
   }
 
   if (auth.actor.type !== "owner") {
-    return error("Owner access required.", 403, {
+    return error(t("api.ownerAccessRequired"), 403, {
       code: "OWNER_ACCESS_REQUIRED"
     });
   }
@@ -27,7 +29,7 @@ export async function POST(request: Request) {
     | null;
 
   if (!body?.name?.trim()) {
-    return error("Missing required fields", 422, {
+    return error(t("api.missingRequiredFields"), 422, {
       required: ["name"]
     });
   }
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
 
   if (!project) {
     logAppEvent("error", "project.create.failed", { reason: "workspace_not_found" });
-    return error("Workspace not found", 404);
+    return error(t("api.workspaceNotFound"), 404);
   }
 
   logAppEvent("info", "project.create.succeeded", {

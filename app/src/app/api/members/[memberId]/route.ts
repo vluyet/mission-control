@@ -1,16 +1,18 @@
 import { error, ok } from "@/lib/api-response";
+import { getApiT } from "@/lib/api-i18n";
 import { updateAgentPermissionsInDb, updateMemberEnabledInDb, updateWorkspaceRoleInDb } from "@/lib/server-data";
 
 export async function PATCH(
   request: Request,
   { params }: { params: { memberId: string } }
 ) {
+  const t = await getApiT();
   const body = (await request.json().catch(() => null)) as
     | { enabled?: boolean; agentPermissions?: string[]; workspaceRole?: "owner" | "admin" | "member" | "viewer" }
     | null;
 
   if (typeof body?.enabled !== "boolean" && !Array.isArray(body?.agentPermissions) && typeof body?.workspaceRole !== "string") {
-    return error("Enabled flag, workspaceRole, or agentPermissions is required.", 422, {
+    return error(t("api.memberUpdatePatchRequired"), 422, {
       code: "PATCH_REQUIRED"
     });
   }
@@ -33,11 +35,11 @@ export async function PATCH(
   }
 
   if (!updated) {
-    return error("Member not found", 404, { memberId: params.memberId });
+    return error(t("api.memberNotFound"), 404, { memberId: params.memberId });
   }
 
   if ("error" in updated) {
-    return error("This member update is not allowed.", 422, {
+    return error(t("api.memberUpdateNotAllowed"), 422, {
       code: updated.error
     });
   }

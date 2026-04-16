@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import type { ProjectSummary } from "@/lib/demo-data";
 import { mapContextBlock } from "@/lib/context-block";
+import { getRequestI18n } from "@/lib/i18n/server";
+import type { Translator } from "@/lib/i18n/translator";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
 async function getActiveWorkspaceSlug() {
@@ -33,40 +35,42 @@ async function getDefaultHumanMembership(workspaceId: string) {
   );
 }
 
-function formatProjectVisibility(visibility: string): NonNullable<ProjectSummary["visibility"]> {
-  return visibility === "project_members" ? "Project members" : "Workspace";
+function formatProjectVisibility(visibility: string, t: Translator): NonNullable<ProjectSummary["visibility"]> {
+  type ProjectVisibilityLabel = NonNullable<ProjectSummary["visibility"]>;
+  return (visibility === "project_members" ? t("projectsServer.projectMembersVisibility") : t("projectsServer.workspaceVisibility")) as ProjectVisibilityLabel;
 }
 
-function formatProjectLifecycle(status: string): NonNullable<ProjectSummary["lifecycle"]> {
-  return status === "archived" ? "Archived" : "Active";
+function formatProjectLifecycle(status: string, t: Translator): NonNullable<ProjectSummary["lifecycle"]> {
+  type ProjectLifecycleLabel = NonNullable<ProjectSummary["lifecycle"]>;
+  return (status === "archived" ? t("projectsServer.archived") : t("projectsServer.active")) as ProjectLifecycleLabel;
 }
 
-function formatWorkspaceRole(role: string) {
+function formatWorkspaceRole(role: string, t: Translator) {
   switch (role) {
     case "owner":
-      return "Owner";
+      return t("membersServer.owner");
     case "admin":
-      return "Admin";
+      return t("membersServer.admin");
     case "viewer":
-      return "Viewer";
+      return t("membersServer.viewer");
     default:
-      return "Member";
+      return t("membersServer.member");
   }
 }
 
-function formatProjectRole(role: string) {
+function formatProjectRole(role: string, t: Translator) {
   switch (role) {
     case "lead":
-      return "Lead";
+      return t("membersServer.lead");
     case "observer":
-      return "Observer";
+      return t("membersServer.observer");
     default:
-      return "Member";
+      return t("membersServer.member");
   }
 }
 
-function formatShortDate(date: Date | null | undefined) {
-  if (!date) return "No date";
+function formatShortDate(date: Date | null | undefined, t: Translator) {
+  if (!date) return t("taskServer.noDate");
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
@@ -104,7 +108,7 @@ export async function getProjectsForUi(options?: {
   includeArchived?: boolean;
   visibilityMembershipId?: string | null;
 }) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
   const projects = await db.project.findMany({
     where: {
       ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {}),
@@ -119,21 +123,22 @@ export async function getProjectsForUi(options?: {
   });
 
   return projects.map((project): ProjectSummary => {
+    type ProjectStatusLabel = ProjectSummary["status"];
     const memberIds = new Set(project.tasks.flatMap((task) => [task.assigneeId, task.reviewerId].filter((value): value is string => Boolean(value))));
 
     return {
       slug: project.slug,
       name: project.name,
       description: project.description ?? "",
-      status: project.tasks.some((task) => task.status === "blocked")
-        ? "At risk"
+      status: (project.tasks.some((task) => task.status === "blocked")
+        ? t("projectsServer.atRisk")
         : project.tasks.some((task) => task.status === "review")
-          ? "Needs review"
-          : "On track",
-      lifecycle: formatProjectLifecycle(project.status),
-      visibility: formatProjectVisibility(project.visibility),
+          ? t("projectsServer.needsReview")
+          : t("projectsServer.onTrack")) as ProjectStatusLabel,
+      lifecycle: formatProjectLifecycle(project.status, t),
+      visibility: formatProjectVisibility(project.visibility, t),
       contextSummary: mapContextBlock(project.context, "Project context").summary,
-      due: formatShortDate(project.endDate ?? null),
+      due: formatShortDate(project.endDate ?? null, t),
       members: project.memberships.length || memberIds.size,
       open: project.tasks.filter((task) => task.status !== "done").length,
       review: project.tasks.filter((task) => task.status === "review").length,
@@ -153,7 +158,7 @@ export async function getProjectContextBlockForUi(slug: string) {
 }
 
 export async function getProjectMembersForUi(slug: string) {
-  const activeWorkspace = await getActiveWorkspaceRecord();
+  const [activeWorkspace, { t }] = await Promise.all([getActiveWorkspaceRecord(), getRequestI18n()]);
   const project = await db.project.findFirst({
     where: { slug, ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {}) },
     include: {
@@ -180,8 +185,8 @@ export async function getProjectMembersForUi(slug: string) {
       name: member.name,
       type: (member.kind === "agent" ? "Agent" : "Human") as "Agent" | "Human",
       role: member.roleLabel ?? (member.kind === "agent" ? "Agent" : "Member"),
-      workspaceRole: formatWorkspaceRole(member.workspaceRole),
-      projectRole: formatProjectRole(project.memberships.find((item) => item.membershipId === member.id)?.role ?? "member")
+      workspaceRole: formatWorkspaceRole(member.workspaceRole, t),
+      projectRole: formatProjectRole(project.memberships.find((item) => item.membershipId === member.id)?.role ?? "member", t)
     }))
   };
 }
@@ -206,6 +211,8 @@ export async function createProjectInDb(payload: {
   }
 
   const description = payload.description?.trim() || null;
+  const { t } = await getRequestI18n();
+
   const project = await db.project.create({
     data: {
       workspaceId: workspace.id,
@@ -217,11 +224,11 @@ export async function createProjectInDb(payload: {
       startDate: payload.startDate ? new Date(`${payload.startDate}T00:00:00Z`) : null,
       endDate: payload.endDate ? new Date(`${payload.endDate}T00:00:00Z`) : null,
       context: {
-        title: "Project context",
-        summary: description ?? `${payload.name.trim()} is a new project without a detailed context brief yet.`,
+        title: t("seededContext.projectTitle"),
+        summary: description ?? t("seededContext.projectSummaryFallback", { name: payload.name.trim() }),
         bullets: [
-          "Keep scope explicit and simple.",
-          "Let tasks inherit project context instead of rewriting it in every task."
+          t("seededContext.projectBulletKeepScope"),
+          t("seededContext.projectBulletInheritContext")
         ]
       }
     }

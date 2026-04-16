@@ -8,6 +8,8 @@ import type {
 } from "@/lib/demo-data";
 import { mapContextBlock } from "@/lib/context-block";
 import { getOwnerAuthConfig } from "@/lib/auth";
+import { getRequestI18n } from "@/lib/i18n/server";
+import type { Translator } from "@/lib/i18n/translator";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
 async function getActiveWorkspaceSlug() {
@@ -26,15 +28,15 @@ async function getActiveWorkspaceRecord() {
   return workspace;
 }
 
-function formatRelativeTime(date: Date) {
+function formatRelativeTime(date: Date, t: Translator) {
   const diff = Date.now() - date.getTime();
   const minutes = Math.round(diff / 60000);
-  if (minutes <= 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes <= 1) return t("taskServer.justNow");
+  if (minutes < 60) return t("taskServer.minutesAgo", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t("taskServer.hoursAgo", { count: hours });
   const days = Math.round(hours / 24);
-  return `${days}d ago`;
+  return t("taskServer.daysAgo", { count: days });
 }
 
 function mapWorkspaceOption(workspace: {
@@ -42,7 +44,7 @@ function mapWorkspaceOption(workspace: {
   name: string;
   memberships: Array<{ id: string }>;
   projects: Array<{ id: string }>;
-}): WorkspaceOption {
+}, t: Translator): WorkspaceOption {
   return {
     slug: workspace.slug,
     name: workspace.name,
@@ -58,7 +60,7 @@ function mapWorkspaceSummary(workspace: {
   name: string;
   memberships: Array<{ id: string }>;
   projects: Array<{ id: string }>;
-}): WorkspaceSummary {
+}, t: Translator): WorkspaceSummary {
   return {
     slug: workspace.slug,
     name: workspace.name,
@@ -75,7 +77,7 @@ function mapWorkspaceAsset(asset: {
   assetType: string;
   createdAt: Date;
   author?: { name: string | null } | null;
-}): AttachmentRecord {
+}, t: Translator): AttachmentRecord {
   const previewable = asset.mimeType.startsWith("image/") || asset.mimeType === "application/pdf";
   return {
     id: asset.id,
@@ -83,8 +85,8 @@ function mapWorkspaceAsset(asset: {
     mimeType: asset.mimeType,
     sizeLabel: `${Math.max(1, Math.round(asset.sizeBytes / 1024))} KB`,
     artifactType: asset.assetType,
-    author: asset.author?.name ?? "Workspace Owner",
-    uploadedAt: formatRelativeTime(asset.createdAt),
+    author: asset.author?.name ?? t("taskServer.workspaceOwner"),
+    uploadedAt: formatRelativeTime(asset.createdAt, t),
     href: `/api/workspace-assets/${asset.id}`,
     previewable,
     previewHref: previewable ? `/api/workspace-assets/${asset.id}/preview` : undefined,
@@ -100,15 +102,15 @@ function mapAgentCredential(credential: {
   createdAt: Date;
   lastUsedAt: Date | null;
   membership?: { name: string | null } | null;
-}) {
+}, t: Translator) {
   return {
     id: credential.id,
     name: credential.name,
     scopes: credential.scopes,
     enabled: credential.enabled,
-    agentName: credential.membership?.name ?? "Unknown agent",
-    lastUsedAt: credential.lastUsedAt ? formatRelativeTime(credential.lastUsedAt) : "Never",
-    createdAt: formatRelativeTime(credential.createdAt)
+    agentName: credential.membership?.name ?? t("taskServer.unassigned"),
+    lastUsedAt: credential.lastUsedAt ? formatRelativeTime(credential.lastUsedAt, t) : t("taskServer.noDate"),
+    createdAt: formatRelativeTime(credential.createdAt, t)
   };
 }
 
@@ -119,14 +121,14 @@ function mapAuthEvent(event: {
   eventType: string;
   detail: string;
   createdAt: Date;
-}) {
+}, t: Translator) {
   return {
     id: event.id,
     actorType: event.actorType,
     actorLabel: event.actorLabel,
     eventType: event.eventType,
     detail: event.detail,
-    time: formatRelativeTime(event.createdAt)
+    time: formatRelativeTime(event.createdAt, t)
   };
 }
 
@@ -166,13 +168,14 @@ async function buildUniqueProjectSlug(targetWorkspaceId: string, baseValue: stri
 
 async function getOwnerUser() {
   const ownerEmail = getOwnerAuthConfig().email;
+  const { t } = await getRequestI18n();
 
   return db.user.upsert({
     where: { email: ownerEmail },
     update: {},
     create: {
       email: ownerEmail,
-      displayName: "Workspace Owner"
+      displayName: t("taskServer.workspaceOwner")
     }
   });
 }
@@ -214,7 +217,7 @@ async function getConstructorDispatchableAgentMemberships(workspaceId: string) {
 }
 
 export async function getWorkspaceShellDataForUi() {
-  const [activeWorkspace, workspaces] = await Promise.all([
+  const [activeWorkspace, workspaces, { t }] = await Promise.all([
     getActiveWorkspaceRecord(),
     db.workspace.findMany({
       orderBy: { createdAt: "asc" },
@@ -225,7 +228,8 @@ export async function getWorkspaceShellDataForUi() {
           select: { id: true }
         }
       }
-    })
+    }),
+    getRequestI18n()
   ]);
 
   if (!activeWorkspace) {
@@ -278,8 +282,8 @@ export async function getWorkspaceShellDataForUi() {
   };
 
   return {
-    currentWorkspace: mapWorkspaceSummary(currentWorkspace),
-    workspaces: workspaces.map(mapWorkspaceOption),
+    currentWorkspace: mapWorkspaceSummary(currentWorkspace, t),
+    workspaces: workspaces.map((workspace) => mapWorkspaceOption(workspace, t)),
     shellCounts,
     activeTaskHref: activeTask ? `/projects/${activeTask.project.slug}/tasks/${activeTask.id}` : "/projects"
   };
@@ -292,7 +296,7 @@ export async function getWorkspaceManagementDataForUi() {
     return null;
   }
 
-  const [workspace, constructorIntegration, taskAttachmentsCount, workspaceAssetsCount, humanCount, agentCount, credentials, authEvents, allWorkspaces, projects] = await Promise.all([
+  const [workspace, constructorIntegration, taskAttachmentsCount, workspaceAssetsCount, humanCount, agentCount, credentials, authEvents, allWorkspaces, projects, { t }] = await Promise.all([
     db.workspace.findFirst({
       where: { id: activeWorkspace.id },
       include: {
@@ -328,7 +332,8 @@ export async function getWorkspaceManagementDataForUi() {
       include: {
         tasks: { select: { id: true } }
       }
-    })
+    }),
+    getRequestI18n()
   ]);
 
   if (!workspace) {
@@ -352,7 +357,7 @@ export async function getWorkspaceManagementDataForUi() {
       agentCount,
       attachmentCount: taskAttachmentsCount,
       workspaceAssetCount: workspaceAssetsCount,
-      assets: workspace.assets.map(mapWorkspaceAsset),
+      assets: workspace.assets.map((asset) => mapWorkspaceAsset(asset, t)),
       agents: workspace.memberships
         .filter((member) => member.kind === "agent" && member.enabled)
         .map((member) => ({
@@ -378,8 +383,8 @@ export async function getWorkspaceManagementDataForUi() {
             lastSyncError: constructorIntegration.lastSyncError ?? null
           }
         : null,
-      agentCredentials: credentials.map(mapAgentCredential),
-      authEvents: authEvents.map(mapAuthEvent),
+      agentCredentials: credentials.map((credential) => mapAgentCredential(credential, t)),
+      authEvents: authEvents.map((event) => mapAuthEvent(event, t)),
       canDelete: allWorkspaces.length > 1,
       workspaces: allWorkspaces.map((item) => ({
         slug: item.slug,
@@ -409,7 +414,7 @@ export async function createWorkspaceInDb(payload: {
     return null;
   }
 
-  const [slug, owner] = await Promise.all([buildUniqueWorkspaceSlug(name), getOwnerUser()]);
+  const [slug, owner, { t }] = await Promise.all([buildUniqueWorkspaceSlug(name), getOwnerUser(), getRequestI18n()]);
 
   const workspace = await db.workspace.create({
     data: {
@@ -417,7 +422,7 @@ export async function createWorkspaceInDb(payload: {
       slug,
       visibility: payload.visibility ?? "personal",
       context: {
-        title: "Workspace context",
+        title: t("seededContext.workspaceTitle"),
         summary: "",
         bullets: []
       },
