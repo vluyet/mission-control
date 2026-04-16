@@ -41,11 +41,13 @@ export type Metric = {
   tone: "neutral" | "accent" | "success" | "warning";
 };
 
+export type ProjectStatusSummary = "on_track" | "at_risk" | "needs_review";
+
 export type ProjectSummary = {
   slug: string;
   name: string;
   description: string;
-  status: "On track" | "At risk" | "Needs review";
+  status: ProjectStatusSummary;
   lifecycle?: "Active" | "Archived";
   visibility?: "Workspace" | "Project members";
   contextSummary: string;

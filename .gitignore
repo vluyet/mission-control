@@ -12,6 +12,8 @@ app/node_modules
 app/.next
 app/.next-dev
 app/.next-build
+app/.next-build-prev
+app/.next-build.__new
 app/.turbo
 app/DEPLOYMENT.json
 app/prisma/dev.db

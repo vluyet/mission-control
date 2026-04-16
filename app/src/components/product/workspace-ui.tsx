@@ -218,29 +218,38 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 const PROJECT_STATUS_CONFIG: Record<ProjectSummary["status"], { labelKey: string; toneClass: string }> = {
-  "On track": {
+  on_track: {
     labelKey: "workspaceUi.onTrack",
     toneClass: "border-emerald-200 bg-emerald-50 text-emerald-700"
   },
-  "Needs review": {
+  needs_review: {
     labelKey: "workspaceUi.needsReview",
     toneClass: "border-amber-200 bg-amber-50 text-amber-700"
   },
-  "At risk": {
+  at_risk: {
     labelKey: "workspaceUi.atRisk",
     toneClass: "border-rose-200 bg-rose-50 text-rose-700"
   }
 };
 
-function getProjectStatusLabel(value: ProjectSummary["status"], t: (key: string) => string) {
-  return t(PROJECT_STATUS_CONFIG[value].labelKey);
+function getProjectStatusConfig(value: ProjectSummary["status"] | string | null | undefined) {
+  if (value && value in PROJECT_STATUS_CONFIG) {
+    return PROJECT_STATUS_CONFIG[value as ProjectSummary["status"]];
+  }
+
+  return PROJECT_STATUS_CONFIG.on_track;
 }
 
-function ProjectStatusBadge({ value }: { value: ProjectSummary["status"] }) {
+function getProjectStatusLabel(value: ProjectSummary["status"] | string | null | undefined, t: (key: string) => string) {
+  return t(getProjectStatusConfig(value).labelKey);
+}
+
+function ProjectStatusBadge({ value }: { value: ProjectSummary["status"] | string | null | undefined }) {
   const { t } = useI18n();
+  const status = getProjectStatusConfig(value);
 
   return (
-    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${PROJECT_STATUS_CONFIG[value].toneClass}`}>
+    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${status.toneClass}`}>
       {getProjectStatusLabel(value, t)}
     </span>
   );

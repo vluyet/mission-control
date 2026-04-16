@@ -990,10 +990,10 @@ export async function searchWorkspaceForUi(query: string) {
       description: project.description ?? "",
       status:
         project.tasks.some((task) => task.status === "blocked")
-          ? (t("projectsServer.atRisk") as ProjectSummary["status"])
+          ? "at_risk"
           : project.tasks.some((task) => task.status === "review")
-            ? (t("projectsServer.needsReview") as ProjectSummary["status"])
-            : (t("projectsServer.onTrack") as ProjectSummary["status"]),
+            ? "needs_review"
+            : "on_track",
       lifecycle: formatProjectLifecycle(project.status, t),
       visibility: formatProjectVisibility(project.visibility, t),
       contextSummary: mapContextBlock(project.context, "Project context").summary,

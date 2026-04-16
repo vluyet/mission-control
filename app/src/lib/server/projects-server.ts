@@ -123,18 +123,17 @@ export async function getProjectsForUi(options?: {
   });
 
   return projects.map((project): ProjectSummary => {
-    type ProjectStatusLabel = ProjectSummary["status"];
     const memberIds = new Set(project.tasks.flatMap((task) => [task.assigneeId, task.reviewerId].filter((value): value is string => Boolean(value))));
 
     return {
       slug: project.slug,
       name: project.name,
       description: project.description ?? "",
-      status: (project.tasks.some((task) => task.status === "blocked")
-        ? t("projectsServer.atRisk")
+      status: project.tasks.some((task) => task.status === "blocked")
+        ? "at_risk"
         : project.tasks.some((task) => task.status === "review")
-          ? t("projectsServer.needsReview")
-          : t("projectsServer.onTrack")) as ProjectStatusLabel,
+          ? "needs_review"
+          : "on_track",
       lifecycle: formatProjectLifecycle(project.status, t),
       visibility: formatProjectVisibility(project.visibility, t),
       contextSummary: mapContextBlock(project.context, "Project context").summary,
