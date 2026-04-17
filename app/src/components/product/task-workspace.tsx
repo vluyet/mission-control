@@ -11,6 +11,19 @@ import { TaskConstructorDispatchCard } from "@/components/product/task-construct
 import { TaskAttachmentsPanel } from "@/components/product/task-attachments-panel";
 import { useI18n } from "@/components/product/i18n-provider";
 
+function getLocalizedPriorityLabel(priority: TaskRecord["priority"], t: ReturnType<typeof useI18n>["t"]) {
+  switch (priority) {
+    case "Low":
+      return t("taskForms.low");
+    case "High":
+      return t("taskForms.high");
+    case "Urgent":
+      return t("taskForms.urgent");
+    default:
+      return t("taskForms.medium");
+  }
+}
+
 function MetadataItem({
   label,
   value,
@@ -113,6 +126,7 @@ export function TaskWorkspace({
   const { t } = useI18n();
   const rawAssigneeType = task.rawAssigneeType ?? task.assigneeType;
   const isAgentTask = rawAssigneeType === "Agent";
+  const localizedPriority = getLocalizedPriorityLabel(task.priority, t);
 
   return (
     <Panel className="border border-white/70 bg-white/90 shadow-[0_18px_60px_rgba(15,23,42,0.05)]" data-testid="task-workspace-root">
@@ -134,7 +148,7 @@ export function TaskWorkspace({
 
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <MetadataItem label={t("taskWorkspace.assignee")} value={task.assignee} />
-              <MetadataItem label={t("common.priority")} value={task.priority} />
+              <MetadataItem label={t("common.priority")} value={localizedPriority} />
               <MetadataItem label={t("taskWorkspace.dueDate")} value={task.due} />
               <MetadataItem label={t("taskWorkspace.labels")}>
                 <div className="mt-2 flex flex-wrap gap-2">

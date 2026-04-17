@@ -1,8 +1,8 @@
 import { ok } from "@/lib/api-response";
 import { getAgentContractPayload } from "@/lib/api-contract";
-import { getApiT } from "@/lib/api-i18n";
+import { en } from "@/lib/i18n/messages/en";
+import { createTranslator } from "@/lib/i18n/translator";
 
 export async function GET() {
-  const t = await getApiT();
-  return ok(getAgentContractPayload(t));
+  return ok(getAgentContractPayload(createTranslator(en), en));
 }

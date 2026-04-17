@@ -4,6 +4,7 @@ import type { TaskRecord, TimelineEvent } from "@/lib/demo-data";
 import { mapContextBlock } from "@/lib/context-block";
 import { resolveTaskContext } from "@/lib/context-resolver";
 import { getRequestI18n } from "@/lib/i18n/server";
+import { localizeLooseRoleLabel, localizeSystemMemberName } from "@/lib/member-display";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
 async function getActiveWorkspaceSlug() {
@@ -66,12 +67,12 @@ function formatPriority(priority: string): TaskRecord["priority"] {
   return (priority.charAt(0).toUpperCase() + priority.slice(1)) as TaskRecord["priority"];
 }
 
-function mapComment(comment: any) {
+function mapComment(comment: any, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]) {
   return {
     id: comment.id,
     taskId: comment.taskId,
-    author: comment.authorName,
-    role: comment.authorRole,
+    author: localizeSystemMemberName(comment.authorName, t) ?? comment.authorName,
+    role: localizeLooseRoleLabel(comment.authorRole, t),
     tone: comment.tone,
     body: comment.body,
     time: comment.createdAt.toISOString(),
@@ -99,7 +100,7 @@ function mapAttachment(attachment: any, t: Awaited<ReturnType<typeof getRequestI
     previewKind,
     previewable,
     uploadedAt: formatRelativeTime(attachment.createdAt, t),
-    author: attachment.author?.name ?? attachment.authorName ?? t("taskServer.workspaceOwner")
+    author: localizeSystemMemberName(attachment.author?.name ?? attachment.authorName, t) ?? t("taskServer.workspaceOwner")
   };
 }
 
@@ -115,7 +116,7 @@ function mapActivity(item: any) {
 function mapWatcher(member: any, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]) {
   return {
     id: member.id,
-    name: member.name,
+    name: localizeSystemMemberName(member.name, t) ?? member.name,
     type: (member.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as "Agent" | "Human"
   };
 }
@@ -128,10 +129,10 @@ function mapTaskRecord(task: any, t: Awaited<ReturnType<typeof getRequestI18n>>[
     projectSlug: task.project.slug,
     status: formatStatus(task.status),
     priority: formatPriority(task.priority),
-    assignee: task.assignee?.name ?? t("taskServer.unassigned"),
+    assignee: localizeSystemMemberName(task.assignee?.name, t) ?? t("taskServer.unassigned"),
     assigneeType: (task.assignee?.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as TaskRecord["assigneeType"],
     assigneeSourceSystem: task.assignee?.sourceSystem ?? null,
-    reviewer: task.reviewer?.name ?? undefined,
+    reviewer: localizeSystemMemberName(task.reviewer?.name, t) ?? undefined,
     due: formatShortDate(task.dueDate, t),
     startDate: formatShortDate(task.startDate, t),
     tags: task.tags,
@@ -171,7 +172,7 @@ function buildBoardColumns(items: TaskRecord[]) {
 
   return base.map((column) => {
     const cards = items
-      .filter((item) => getTaskStatusKey(item.status) === column.statusKey)
+      .filter((item) => getTaskStatusKey(item.rawStatus ?? item.status) === column.statusKey)
       .map((item) => ({
         id: item.id,
         title: item.title,
@@ -202,35 +203,36 @@ function canOwnProjectTask(member: { enabled: boolean; workspaceRole?: string | 
   return true;
 }
 
-function transitionLabel(value: "todo" | "in_progress" | "review" | "blocked" | "done") {
+const AGENT_TRANSITION_MATRIX: Record<string, Array<"todo" | "in_progress" | "review" | "blocked" | "done">> = {
+  todo: ["in_progress", "blocked"],
+  in_progress: ["review", "blocked", "done"],
+  review: ["in_progress", "done", "blocked"],
+  blocked: ["in_progress"],
+  done: []
+};
+
+function transitionLabel(value: "todo" | "in_progress" | "review" | "blocked" | "done", t: Awaited<ReturnType<typeof getRequestI18n>>["t"]) {
   switch (value) {
     case "in_progress":
-      return "In Progress";
+      return t("taskStatus.inProgress");
     case "review":
-      return "In Review";
+      return t("taskStatus.inReview");
     case "blocked":
-      return "Blocked";
+      return t("taskStatus.blocked");
     case "done":
-      return "Done";
+      return t("taskStatus.done");
     default:
-      return "Todo";
+      return t("taskStatus.todo");
   }
 }
 
-function getHumanTransitionOptions(status: string) {
+function getHumanTransitionOptions(status: string, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]) {
   const all = ["todo", "in_progress", "review", "blocked", "done"] as const;
-  return all.filter((item) => item !== status).map((value) => ({ value, label: transitionLabel(value) }));
+  return all.filter((item) => item !== status).map((value) => ({ value, label: transitionLabel(value, t) }));
 }
 
-function getAgentTransitionOptions(status: string) {
-  const matrix: Record<string, Array<"todo" | "in_progress" | "review" | "blocked" | "done">> = {
-    todo: ["in_progress", "blocked"],
-    in_progress: ["review", "blocked", "done"],
-    review: ["in_progress", "done", "blocked"],
-    blocked: ["in_progress"],
-    done: []
-  };
-  return (matrix[status] ?? []).map((value) => ({ value, label: transitionLabel(value) }));
+function getAgentTransitionOptions(status: string, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]) {
+  return (AGENT_TRANSITION_MATRIX[status] ?? []).map((value) => ({ value, label: transitionLabel(value, t) }));
 }
 
 function isAllowedHumanTransition(current: string, next: string) {
@@ -238,7 +240,7 @@ function isAllowedHumanTransition(current: string, next: string) {
 }
 
 function isAllowedAgentTransition(current: string, next: string) {
-  return getAgentTransitionOptions(current).some((option: any) => (typeof option === "string" ? option : option.value) === next);
+  return (AGENT_TRANSITION_MATRIX[current] ?? []).some((value) => value === next);
 }
 
 function agentHasPermission(member: { kind?: string; agentPermissions?: string[] } | null | undefined, permission: string) {
@@ -329,16 +331,16 @@ export async function getTaskResourceFromDb(taskId: string) {
       status: formatStatus(task.status),
       rawStatus: task.status,
       priority: formatPriority(task.priority),
-      assignee: task.assignee?.name ?? t("taskServer.unassigned"),
+      assignee: localizeSystemMemberName(task.assignee?.name, t) ?? t("taskServer.unassigned"),
       assigneeType: (task.assignee?.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as TaskRecord["assigneeType"],
       rawAssigneeType: task.assignee?.kind === "agent" ? "Agent" : "Human",
       assigneeSourceSystem: task.assignee?.sourceSystem ?? null,
       assigneeCapabilities: task.assignee?.kind === "agent" ? task.assignee.capabilities : [],
       assigneeEnabled: task.assignee?.enabled ?? true,
       assigneePermissions: task.assignee?.kind === "agent" ? task.assignee.agentPermissions : [],
-      humanTransitionOptions: getHumanTransitionOptions(task.status),
-      transitionOptions: task.assignee?.kind === "agent" ? getAgentTransitionOptions(task.status) : [],
-      reviewer: task.reviewer?.name ?? null,
+      humanTransitionOptions: getHumanTransitionOptions(task.status, t),
+      transitionOptions: task.assignee?.kind === "agent" ? getAgentTransitionOptions(task.status, t) : [],
+      reviewer: localizeSystemMemberName(task.reviewer?.name, t) ?? null,
       due: task.dueDate?.toISOString() ?? null,
       startDate: task.startDate?.toISOString() ?? null,
       tags: task.tags,
@@ -354,7 +356,7 @@ export async function getTaskResourceFromDb(taskId: string) {
     watchers: task.watchers.map((watcher) => mapWatcher(watcher.membership, t)),
     available_watchers: availableWatchers.map((item) => item.membership).filter((member) => member.enabled).map((member) => mapWatcher(member, t)),
     resolved_context: resolvedContext,
-    comments: task.comments.map(mapComment),
+    comments: task.comments.map((comment) => mapComment(comment, t)),
     attachments: task.attachments.map((attachment) => mapAttachment(attachment, t)),
     child_tasks: task.childTasks.map((child) => ({ id: child.id, title: child.title, status: child.status })),
     activity: task.activity.map(mapActivity),
@@ -439,7 +441,7 @@ export async function getTaskWorkspaceForUi(taskId: string) {
       latestCreatedAt: payload.execution.latest_created_at ?? undefined,
       latestUpdatedAt: payload.execution.latest_updated_at ?? undefined
     },
-    attachments: (payload.attachments ?? []).map((attachment) => mapAttachment(attachment, t)),
+    attachments: payload.attachments ?? [],
     childTasks: payload.child_tasks ?? [],
     watchers: payload.watchers ?? [],
     availableWatchers: payload.available_watchers ?? [],
@@ -477,7 +479,10 @@ export async function getTaskEditFormData(taskId: string) {
       blockedReason: task.blockedReason ?? ""
     },
     project: { slug: task.project.slug, name: task.project.name },
-    assignees: task.project.memberships.map(({ membership }) => ({ id: membership.id, name: membership.name, label: `${membership.name} · ${membership.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")}` })).filter((membership) => {
+    assignees: task.project.memberships.map(({ membership }) => {
+      const displayName = localizeSystemMemberName(membership.name, t) ?? membership.name;
+      return { id: membership.id, name: displayName, label: `${displayName} · ${membership.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")}` };
+    }).filter((membership) => {
       const source = task.project.memberships.find((item) => item.membership.id === membership.id)?.membership;
       const projectRole = task.project.memberships.find((item) => item.membership.id === membership.id)?.role;
       return source ? canOwnProjectTask(source, projectRole) : false;
@@ -506,7 +511,10 @@ export async function getTaskCreateFormData(slug: string) {
   if (!project) return null;
   return {
     project: { slug: project.slug, name: project.name },
-    assignees: project.memberships.map(({ membership }) => ({ id: membership.id, name: membership.name, label: `${membership.name} · ${membership.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")}` })).filter((membership) => {
+    assignees: project.memberships.map(({ membership }) => {
+      const displayName = localizeSystemMemberName(membership.name, t) ?? membership.name;
+      return { id: membership.id, name: displayName, label: `${displayName} · ${membership.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")}` };
+    }).filter((membership) => {
       const source = project.memberships.find((item) => item.membership.id === membership.id)?.membership;
       const projectRole = project.memberships.find((item) => item.membership.id === membership.id)?.role;
       return source ? canOwnProjectTask(source, projectRole) : false;

@@ -9,6 +9,28 @@ type TransitionOption = {
   label: string;
 };
 
+function getLocalizedStatusLabel(rawStatus: string | undefined, currentStatus: string, t: ReturnType<typeof useI18n>["t"]) {
+  const normalizedStatus = (rawStatus ?? currentStatus).toLowerCase();
+
+  if (normalizedStatus.includes("review")) {
+    return t("taskStatus.inReview");
+  }
+
+  if (normalizedStatus.includes("progress")) {
+    return t("taskStatus.inProgress");
+  }
+
+  if (normalizedStatus.includes("blocked")) {
+    return t("taskStatus.blocked");
+  }
+
+  if (normalizedStatus.includes("done")) {
+    return t("taskStatus.done");
+  }
+
+  return t("taskStatus.todo");
+}
+
 export function TaskStatusActions({
   taskId,
   currentStatus,
@@ -35,6 +57,7 @@ export function TaskStatusActions({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const normalizedStatus = (rawStatus ?? currentStatus).toLowerCase();
+  const localizedStatus = getLocalizedStatusLabel(rawStatus, currentStatus, t);
   const stateAwareDescription =
     description ??
     (actorType === "agent"
@@ -44,12 +67,12 @@ export function TaskStatusActions({
           ? t("taskStatus.agentInProgressDescription")
           : normalizedStatus.includes("blocked")
             ? t("taskStatus.agentBlockedDescription")
-            : t("taskStatus.agentCurrentStateDescription", { status: currentStatus })
+            : t("taskStatus.agentCurrentStateDescription", { status: localizedStatus })
       : normalizedStatus.includes("review")
         ? t("taskStatus.humanReviewDescription")
         : normalizedStatus.includes("blocked")
           ? t("taskStatus.humanBlockedDescription")
-          : t("taskStatus.humanCurrentStateDescription", { status: currentStatus }));
+          : t("taskStatus.humanCurrentStateDescription", { status: localizedStatus }));
 
   async function handleTransition(nextStatus: TransitionOption["value"]) {
     setError(null);

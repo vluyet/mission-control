@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
+import { getDeploymentEnvironment, stampDeploymentMetadata } from './stamp-deployment-metadata.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,11 +64,14 @@ if (existingPid) {
   terminateExistingListener(existingPid);
 }
 
+const deployment = stampDeploymentMetadata(appDir);
+
 const child = spawn('node', ['scripts/with-root-env.mjs', './node_modules/.bin/next', 'start', '-H', '0.0.0.0'], {
   cwd: appDir,
   stdio: 'inherit',
   env: {
     ...process.env,
+    ...getDeploymentEnvironment(deployment),
     NEXT_DIST_DIR: '.next-build'
   }
 });

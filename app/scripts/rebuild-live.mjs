@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import http from 'node:http';
 import https from 'node:https';
+import { stampDeploymentMetadata } from './stamp-deployment-metadata.mjs';
 
 const LIVE_BASE_URL = 'http://127.0.0.1:3000';
 
@@ -356,6 +357,15 @@ if (existingPid) {
 }
 
 promoteCandidateBuild();
+
+try {
+  const deployment = stampDeploymentMetadata(appDir);
+  if (deployment.commit) {
+    console.log(`Stamped DEPLOYMENT.json to ${deployment.commit.slice(0, 7)}.`);
+  }
+} catch (error) {
+  console.warn('Warning: failed to stamp DEPLOYMENT.json after promoting the live build.', error);
+}
 
 const startChild = spawn('node', ['scripts/serve-live.mjs'], {
   cwd: appDir,

@@ -1058,6 +1058,8 @@ export type Messages = {
     machineReadableOutputsDescription: string;
     implementedResources: { title: string; body: string }[];
     samplePayloads: { title: string; code: string }[];
+    workspaceContextBlock: { title: string; summary: string; bullets: string[] };
+    resolutionSections: { title: string; summary: string; bullets: string[] }[];
     exportItems: { title: string; body: string }[];
   };
 };
@@ -2186,6 +2188,46 @@ export const en: Messages = {
       { title: 'Append execution log', code: 'POST /api/tasks/<taskId>/execution\n{\n  "line": "Collected project context and began implementation."\n}' },
       { title: 'Read project context', code: 'GET /api/projects/<projectSlug>/context' },
       { title: 'Search the active workspace', code: 'GET /api/search?q=review' }
+    ],
+    workspaceContextBlock: {
+      title: 'Workspace context',
+      summary: 'Define how this workspace operates before projects, tasks, and agents start using it.',
+      bullets: [
+        'Keep workspace rules short enough to inherit into projects.',
+        'Use this area for norms around ownership, review, and documentation.'
+      ]
+    },
+    resolutionSections: [
+      {
+        title: 'Core resources',
+        summary: 'Agents should work against stable resources instead of scraping UI surfaces.',
+        bullets: [
+          'Workspace: settings, context, members, shared files',
+          'Project: governance, membership, status, task collection',
+          'Task: metadata, comments, activity, execution, attachments',
+          'Execution: status, logs, summary, blocked reason'
+        ]
+      },
+      {
+        title: 'Agent workflow',
+        summary: 'Keep the autonomous loop simple, scoped, and auditable.',
+        bullets: [
+          'Read the task with inherited workspace and project context',
+          'Start work only when permissions and visibility allow it',
+          'Write execution logs without mixing into human comments',
+          'Hand back for review, block, or complete with a clear summary'
+        ]
+      },
+      {
+        title: 'Documentation expectations',
+        summary: 'Contracts should stay additive, explicit, and easy for both humans and agents to inspect.',
+        bullets: [
+          'Stable endpoint contracts and example payload shapes',
+          'Explicit actor rules and allowed transitions',
+          'Error semantics that autonomous clients can recover from',
+          'Clear separation between comments, activity, and execution logs'
+        ]
+      }
     ],
     exportItems: [
       { title: '/api/docs/agents', body: 'High-level JSON summary of current resources, principles, and example resolution semantics.' },

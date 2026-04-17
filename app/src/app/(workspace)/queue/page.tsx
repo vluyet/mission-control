@@ -6,13 +6,13 @@ import { getTaskStatusKey } from "@/lib/task-view";
 
 export default async function QueuePage() {
   const { t } = await getRequestI18n();
-  const items = (await getTasksForUi({ agentOnly: true })).filter((task) => getTaskStatusKey(task.status) !== "done");
-  const reviewItems = items.filter((task) => getTaskStatusKey(task.status) === "inReview");
-  const blockedItems = items.filter((task) => getTaskStatusKey(task.status) === "blocked");
-  const activeItems = items.filter((task) => getTaskStatusKey(task.status) === "inProgress");
+  const items = (await getTasksForUi({ agentOnly: true })).filter((task) => getTaskStatusKey(task.rawStatus ?? task.status) !== "done");
+  const reviewItems = items.filter((task) => getTaskStatusKey(task.rawStatus ?? task.status) === "inReview");
+  const blockedItems = items.filter((task) => getTaskStatusKey(task.rawStatus ?? task.status) === "blocked");
+  const activeItems = items.filter((task) => getTaskStatusKey(task.rawStatus ?? task.status) === "inProgress");
   const staleItems = activeItems.filter((task) => getAgentRunHealth(task).bucket === "stale");
   const healthyActiveItems = activeItems.filter((task) => getAgentRunHealth(task).bucket !== "stale");
-  const todoItems = items.filter((task) => getTaskStatusKey(task.status) === "todo");
+  const todoItems = items.filter((task) => getTaskStatusKey(task.rawStatus ?? task.status) === "todo");
   const attentionItems = [...reviewItems, ...blockedItems, ...staleItems];
   const flowItems = healthyActiveItems.length ? healthyActiveItems : todoItems;
   const queueDescriptionParts = [

@@ -38,7 +38,7 @@ export default async function ProjectWorkspacePage({
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow={t("common.project")}
+        eyebrow={t("workspaceUi.project")}
         title={project.name}
         description={project.description}
         actions={
@@ -59,10 +59,10 @@ export default async function ProjectWorkspacePage({
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs uppercase tracking-[0.12em] text-[var(--text-dim)]">
-            {project.lifecycle === "Active" ? t("common.active") : t("projectForms.archived")}
+            {project.rawLifecycle === "archived" ? t("projectForms.archived") : t("common.active")}
           </span>
           <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs uppercase tracking-[0.12em] text-[var(--text-dim)]">
-            {project.visibility === "Workspace" ? t("projectForms.visibleToWorkspace") : t("projectForms.visibleToProjectMembersOnly")}
+            {project.rawVisibility === "project_members" ? t("projectForms.visibleToProjectMembersOnly") : t("projectForms.visibleToWorkspace")}
           </span>
         </div>
 

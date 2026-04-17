@@ -4,3 +4,7 @@ export async function getApiT() {
   const { t } = await getRequestI18n();
   return t;
 }
+
+export async function getApiI18n() {
+  return getRequestI18n();
+}

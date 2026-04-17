@@ -1,4 +1,5 @@
-import { agentDocsSections, workspaceContext } from "@/lib/demo-data";
+import { getLocalizedAgentDocsSections, getLocalizedWorkspaceContextBlock } from "@/lib/demo-data";
+import type { Messages } from "@/lib/i18n/messages";
 import type { Translator } from "@/lib/i18n/translator";
 
 export function apiMeta() {
@@ -9,7 +10,7 @@ export function apiMeta() {
   };
 }
 
-export function getAgentDocsPayload(t: Translator) {
+export function getAgentDocsPayload(t: Translator, messages: Messages) {
   return {
     summary:
       t("agentDocsApi.summary"),
@@ -22,7 +23,7 @@ export function getAgentDocsPayload(t: Translator) {
         t("agentDocsApi.auth.notes.2")
       ]
     },
-    principles: agentDocsSections,
+    principles: getLocalizedAgentDocsSections(messages),
     resources: [
       {
         method: "GET",
@@ -211,13 +212,13 @@ export function getAgentDocsPayload(t: Translator) {
         path: "/api/docs/agents/contract"
       }
     ],
-    workspace_context: workspaceContext,
+    workspace_context: getLocalizedWorkspaceContextBlock(messages),
     context_resolution: null,
     recent_activity: []
   };
 }
 
-export function getAgentContractPayload(t: Translator) {
+export function getAgentContractPayload(t: Translator, messages: Messages) {
   return {
     contract: "mission-control-agent-api",
     version: "2026-03-16",
@@ -492,6 +493,6 @@ export function getAgentContractPayload(t: Translator) {
         notes: [t("agentDocsApi.contract.notes.taskExecutionAppendPermission")]
       }
     },
-    examples: getAgentDocsPayload(t)
+    examples: getAgentDocsPayload(t, messages)
   };
 }

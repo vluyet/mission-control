@@ -4,6 +4,7 @@ import type { ProjectSummary } from "@/lib/demo-data";
 import { mapContextBlock } from "@/lib/context-block";
 import { getRequestI18n } from "@/lib/i18n/server";
 import type { Translator } from "@/lib/i18n/translator";
+import { formatLocalizedWorkspaceRole, localizeMemberRoleLabel, localizeSystemMemberName } from "@/lib/member-display";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
 async function getActiveWorkspaceSlug() {
@@ -46,16 +47,7 @@ function formatProjectLifecycle(status: string, t: Translator): NonNullable<Proj
 }
 
 function formatWorkspaceRole(role: string, t: Translator) {
-  switch (role) {
-    case "owner":
-      return t("membersServer.owner");
-    case "admin":
-      return t("membersServer.admin");
-    case "viewer":
-      return t("membersServer.viewer");
-    default:
-      return t("membersServer.member");
-  }
+  return formatLocalizedWorkspaceRole(role, t);
 }
 
 function formatProjectRole(role: string, t: Translator) {
@@ -134,6 +126,8 @@ export async function getProjectsForUi(options?: {
         : project.tasks.some((task) => task.status === "review")
           ? "needs_review"
           : "on_track",
+      rawLifecycle: project.status,
+      rawVisibility: project.visibility,
       lifecycle: formatProjectLifecycle(project.status, t),
       visibility: formatProjectVisibility(project.visibility, t),
       contextSummary: mapContextBlock(project.context, "Project context").summary,
@@ -181,9 +175,9 @@ export async function getProjectMembersForUi(slug: string) {
     selectedRoles: Object.fromEntries(project.memberships.map((item) => [item.membershipId, item.role])),
     members: project.workspace.memberships.map((member) => ({
       id: member.id,
-      name: member.name,
+      name: localizeSystemMemberName(member.name, t) ?? member.name,
       type: (member.kind === "agent" ? "Agent" : "Human") as "Agent" | "Human",
-      role: member.roleLabel ?? (member.kind === "agent" ? "Agent" : "Member"),
+      role: localizeMemberRoleLabel(member, t),
       workspaceRole: formatWorkspaceRole(member.workspaceRole, t),
       projectRole: formatProjectRole(project.memberships.find((item) => item.membershipId === member.id)?.role ?? "member", t)
     }))

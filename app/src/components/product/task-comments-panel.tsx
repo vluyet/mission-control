@@ -139,7 +139,7 @@ export function TaskCommentsPanel({
                   </div>
                 ) : (
                   <>
-                    <div className="mt-4 break-words">
+                    <div className="mt-4 break-words text-sm leading-7 text-slate-600">
                       {renderTaskCommentBody(renderedBody, sortedMentions, comment.id)}
                     </div>
                     {isAgentComment && comment.body.length > 320 ? (

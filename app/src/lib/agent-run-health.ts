@@ -33,23 +33,26 @@ export function getAgentRunHealth(
   const minutes = Number.isFinite(diffMs) ? Math.max(0, Math.round(diffMs / 60000)) : null;
   const distance = formatDistance(updatedAt, t);
 
-  if (task.status === "In Review" || (task.status === "Done" && task.assigneeType === "Agent")) {
+  const status = task.rawStatus ?? task.status;
+  const assigneeType = task.rawAssigneeType ?? task.assigneeType;
+
+  if (status === "In Review" || (status === "Done" && assigneeType === "Agent")) {
     return {
       bucket: "review",
-      label: task.status === "Done" ? t("agentRunHealth.completed") : t("agentRunHealth.readyForReview"),
+      label: status === "Done" ? t("agentRunHealth.completed") : t("agentRunHealth.readyForReview"),
       detail: distance
-        ? task.status === "Done"
+        ? status === "Done"
           ? t("agentRunHealth.agentWorkCompleteUpdated", { distance })
           : t("agentRunHealth.completedWaitingOnHumanUpdated", { distance })
-        : task.status === "Done"
+        : status === "Done"
           ? t("agentRunHealth.agentWorkComplete")
           : t("agentRunHealth.completedWaitingOnHuman"),
       accentClass: "border-amber-200 bg-amber-50 text-amber-800",
-      needsAttention: task.status !== "Done"
+      needsAttention: status !== "Done"
     };
   }
 
-  if (task.status === "Blocked") {
+  if (status === "Blocked") {
     return {
       bucket: "blocked",
       label: t("agentRunHealth.waitingOnHuman"),
@@ -59,7 +62,7 @@ export function getAgentRunHealth(
     };
   }
 
-  if (task.status === "In Progress") {
+  if (status === "In Progress") {
     if (minutes === null) {
       return {
         bucket: "aging",
@@ -98,8 +101,8 @@ export function getAgentRunHealth(
 
   return {
     bucket: "idle",
-    label: task.status === "Todo" ? t("agentRunHealth.readyToDispatch") : t("agentRunHealth.idle"),
-    detail: task.status === "Todo" ? t("agentRunHealth.assignedNotDispatched") : t("agentRunHealth.noActiveRun"),
+    label: status === "Todo" ? t("agentRunHealth.readyToDispatch") : t("agentRunHealth.idle"),
+    detail: status === "Todo" ? t("agentRunHealth.assignedNotDispatched") : t("agentRunHealth.noActiveRun"),
     accentClass: "border-[var(--line)] bg-[var(--surface-subtle)] text-[var(--text-muted)]",
     needsAttention: false
   };

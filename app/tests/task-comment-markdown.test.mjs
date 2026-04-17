@@ -25,6 +25,18 @@ function flattenText(node) {
   return flattenText(getProps(node).children ?? "");
 }
 
+function collectNodes(node) {
+  if (node == null || typeof node === "boolean" || typeof node === "string" || typeof node === "number") {
+    return [];
+  }
+
+  if (Array.isArray(node)) {
+    return node.flatMap(collectNodes);
+  }
+
+  return [node, ...collectNodes(getProps(node).children ?? [])];
+}
+
 async function loadModule() {
   const source = await fs.readFile(sourcePath, "utf8");
   const transpiled = ts.transpileModule(source, {
@@ -81,6 +93,55 @@ test("renderInlineTaskCommentMarkdown renders bold, italic, code, and links", as
   assert.equal(nodes.map(flattenText).join(""), "Use bold, italic, code, and https://example.com");
 });
 
+test("renderTaskCommentEditorHighlight keeps source text while emphasizing code and mentions", async () => {
+  const { renderTaskCommentEditorHighlight } = await loadModule();
+  const blocks = renderTaskCommentEditorHighlight("Ping @Ech and @Echo with `code`", ["Echo"], "editor");
+
+  assert.equal(getType(blocks[0]), "div");
+  assert.equal(flattenText(blocks[0]), "Ping @Ech and @Echo with `code`");
+
+  const inlineNodes = collectNodes(getProps(blocks[0]).children);
+  const partialMention = inlineNodes.find((node) => getType(node) === "span" && flattenText(node) === "@Ech");
+  const exactMention = inlineNodes.find((node) => getType(node) === "span" && flattenText(node) === "@Echo");
+  const codeToken = inlineNodes.find((node) => getType(node) === "code" && flattenText(node) === "code");
+
+  assert.match(String(getProps(partialMention).className ?? ""), /bg-blue-50/);
+  assert.match(String(getProps(exactMention).className ?? ""), /bg-blue-100/);
+  assert.match(String(getProps(codeToken).className ?? ""), /bg-slate-100/);
+  assert.match(String(getProps(codeToken).className ?? ""), /box-shadow/);
+});
+
+test("renderTaskCommentEditorHighlight emphasizes bold, italic, links, headings, lists, and fenced code while preserving source text", async () => {
+  const { renderTaskCommentEditorHighlight } = await loadModule();
+  const blocks = renderTaskCommentEditorHighlight(
+    "# Heading\n- item with **bold** and _italic_\n> https://example.com\n```js\nconst value = 1;\n```",
+    ["Echo"],
+    "editor-rich"
+  );
+
+  assert.equal(flattenText(blocks[0]), "# Heading");
+  assert.match(String(getProps(blocks[0]).className ?? ""), /bg-amber-50/);
+  assert.match(String(getProps(blocks[0]).className ?? ""), /text-shadow/);
+
+  assert.equal(flattenText(blocks[1]), "- item with **bold** and _italic_");
+  const listChildren = collectNodes(getProps(blocks[1]).children);
+  const boldToken = listChildren.find((node) => getType(node) === "span" && flattenText(node) === "bold");
+  const italicToken = listChildren.find((node) => getType(node) === "span" && flattenText(node) === "italic");
+  assert.match(String(getProps(boldToken).className ?? ""), /text-shadow/);
+  assert.match(String(getProps(italicToken).className ?? ""), /skew-x/);
+
+  assert.equal(flattenText(blocks[2]), "> https://example.com");
+  assert.match(String(getProps(blocks[2]).className ?? ""), /bg-slate-50/);
+  const quoteChildren = collectNodes(getProps(blocks[2]).children);
+  const linkToken = quoteChildren.find((node) => getType(node) === "span" && flattenText(node) === "https://example.com");
+  assert.match(String(getProps(linkToken).className ?? ""), /underline/);
+
+  assert.equal(flattenText(blocks[3]), "```js");
+  assert.match(String(getProps(blocks[3]).className ?? ""), /bg-slate-100/);
+  assert.equal(flattenText(blocks[4]), "const value = 1;");
+  assert.match(String(getProps(blocks[4]).className ?? ""), /bg-slate-100/);
+});
+
 test("renderTaskCommentBody groups unordered lists, ordered lists, paragraphs, and spacers", async () => {
   const { renderTaskCommentBody } = await loadModule();
   const blocks = renderTaskCommentBody(
@@ -90,10 +151,15 @@ test("renderTaskCommentBody groups unordered lists, ordered lists, paragraphs, a
   );
 
   assert.equal(getType(blocks[0]), "p");
+  assert.match(String(getProps(blocks[0]).className ?? ""), /text-sm/);
   assert.equal(getType(blocks[1]), "div");
   assert.equal(getType(blocks[2]), "ul");
+  assert.match(String(getProps(blocks[2]).className ?? ""), /text-sm/);
+  assert.match(String(getProps(blocks[2]).className ?? ""), /leading-7/);
   assert.deepEqual(getProps(blocks[2]).children.map(flattenText), ["first", "second"]);
   assert.equal(getType(blocks[4]), "ol");
+  assert.match(String(getProps(blocks[4]).className ?? ""), /text-sm/);
+  assert.match(String(getProps(blocks[4]).className ?? ""), /leading-7/);
   assert.deepEqual(getProps(blocks[4]).children.map(flattenText), ["alpha", "beta"]);
   assert.equal(getType(blocks.at(-1)), "p");
   assert.equal(blocks.map(flattenText).join(""), "Intro linefirstsecondalphabetaFinal note for @Echo");

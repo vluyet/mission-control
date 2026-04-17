@@ -1,3 +1,5 @@
+import type { Messages } from "@/lib/i18n/messages";
+
 export type NavItem = {
   label: string;
   icon: string;
@@ -48,6 +50,8 @@ export type ProjectSummary = {
   name: string;
   description: string;
   status: ProjectStatusSummary;
+  rawLifecycle?: "active" | "archived";
+  rawVisibility?: "workspace" | "project_members";
   lifecycle?: "Active" | "Archived";
   visibility?: "Workspace" | "Project members";
   contextSummary: string;
@@ -229,3 +233,11 @@ export const agentDocsSections: ContextBlock[] = [
     ]
   }
 ];
+
+export function getLocalizedWorkspaceContextBlock(messages: Messages): ContextBlock {
+  return messages.agentDocsPage.workspaceContextBlock;
+}
+
+export function getLocalizedAgentDocsSections(messages: Messages): ContextBlock[] {
+  return messages.agentDocsPage.resolutionSections;
+}

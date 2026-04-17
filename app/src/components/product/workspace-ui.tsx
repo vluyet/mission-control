@@ -16,6 +16,7 @@ import {
 import { BoardGridInteractive } from "@/components/product/board-grid-interactive";
 import { SavedTaskViews } from "@/components/product/saved-task-views";
 import { useI18n } from "@/components/product/i18n-provider";
+import { en } from "@/lib/i18n/messages/en";
 export { TaskWorkspace } from "@/components/product/task-workspace";
 export { MemberDirectory } from "@/components/product/member-directory";
 
@@ -354,7 +355,8 @@ export function TaskTable({
           </div>
           <div className="divide-y divide-[var(--line)]">
             {items.map((task) => {
-              const health = task.assigneeType === "Agent" ? getAgentRunHealth(task, undefined, t) : null;
+              const isAgentTask = (task.rawAssigneeType ?? task.assigneeType) === "Agent";
+              const health = isAgentTask ? getAgentRunHealth(task, undefined, t) : null;
               return (
                 <Link key={task.id} href={projectScoped ? `/projects/${task.projectSlug}/tasks/${task.id}` : `/tasks/${task.id}`} className="task-row">
                   <div className="min-w-0">
@@ -398,7 +400,7 @@ export function TaskTable({
                     <PriorityBadge value={task.priority} />
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`avatar-chip ${task.assigneeType === "Agent" ? "avatar-chip-agent" : ""}`}>
+                    <span className={`avatar-chip ${isAgentTask ? "avatar-chip-agent" : ""}`}>
                       {task.assignee.slice(0, 2)}
                     </span>
                     <div className="min-w-0 text-left text-sm font-medium text-[var(--text-strong)]">
@@ -734,8 +736,7 @@ export function ActivityPanel({ items = activityFeed }: { items?: ActivityFeedIt
 }
 
 export function AgentDocsOverview() {
-  const { t } = useI18n();
-  return <ContextPanel title={t("workspaceUi.agentIntegrationContract")} blocks={agentDocsSections} compact />;
+  return <ContextPanel title={en.workspaceUi.agentIntegrationContract} blocks={agentDocsSections} compact />;
 }
 
 export function EmptyState({

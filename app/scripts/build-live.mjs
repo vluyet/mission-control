@@ -2,6 +2,7 @@ import { existsSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
+import { stampDeploymentMetadata } from './stamp-deployment-metadata.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -109,3 +110,12 @@ child.on('exit', (code, signal) => {
 
   process.exit(0);
 });
+
+  try {
+    const deployment = stampDeploymentMetadata(appDir);
+    if (deployment.commit) {
+      console.log(`Stamped DEPLOYMENT.json to ${deployment.commit.slice(0, 7)}.`);
+    }
+  } catch (error) {
+    console.warn('Warning: failed to stamp DEPLOYMENT.json after promoting the live build.', error);
+  }

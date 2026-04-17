@@ -10,6 +10,7 @@ import { mapContextBlock } from "@/lib/context-block";
 import { getOwnerAuthConfig } from "@/lib/auth";
 import { getRequestI18n } from "@/lib/i18n/server";
 import type { Translator } from "@/lib/i18n/translator";
+import { localizeSystemMemberName } from "@/lib/member-display";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 
 async function getActiveWorkspaceSlug() {
@@ -45,11 +46,14 @@ function mapWorkspaceOption(workspace: {
   memberships: Array<{ id: string }>;
   projects: Array<{ id: string }>;
 }, t: Translator): WorkspaceOption {
+  const projectLabel = workspace.projects.length === 1 ? t("manageWorkspace.projectCountLabel") : t("manageWorkspace.projectCountLabelPlural");
+  const memberLabel = workspace.memberships.length === 1 ? t("manageWorkspace.memberCountLabel") : t("manageWorkspace.memberCountLabelPlural");
+
   return {
     slug: workspace.slug,
     name: workspace.name,
-    plan: `${workspace.projects.length} active project${workspace.projects.length === 1 ? "" : "s"}`,
-    progress: `${workspace.memberships.length} member${workspace.memberships.length === 1 ? "" : "s"}`,
+    plan: `${workspace.projects.length} ${projectLabel}`,
+    progress: `${workspace.memberships.length} ${memberLabel}`,
     memberCount: workspace.memberships.length,
     projectCount: workspace.projects.length
   };
@@ -61,11 +65,14 @@ function mapWorkspaceSummary(workspace: {
   memberships: Array<{ id: string }>;
   projects: Array<{ id: string }>;
 }, t: Translator): WorkspaceSummary {
+  const projectLabel = workspace.projects.length === 1 ? t("manageWorkspace.projectCountLabel") : t("manageWorkspace.projectCountLabelPlural");
+  const memberLabel = workspace.memberships.length === 1 ? t("manageWorkspace.memberCountLabel") : t("manageWorkspace.memberCountLabelPlural");
+
   return {
     slug: workspace.slug,
     name: workspace.name,
-    plan: `${workspace.projects.length} active project${workspace.projects.length === 1 ? "" : "s"}`,
-    progress: `${workspace.memberships.length} member${workspace.memberships.length === 1 ? "" : "s"}`
+    plan: `${workspace.projects.length} ${projectLabel}`,
+    progress: `${workspace.memberships.length} ${memberLabel}`
   };
 }
 
@@ -85,7 +92,7 @@ function mapWorkspaceAsset(asset: {
     mimeType: asset.mimeType,
     sizeLabel: `${Math.max(1, Math.round(asset.sizeBytes / 1024))} KB`,
     artifactType: asset.assetType,
-    author: asset.author?.name ?? t("taskServer.workspaceOwner"),
+    author: localizeSystemMemberName(asset.author?.name, t) ?? t("taskServer.workspaceOwner"),
     uploadedAt: formatRelativeTime(asset.createdAt, t),
     href: `/api/workspace-assets/${asset.id}`,
     previewable,
@@ -108,7 +115,7 @@ function mapAgentCredential(credential: {
     name: credential.name,
     scopes: credential.scopes,
     enabled: credential.enabled,
-    agentName: credential.membership?.name ?? t("taskServer.unassigned"),
+    agentName: localizeSystemMemberName(credential.membership?.name, t) ?? t("taskServer.unassigned"),
     lastUsedAt: credential.lastUsedAt ? formatRelativeTime(credential.lastUsedAt, t) : t("taskServer.noDate"),
     createdAt: formatRelativeTime(credential.createdAt, t)
   };
@@ -433,7 +440,7 @@ export async function createWorkspaceInDb(payload: {
           kind: "human",
           workspaceRole: "owner",
           email: owner.email,
-          roleLabel: "Owner",
+          roleLabel: null,
           capabilities: [],
           agentPermissions: [],
           enabled: true

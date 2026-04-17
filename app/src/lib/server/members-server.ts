@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import type { Member } from "@/lib/demo-data";
 import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/workspace-session";
 import { getRequestI18n } from "@/lib/i18n/server";
+import { formatLocalizedWorkspaceRole, localizeMemberRoleLabel, localizeSystemMemberName } from "@/lib/member-display";
 
 async function getActiveWorkspaceSlug() {
   const cookieStore = await cookies();
@@ -22,16 +23,7 @@ async function getActiveWorkspaceRecord() {
 
 function formatWorkspaceRole(role: string, t: Awaited<ReturnType<typeof getRequestI18n>>["t"]): NonNullable<Member["workspaceRole"]> {
   type WorkspaceRoleLabel = NonNullable<Member["workspaceRole"]>;
-  switch (role) {
-    case "owner":
-      return t("membersServer.owner") as WorkspaceRoleLabel;
-    case "admin":
-      return t("membersServer.admin") as WorkspaceRoleLabel;
-    case "viewer":
-      return t("membersServer.viewer") as WorkspaceRoleLabel;
-    default:
-      return t("membersServer.member") as WorkspaceRoleLabel;
-  }
+  return formatLocalizedWorkspaceRole(role, t) as WorkspaceRoleLabel;
 }
 
 export async function getMembersForUi() {
@@ -54,9 +46,9 @@ export async function getMembersForUi() {
   return memberships.map(
     (member): Member => ({
       id: member.id,
-      name: member.name,
+      name: localizeSystemMemberName(member.name, t) ?? member.name,
       type: member.kind === "agent" ? "Agent" : "Human",
-      role: member.roleLabel ?? (member.kind === "agent" ? t("membersServer.agent") : t("membersServer.member")),
+      role: localizeMemberRoleLabel(member, t),
       workspaceRole: formatWorkspaceRole(member.workspaceRole, t),
       email: member.email ?? undefined,
       avatarUrl: member.avatarUrl ?? undefined,

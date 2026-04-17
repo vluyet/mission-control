@@ -10,14 +10,13 @@ export default async function ProjectsPage({
 }) {
   const { t } = await getRequestI18n();
   const includeArchived = searchParams?.scope === "all" || searchParams?.scope === "archived";
-  const archivedLabel = t("projectsServer.archived");
   const projectList = await getProjectsForUi({ includeArchived });
   const filteredProjects =
     searchParams?.scope === "archived"
-      ? projectList.filter((project) => project.lifecycle === archivedLabel)
+      ? projectList.filter((project) => project.rawLifecycle === "archived")
       : searchParams?.scope === "all"
         ? projectList
-        : projectList.filter((project) => project.lifecycle !== archivedLabel);
+        : projectList.filter((project) => project.rawLifecycle !== "archived");
 
   return (
     <div className="space-y-5">

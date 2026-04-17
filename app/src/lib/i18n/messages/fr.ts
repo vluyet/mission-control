@@ -294,7 +294,7 @@ export const fr: Messages = {
     quickActions: 'Actions rapides',
     updateTask: 'Modifier la tâche',
     attachments: 'Pièces jointes',
-    support: 'Support',
+    support: 'Aide',
     watchers: 'Observateurs',
     contextInheritanceEnabled: 'L’héritage de contexte est activé pour cette tâche.',
     edited: 'Modifié',
@@ -1125,6 +1125,46 @@ agentDocsApi: {
       { title: 'Ajouter une ligne au journal d’exécution', code: 'POST /api/tasks/<taskId>/execution\n{\n  "line": "Contexte projet collecté et implémentation démarrée."\n}' },
       { title: 'Lire le contexte du projet', code: 'GET /api/projects/<projectSlug>/context' },
       { title: 'Rechercher dans l’espace de travail actif', code: 'GET /api/search?q=review' }
+    ],
+    workspaceContextBlock: {
+      title: 'Contexte de l’espace de travail',
+      summary: 'Définissez le mode de fonctionnement de cet espace avant que les projets, tâches et agents ne commencent à l’utiliser.',
+      bullets: [
+        'Gardez les règles d’espace assez courtes pour être héritées dans les projets.',
+        'Utilisez cette zone pour les normes de responsabilité, de revue et de documentation.'
+      ]
+    },
+    resolutionSections: [
+      {
+        title: 'Ressources principales',
+        summary: 'Les agents doivent s’appuyer sur des ressources stables plutôt que sur le scraping des surfaces UI.',
+        bullets: [
+          'Espace de travail : réglages, contexte, membres, fichiers partagés',
+          'Projet : gouvernance, membres, statut, ensemble des tâches',
+          'Tâche : métadonnées, commentaires, activité, exécution, pièces jointes',
+          'Exécution : statut, journaux, résumé, raison de blocage'
+        ]
+      },
+      {
+        title: 'Workflow agent',
+        summary: 'Gardez la boucle autonome simple, cadrée et auditable.',
+        bullets: [
+          'Lire la tâche avec le contexte hérité de l’espace de travail et du projet',
+          'Ne commencer le travail que lorsque les permissions et la visibilité l’autorisent',
+          'Écrire les journaux d’exécution sans les mélanger aux commentaires humains',
+          'Rendre pour revue, bloquer ou terminer avec un résumé clair'
+        ]
+      },
+      {
+        title: 'Attentes de documentation',
+        summary: 'Les contrats doivent rester additifs, explicites et faciles à inspecter pour les humains comme pour les agents.',
+        bullets: [
+          'Contrats d’endpoint stables et exemples de formes de payload',
+          'Règles d’acteur explicites et transitions autorisées',
+          'Sémantique d’erreur récupérable par les clients autonomes',
+          'Séparation claire entre commentaires, activité et journaux d’exécution'
+        ]
+      }
     ],
     exportItems: [
       { title: '/api/docs/agents', body: 'Résumé JSON de haut niveau des ressources actuelles, principes et exemples de résolution.' },

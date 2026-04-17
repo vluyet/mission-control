@@ -1,11 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { PaperclipIcon } from "@/components/ui/icons";
 import { AppButton } from "@/components/ui/primitives";
 import { useI18n } from "@/components/product/i18n-provider";
 import type { Comment } from "@/lib/demo-data";
+import { renderTaskCommentEditorHighlight } from "@/lib/task-comment-markdown";
+
+const MIN_EDITOR_HEIGHT = 110;
+const MAX_EDITOR_HEIGHT = 320;
 
 export function TaskCommentComposer({
   taskId,
@@ -32,6 +36,8 @@ export function TaskCommentComposer({
 }) {
   const router = useRouter();
   const { t } = useI18n();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
   const [body, setBody] = useState(initialBody);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -41,9 +47,41 @@ export function TaskCommentComposer({
   const trimmedBody = body.trim();
   const hasMentions = mentionSuggestions.length > 0;
 
+  function syncEditorLayout(target?: HTMLTextAreaElement | null) {
+    const textarea = target ?? textareaRef.current;
+
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    const nextHeight = Math.min(Math.max(textarea.scrollHeight, MIN_EDITOR_HEIGHT), MAX_EDITOR_HEIGHT);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > MAX_EDITOR_HEIGHT ? "auto" : "hidden";
+    syncOverlayScroll(textarea);
+  }
+
+  function syncOverlayScroll(target?: HTMLTextAreaElement | null) {
+    if (!overlayRef.current) return;
+    const textarea = target ?? textareaRef.current;
+
+    if (!textarea) return;
+
+    overlayRef.current.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
+  }
+
+  useLayoutEffect(() => {
+    syncEditorLayout();
+  }, [body]);
+
   function insertMention(name: string) {
     if (isDisabled) return;
     setBody((current) => `${current}${current.trim().length ? " " : ""}@${name}`.trimStart());
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      textareaRef.current.focus();
+      const end = textareaRef.current.value.length;
+      textareaRef.current.setSelectionRange(end, end);
+      syncEditorLayout(textareaRef.current);
+    });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -104,17 +142,33 @@ export function TaskCommentComposer({
   return (
     <form onSubmit={handleSubmit} className="rounded-3xl border border-dashed border-[var(--line-strong)] bg-[var(--surface)] p-4">
       <p className="text-sm font-medium text-[var(--text-strong)]">{title ?? t("taskWorkspace.addComment")}</p>
-      <textarea
-        value={body}
-        onChange={(event) => {
-          setBody(event.target.value);
-          if (error) setError(null);
-          if (success) setSuccess(null);
-        }}
-        disabled={isDisabled}
-        className="mt-3 min-h-[110px] w-full resize-none rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm text-[var(--text-strong)] outline-none transition focus:border-[var(--accent-strong)]"
-        placeholder={placeholder ?? t("taskWorkspace.addCommentPlaceholder")}
-      />
+      <div className="mt-3 relative min-h-[110px] overflow-hidden rounded-2xl border border-[var(--line)] bg-white transition focus-within:border-[var(--accent-strong)]">
+        {body ? (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+            <div
+              ref={overlayRef}
+              className="px-4 py-3 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--text-strong)]"
+              data-testid="task-comment-editor-overlay"
+            >
+              {renderTaskCommentEditorHighlight(body, mentionSuggestions, commentId ?? `${taskId}-draft-overlay`)}
+            </div>
+          </div>
+        ) : null}
+        <textarea
+          ref={textareaRef}
+          value={body}
+          onChange={(event) => {
+            setBody(event.target.value);
+            if (error) setError(null);
+            if (success) setSuccess(null);
+          }}
+          onInput={(event) => syncEditorLayout(event.currentTarget)}
+          onScroll={(event) => syncOverlayScroll(event.currentTarget)}
+          disabled={isDisabled}
+          className={`relative z-10 min-h-[110px] w-full resize-none border-0 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-[var(--text-dim)] selection:bg-[var(--focus)] ${body ? "text-transparent caret-[var(--text-strong)]" : "text-[var(--text-strong)]"}`}
+          placeholder={placeholder ?? t("taskWorkspace.addCommentPlaceholder")}
+        />
+      </div>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
         <span className="rounded-full bg-[var(--surface-subtle)] px-2.5 py-1 font-medium text-[var(--text-dim)]">{t("taskWorkspace.formattingHint")}</span>
         {hasMentions ? <span>{t("taskWorkspace.mentionHint")}</span> : null}

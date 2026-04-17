@@ -14,6 +14,12 @@ import { ACTIVE_WORKSPACE_COOKIE_NAME, DEFAULT_WORKSPACE_SLUG } from "@/lib/work
 import { getRequestI18n } from "@/lib/i18n/server";
 import type { Messages } from "@/lib/i18n/messages/en";
 import type { Translator } from "@/lib/i18n/translator";
+import {
+  formatLocalizedWorkspaceRole,
+  localizeLooseRoleLabel,
+  localizeMemberRoleLabel,
+  localizeSystemMemberName
+} from "@/lib/member-display";
 export { syncActiveWorkspaceConstructorAgentsInDb } from "@/lib/server/constructor-server";
 export {
   getMembersForUi,
@@ -94,16 +100,7 @@ function formatPriority(priority: string): TaskRecord["priority"] {
 }
 
 function formatWorkspaceRole(role: string, t: Translator): NonNullable<Member["workspaceRole"]> {
-  switch (role) {
-    case "owner":
-      return t("membersServer.owner") as NonNullable<Member["workspaceRole"]>;
-    case "admin":
-      return t("membersServer.admin") as NonNullable<Member["workspaceRole"]>;
-    case "viewer":
-      return t("membersServer.viewer") as NonNullable<Member["workspaceRole"]>;
-    default:
-      return t("membersServer.member") as NonNullable<Member["workspaceRole"]>;
-  }
+  return formatLocalizedWorkspaceRole(role, t) as NonNullable<Member["workspaceRole"]>;
 }
 
 function formatProjectRole(role: string, t: Translator) {
@@ -417,10 +414,10 @@ function mapTaskRecord(task: {
     description: task.description ?? "",
     status: formatStatus(task.status),
     priority: formatPriority(task.priority),
-    assignee: task.assignee?.name ?? t("taskServer.unassigned"),
+    assignee: localizeSystemMemberName(task.assignee?.name, t) ?? t("taskServer.unassigned"),
     assigneeType: (task.assignee?.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as TaskRecord["assigneeType"],
     assigneeSourceSystem: task.assignee?.sourceSystem ?? null,
-    reviewer: task.reviewer?.name ?? undefined,
+    reviewer: localizeSystemMemberName(task.reviewer?.name, t) ?? undefined,
     due: formatShortDate(task.dueDate, t),
     startDate: formatShortDate(task.startDate, t),
     tags: task.tags,
@@ -473,10 +470,10 @@ function buildBoardColumns(items: TaskRecord[]) {
   return config.map((column) => ({
     title: column.title,
     statusKey: column.statusKey,
-    count: items.filter((task) => getTaskStatusKey(task.status) === column.statusKey).length,
+    count: items.filter((task) => getTaskStatusKey(task.rawStatus ?? task.status) === column.statusKey).length,
     accent: column.accent,
     cards: items
-      .filter((task) => getTaskStatusKey(task.status) === column.statusKey)
+      .filter((task) => getTaskStatusKey(task.rawStatus ?? task.status) === column.statusKey)
       .map((task) => ({
         id: task.id,
         title: task.title,
@@ -506,9 +503,9 @@ function mapMembership(member: {
 }, t: Translator) {
   return {
     id: member.id,
-    name: member.name,
+    name: localizeSystemMemberName(member.name, t) ?? member.name,
     type: (member.kind === "agent" ? t("membersServer.agent") : t("membersServer.human")) as "Agent" | "Human",
-    role: member.roleLabel ?? (member.kind === "agent" ? t("membersServer.agent") : t("membersServer.member")),
+    role: localizeMemberRoleLabel(member, t),
     workspaceRole: formatWorkspaceRole(member.workspaceRole, t),
     email: member.email,
     avatarUrl: member.avatarUrl,
@@ -527,12 +524,12 @@ function mapComment(comment: {
   body: string;
   createdAt: Date;
   updatedAt?: Date;
-}) {
+}, t: Translator) {
   return {
     id: comment.id,
     taskId: comment.taskId,
-    author: comment.authorName,
-    role: comment.authorRole,
+    author: localizeSystemMemberName(comment.authorName, t) ?? comment.authorName,
+    role: localizeLooseRoleLabel(comment.authorRole, t),
     tone: comment.tone,
     body: comment.body,
     time: comment.createdAt.toISOString(),
@@ -561,7 +558,7 @@ function mapAttachment(attachment: {
     previewKind: previewKind ?? undefined,
     previewable: Boolean(previewKind),
     uploadedAt: formatRelativeTime(attachment.createdAt, t),
-    author: attachment.author?.name ?? undefined
+    author: localizeSystemMemberName(attachment.author?.name, t) ?? undefined
   };
 }
 
@@ -587,7 +584,7 @@ function mapWorkspaceAsset(asset: {
     previewKind: previewKind ?? undefined,
     previewable: Boolean(previewKind),
     uploadedAt: formatRelativeTime(asset.createdAt, t),
-    author: asset.author?.name ?? undefined
+    author: localizeSystemMemberName(asset.author?.name, t) ?? undefined
   };
 }
 
@@ -605,7 +602,7 @@ function mapAgentCredential(credential: {
     name: credential.name,
     scopes: credential.scopes,
     enabled: credential.enabled,
-    agentName: credential.membership.name,
+    agentName: localizeSystemMemberName(credential.membership.name, t) ?? credential.membership.name,
     lastUsedAt: credential.lastUsedAt ? formatRelativeTime(credential.lastUsedAt, t) : t("taskServer.never"),
     createdAt: formatRelativeTime(credential.createdAt, t)
   };
@@ -636,11 +633,11 @@ function mapActivity(item: {
   label: string;
   detail: string;
   createdAt: Date;
-}) {
+}, t: Translator) {
   return {
     id: item.id,
     taskId: item.taskId,
-    actor: item.actorName,
+    actor: localizeSystemMemberName(item.actorName, t) ?? item.actorName,
     label: item.label,
     detail: item.detail,
     time: item.createdAt.toISOString()
@@ -738,12 +735,13 @@ export async function getTaskContextFromDb(taskId: string) {
 }
 
 export async function getTaskCommentsFromDb(taskId: string) {
+  const { t } = await getRequestI18n();
   const comments = await db.comment.findMany({
     where: { taskId },
     orderBy: { createdAt: "asc" }
   });
 
-  return comments.map(mapComment);
+  return comments.map((comment) => mapComment(comment, t));
 }
 
 export async function getTaskAttachmentsFromDb(taskId: string) {
@@ -896,7 +894,7 @@ export async function getTaskActivityFromDb(taskId: string) {
     orderBy: { createdAt: "asc" }
   });
 
-  return activity.map(mapActivity);
+  return activity.map((item) => mapActivity(item, t));
 }
 
 export async function getTaskExecutionFromDb(taskId: string) {
@@ -994,6 +992,8 @@ export async function searchWorkspaceForUi(query: string) {
           : project.tasks.some((task) => task.status === "review")
             ? "needs_review"
             : "on_track",
+      rawLifecycle: project.status,
+      rawVisibility: project.visibility,
       lifecycle: formatProjectLifecycle(project.status, t),
       visibility: formatProjectVisibility(project.visibility, t),
       contextSummary: mapContextBlock(project.context, "Project context").summary,
@@ -1226,7 +1226,7 @@ export async function createCommentInDb(taskId: string, payload: {
     }
   });
 
-  return mapComment(comment);
+  return mapComment(comment, t);
 }
 
 export async function createAttachmentInDb(taskId: string, payload: {
@@ -1492,7 +1492,7 @@ export async function updateCommentInDb(taskId: string, commentId: string, body:
     }
   });
 
-  return mapComment(updated);
+  return mapComment(updated, t);
 }
 
 function classifyExecutionLine(line: string, t: Translator) {
