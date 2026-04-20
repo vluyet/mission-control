@@ -86,7 +86,11 @@ function QuickActions({ task }: { task: TaskRecord }) {
 function AgentDispatchBlock({ task }: { task: TaskRecord }) {
   return (
     <div>
-      <TaskConstructorDispatchCard taskId={task.id} />
+      <TaskConstructorDispatchCard
+        taskId={task.id}
+        rawStatus={task.rawStatus ?? task.status}
+        assigneeSourceSystem={task.assigneeSourceSystem}
+      />
     </div>
   );
 }

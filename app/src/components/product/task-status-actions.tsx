@@ -55,6 +55,7 @@ export function TaskStatusActions({
   const router = useRouter();
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPending, startTransition] = useTransition();
   const normalizedStatus = (rawStatus ?? currentStatus).toLowerCase();
   const localizedStatus = getLocalizedStatusLabel(rawStatus, currentStatus, t);
@@ -75,29 +76,40 @@ export function TaskStatusActions({
           : t("taskStatus.humanCurrentStateDescription", { status: localizedStatus }));
 
   async function handleTransition(nextStatus: TransitionOption["value"]) {
-    setError(null);
-
-    const response = await fetch(`/api/tasks/${taskId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        status: nextStatus,
-        actorType,
-        blockedReason: nextStatus === "blocked" ? blockedReason ?? t("taskStatus.blockedPendingFollowUp") : blockedReason ?? ""
-      })
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => null);
-      setError(payload?.error?.message ?? t("taskStatus.transitionFailed"));
+    if (isSubmitting || isPending) {
       return;
     }
 
-    startTransition(() => {
-      router.refresh();
-    });
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          status: nextStatus,
+          actorType,
+          blockedReason: nextStatus === "blocked" ? blockedReason ?? t("taskStatus.blockedPendingFollowUp") : blockedReason ?? ""
+        })
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        setError(payload?.error?.message ?? t("taskStatus.transitionFailed"));
+        return;
+      }
+
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch {
+      setError(t("taskStatus.transitionFailed"));
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -111,7 +123,7 @@ export function TaskStatusActions({
               key={option.value}
               type="button"
               onClick={() => handleTransition(option.value)}
-              disabled={isPending}
+              disabled={isSubmitting || isPending}
               className={`rounded-xl border px-3 py-2 text-sm transition disabled:opacity-60 ${
                 hideHeader
                   ? index === 0
@@ -122,7 +134,7 @@ export function TaskStatusActions({
                     : "border-[var(--line)] bg-[var(--surface-subtle)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]"
               }`}
             >
-              {isPending ? t("taskStatus.updating") : option.label}
+              {isSubmitting || isPending ? t("taskStatus.updating") : option.label}
             </button>
           ))
         ) : (

@@ -1,8 +1,21 @@
+import { revalidatePath } from "next/cache";
 import { error, ok } from "@/lib/api-response";
 import { deleteTaskInDb, getTaskResourceFromDb, updateTaskInDb } from "@/lib/server-data";
 import { logAppEvent } from "@/lib/logger";
 import { resolveApiActor } from "@/lib/api-auth";
 import { getApiT } from "@/lib/api-i18n";
+
+function revalidateTaskPaths(taskId: string, projectSlug?: string | null) {
+  revalidatePath(`/tasks/${taskId}`);
+
+  if (projectSlug) {
+    revalidatePath(`/projects/${projectSlug}/tasks/${taskId}`);
+    revalidatePath(`/projects/${projectSlug}`);
+  }
+
+  revalidatePath("/my-tasks");
+  revalidatePath("/queue");
+}
 
 export async function GET(
   request: Request,
@@ -114,6 +127,8 @@ export async function PATCH(
 
   logAppEvent("info", "task.update.succeeded", { taskId: params.taskId });
 
+  revalidateTaskPaths(params.taskId, task.task.projectSlug);
+
   return ok({
     task: updated
   });
@@ -138,5 +153,6 @@ export async function DELETE(
   }
 
   logAppEvent("info", "task.deleted", { taskId: params.taskId });
+  revalidateTaskPaths(params.taskId, deleted.projectSlug);
   return ok({ deleted: true, taskId: params.taskId, projectSlug: deleted.projectSlug });
 }
