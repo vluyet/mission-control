@@ -74,6 +74,10 @@ function isActiveExecutionState(value: string | null | undefined) {
   return value === "queued" || value === "dispatching" || value === "running";
 }
 
+function isTerminalExecutionStatus(value: string | null | undefined) {
+  return value === "done" || value === "failed";
+}
+
 function mapExecutionStatus(value: string | null | undefined) {
   switch (value) {
     case "queued":
@@ -105,7 +109,32 @@ function getBlockedReason(value: string | null | undefined, t: Awaited<ReturnTyp
   }
 }
 
-function getTaskPatchForExecutionState(value: string | null | undefined, t: Awaited<ReturnType<typeof getApiT>>) {
+function canSyncTaskStatusFromExecution(
+  executionState: string | null | undefined,
+  currentStatus: string | null | undefined,
+  latestExecutionStatus: string | null | undefined
+) {
+  if (isActiveExecutionState(executionState)) {
+    return currentStatus === "todo" || currentStatus === "in_progress";
+  }
+
+  if (isTerminalExecutionStatus(latestExecutionStatus)) {
+    return false;
+  }
+
+  return currentStatus === "in_progress";
+}
+
+function getTaskPatchForExecutionState(
+  value: string | null | undefined,
+  currentStatus: string | null | undefined,
+  latestExecutionStatus: string | null | undefined,
+  t: Awaited<ReturnType<typeof getApiT>>
+) {
+  if (!canSyncTaskStatusFromExecution(value, currentStatus, latestExecutionStatus)) {
+    return null;
+  }
+
   switch (value) {
     case "queued":
     case "dispatching":
@@ -303,7 +332,7 @@ export async function GET(
     }
   }
 
-  const nextTaskPatch = getTaskPatchForExecutionState(item.executionState, t);
+  const nextTaskPatch = getTaskPatchForExecutionState(item.executionState, task.status, latestExecution?.status ?? null, t);
 
   if (
     nextTaskPatch &&

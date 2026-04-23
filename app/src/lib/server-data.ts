@@ -225,7 +225,10 @@ const HUMAN_STATUS_TRANSITIONS: Record<string, Array<{ value: "todo" | "in_progr
     { value: "in_progress", labelKey: "resumeWork" },
     { value: "done", labelKey: "closeAsDone" }
   ],
-  done: [{ value: "in_progress", labelKey: "reopenTask" }]
+  done: [
+    { value: "todo", labelKey: "moveToTodo" },
+    { value: "in_progress", labelKey: "reopenTask" }
+  ]
 };
 
 const AGENT_STATUS_TRANSITIONS: Record<string, Array<{ value: "todo" | "in_progress" | "review" | "blocked" | "done"; labelKey: keyof Messages["taskServer"]["transitionActions"] }>> = {
@@ -241,7 +244,10 @@ const AGENT_STATUS_TRANSITIONS: Record<string, Array<{ value: "todo" | "in_progr
     { value: "blocked", labelKey: "markBlocked" }
   ],
   blocked: [{ value: "in_progress", labelKey: "resumeWork" }],
-  done: []
+  done: [
+    { value: "todo", labelKey: "moveToTodo" },
+    { value: "in_progress", labelKey: "resumeWork" }
+  ]
 };
 
 function mapTransitionOptions(options: Array<{ value: "todo" | "in_progress" | "review" | "blocked" | "done"; labelKey: keyof Messages["taskServer"]["transitionActions"] }>, t: Translator) {

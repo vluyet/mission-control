@@ -21,11 +21,12 @@ async function loadRouteModule() {
   }).outputText;
 
   const rewritten = transpiled
-    .replace('from "@/lib/api-response"', 'from "./stubs/api-response.mjs"')
-    .replace('from "@/lib/api-auth"', 'from "./stubs/api-auth.mjs"')
-    .replace('from "@/lib/constructor"', 'from "./stubs/constructor.mjs"')
-    .replace('from "@/lib/db"', 'from "./stubs/db.mjs"')
-    .replace('from "@/lib/server-data"', 'from "./stubs/server-data.mjs"');
+    .replace(/from "@\/lib\/api-response"/g, 'from "./stubs/api-response.mjs"')
+    .replace(/from "@\/lib\/api-auth"/g, 'from "./stubs/api-auth.mjs"')
+    .replace(/from "@\/lib\/constructor"/g, 'from "./stubs/constructor.mjs"')
+    .replace(/from "@\/lib\/db"/g, 'from "./stubs/db.mjs"')
+    .replace(/from "@\/lib\/server-data"/g, 'from "./stubs/server-data.mjs"')
+    .replace(/from "@\/lib\/api-i18n"/g, 'from "./stubs/api-i18n.mjs"');
 
   await fs.mkdir(path.join(outdir, "stubs"), { recursive: true });
   await fs.writeFile(path.join(outdir, "route.mjs"), rewritten, "utf8");
@@ -97,6 +98,11 @@ async function loadRouteModule() {
       '}\n',
     "utf8"
   );
+  await fs.writeFile(
+    path.join(outdir, "stubs", "api-i18n.mjs"),
+    'export function getApiT() { return (key) => key; }\n',
+    "utf8"
+  );
 
   return import(`${pathToFileURL(path.join(outdir, "route.mjs")).href}?t=${Date.now()}-${Math.random()}`);
 }
@@ -145,7 +151,7 @@ test("constructor status route appends a progress log when Constructor advances 
   }
 });
 
-test("constructor status route promotes completed executions into review", async () => {
+test("constructor status route promotes completed executions into review while work is still active locally", async () => {
   resetGlobals();
   globalThis.__executionLogsForTask = [
     "CONSTRUCTOR_STATUS bridgeExecutionId=constructor:exec-1 externalTaskId=mc-task-123 executionState=running callbackState=pending cancellationState=none runtimeName=constructor",
@@ -193,3 +199,116 @@ test("constructor status route promotes completed executions into review", async
     resetGlobals();
   }
 });
+
+test("constructor status route does not move completed work back out of done", async () => {
+  resetGlobals();
+  globalThis.__executionLogsForTask = [
+    "CONSTRUCTOR_STATUS bridgeExecutionId=constructor:exec-1 externalTaskId=mc-task-123 executionState=running callbackState=pending cancellationState=none runtimeName=constructor",
+    "CONSTRUCTOR_DISPATCH_ACCEPTED bridgeExecutionId=constructor:exec-1 externalTaskId=mc-task-123 executionState=queued"
+  ];
+  globalThis.__dbTask = {
+    id: "task-123",
+    status: "done",
+    blockedReason: null,
+    project: { workspaceId: "ws-1" },
+    executions: [
+      {
+        id: "exec-1",
+        status: "done",
+        summary: "Final answer from Constructor",
+        blockedReason: null,
+        logs: globalThis.__executionLogsForTask.map((line) => ({ line }))
+      }
+    ]
+  };
+  globalThis.__constructorSummaryPayload = {
+    item: {
+      bridgeExecutionId: "constructor:exec-1",
+      externalTaskId: "mc-task-123",
+      executionState: "completed",
+      callbackState: "delivered",
+      cancellationState: "none",
+      runtimeName: "constructor",
+      latestResult: {
+        type: "completed",
+        text: "Final answer from Constructor"
+      }
+    }
+  };
+
+  try {
+    const { GET } = await loadRouteModule();
+    const response = await GET(new Request("http://127.0.0.1:3000/api/tasks/task-123/constructor/status"), {
+      params: { taskId: "task-123" }
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload?.ok, true);
+    assert.equal(payload?.data?.tracked, true);
+    assert.equal(payload?.data?.active, false);
+    assert.equal(payload?.data?.refresh, true);
+    assert.equal(globalThis.__systemExecutionLogs.length, 1);
+    assert.equal(globalThis.__executionUpdates.length, 0);
+    assert.equal(globalThis.__taskUpdates.length, 0);
+  } finally {
+    resetGlobals();
+  }
+});
+
+for (const reopenedStatus of ["todo", "in_progress"]) {
+  test(`constructor status route does not move completed work back out of reopened ${reopenedStatus}`, async () => {
+    resetGlobals();
+    globalThis.__executionLogsForTask = [
+      "CONSTRUCTOR_STATUS bridgeExecutionId=constructor:exec-1 externalTaskId=mc-task-123 executionState=completed callbackState=delivered cancellationState=none runtimeName=constructor",
+      "CONSTRUCTOR_DISPATCH_ACCEPTED bridgeExecutionId=constructor:exec-1 externalTaskId=mc-task-123 executionState=queued"
+    ];
+    globalThis.__dbTask = {
+      id: "task-123",
+      status: reopenedStatus,
+      blockedReason: null,
+      project: { workspaceId: "ws-1" },
+      executions: [
+        {
+          id: "exec-1",
+          status: "done",
+          summary: "Final answer from Constructor",
+          blockedReason: null,
+          logs: globalThis.__executionLogsForTask.map((line) => ({ line }))
+        }
+      ]
+    };
+    globalThis.__constructorSummaryPayload = {
+      item: {
+        bridgeExecutionId: "constructor:exec-1",
+        externalTaskId: "mc-task-123",
+        executionState: "completed",
+        callbackState: "delivered",
+        cancellationState: "none",
+        runtimeName: "constructor",
+        latestResult: {
+          type: "completed",
+          text: "Final answer from Constructor"
+        }
+      }
+    };
+
+    try {
+      const { GET } = await loadRouteModule();
+      const response = await GET(new Request("http://127.0.0.1:3000/api/tasks/task-123/constructor/status"), {
+        params: { taskId: "task-123" }
+      });
+
+      assert.equal(response.status, 200);
+      const payload = await response.json();
+      assert.equal(payload?.ok, true);
+      assert.equal(payload?.data?.tracked, true);
+      assert.equal(payload?.data?.active, false);
+      assert.equal(payload?.data?.refresh, true);
+      assert.equal(globalThis.__executionUpdates.length, 0);
+      assert.equal(globalThis.__taskUpdates.length, 0);
+    } finally {
+      resetGlobals();
+    }
+  });
+}

@@ -208,7 +208,7 @@ const AGENT_TRANSITION_MATRIX: Record<string, Array<"todo" | "in_progress" | "re
   in_progress: ["review", "blocked", "done"],
   review: ["in_progress", "done", "blocked"],
   blocked: ["in_progress"],
-  done: []
+  done: ["todo", "in_progress"]
 };
 
 function transitionLabel(value: "todo" | "in_progress" | "review" | "blocked" | "done", t: Awaited<ReturnType<typeof getRequestI18n>>["t"]) {
