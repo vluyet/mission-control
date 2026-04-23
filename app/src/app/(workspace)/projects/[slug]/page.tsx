@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getProjectWorkspaceForUi } from "@/lib/server-data";
 import { BoardGrid, FocusQueuePanel, PageHeader, TaskTable, TaskViewToolbar } from "@/components/product/workspace-ui";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { AppButton } from "@/components/ui/primitives";
 import { applyTaskView, buildBoardColumns, getTagOptions, getTaskStatusKey, parseTaskViewState } from "@/lib/task-view";
 import { getAgentRunHealth } from "@/lib/agent-run-health";
@@ -40,7 +41,7 @@ export default async function ProjectWorkspacePage({
       <PageHeader
         eyebrow={t("workspaceUi.project")}
         title={project.name}
-        description={project.description}
+        description={project.description ? <MarkdownContent markdown={project.description} className="text-sm leading-6 text-[var(--text-muted)]" /> : undefined}
         actions={
           <>
             <AppButton tone="secondary" href={`/projects/${project.slug}/members`}>

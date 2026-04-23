@@ -2,190 +2,56 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs/promises";
-import React from "react";
 import ts from "typescript";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const appDir = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
-const sourcePath = path.join(appDir, "src/lib/task-comment-markdown.tsx");
-const outdir = path.resolve("/tmp/mission-control-task-comment-markdown-tests");
-
-function getProps(node) {
-  return node?.props ?? {};
-}
-
-function getType(node) {
-  return node?.type ?? null;
-}
-
-function flattenText(node) {
-  if (node == null || typeof node === "boolean") return "";
-  if (typeof node === "string" || typeof node === "number") return String(node);
-  if (Array.isArray(node)) return node.map(flattenText).join("");
-  return flattenText(getProps(node).children ?? "");
-}
-
-function collectNodes(node) {
-  if (node == null || typeof node === "boolean" || typeof node === "string" || typeof node === "number") {
-    return [];
-  }
-
-  if (Array.isArray(node)) {
-    return node.flatMap(collectNodes);
-  }
-
-  return [node, ...collectNodes(getProps(node).children ?? [])];
-}
+const sourcePath = path.join(appDir, "src/lib/markdown.ts");
+const parserImportPath = pathToFileURL(path.join(appDir, "node_modules/overtype/src/parser.js")).href;
+const outdir = path.resolve("/tmp/mission-control-markdown-tests");
 
 async function loadModule() {
   const source = await fs.readFile(sourcePath, "utf8");
   const transpiled = ts.transpileModule(source, {
     compilerOptions: {
       module: ts.ModuleKind.ES2022,
-      target: ts.ScriptTarget.ES2022,
-      jsx: ts.JsxEmit.ReactJSX
+      target: ts.ScriptTarget.ES2022
     },
     fileName: sourcePath
   }).outputText;
 
-  const rewritten = transpiled
-    .replace('from "react/jsx-runtime"', 'from "./stubs/react-jsx-runtime.mjs"')
-    .replace('from "react"', 'from "./stubs/react.mjs"');
+  const rewritten = transpiled.replace('from "overtype/parser"', `from ${JSON.stringify(parserImportPath)}`);
 
-  await fs.mkdir(path.join(outdir, "stubs"), { recursive: true });
-  await fs.writeFile(path.join(outdir, "task-comment-markdown.mjs"), rewritten, "utf8");
-  await fs.writeFile(
-    path.join(outdir, "stubs", "react.mjs"),
-    'const React = globalThis.__taskCommentMarkdownReact; export default React; export const Fragment = React.Fragment;\n',
-    "utf8"
-  );
-  await fs.writeFile(
-    path.join(outdir, "stubs", "react-jsx-runtime.mjs"),
-    'const React = globalThis.__taskCommentMarkdownReact;\n' +
-      'export const Fragment = React.Fragment;\n' +
-      'export function jsx(type, props, key) { return React.createElement(type, key == null ? props : { ...props, key }); }\n' +
-      'export function jsxs(type, props, key) { return React.createElement(type, key == null ? props : { ...props, key }); }\n',
-    "utf8"
-  );
+  await fs.mkdir(outdir, { recursive: true });
+  await fs.writeFile(path.join(outdir, "markdown.mjs"), rewritten, "utf8");
 
-  globalThis.__taskCommentMarkdownReact = React;
-  return import(`${pathToFileURL(path.join(outdir, "task-comment-markdown.mjs")).href}?t=${Date.now()}-${Math.random()}`);
+  return import(`${pathToFileURL(path.join(outdir, "markdown.mjs")).href}?t=${Date.now()}-${Math.random()}`);
 }
 
-test("renderInlineTaskCommentMarkdown highlights supported mentions without swallowing nearby text", async () => {
-  const { renderInlineTaskCommentMarkdown } = await loadModule();
-  const nodes = renderInlineTaskCommentMarkdown("Ping @Echo and @Design.Bot today", ["Echo", "Design.Bot"], "inline");
+test("renderMarkdownHtml removes parser scaffolding while keeping rendered headings, emphasis, and links", async () => {
+  const { renderMarkdownHtml } = await loadModule();
+  const html = renderMarkdownHtml("# Heading\n\nParagraph with **bold** and [link](https://example.com)");
 
-  const mentionNodes = nodes.filter((node) => getType(node) === "span" && String(getProps(node).className ?? "").includes("bg-blue-50"));
-  assert.equal(mentionNodes.length, 2);
-  assert.equal(nodes.map(flattenText).join(""), "Ping @Echo and @Design.Bot today");
+  assert.match(html, /<h1>Heading<\/h1>/);
+  assert.match(html, /<strong>bold<\/strong>/);
+  assert.match(html, /<a href="https:\/\/example.com">link<\/a>/);
+  assert.doesNotMatch(html, /syntax-marker/);
+  assert.doesNotMatch(html, /anchor-name/);
 });
 
-test("renderInlineTaskCommentMarkdown renders bold, italic, code, and links", async () => {
-  const { renderInlineTaskCommentMarkdown } = await loadModule();
-  const nodes = renderInlineTaskCommentMarkdown("Use **bold**, _italic_, `code`, and https://example.com", ["Echo"], "format");
+test("renderMarkdownHtml drops fence marker lines but preserves code blocks and task lists", async () => {
+  const { renderMarkdownHtml } = await loadModule();
+  const html = renderMarkdownHtml("```js\nconst value = 1;\n```\n\n- [x] done\n- [ ] todo");
 
-  assert.ok(nodes.some((node) => getType(node) === "strong"));
-  assert.ok(nodes.some((node) => getType(node) === "em"));
-  assert.ok(nodes.some((node) => getType(node) === "code"));
-  const linkNode = nodes.find((node) => getType(node) === "a");
-  assert.equal(getProps(linkNode).href, "https://example.com");
-  assert.equal(nodes.map(flattenText).join(""), "Use bold, italic, code, and https://example.com");
+  assert.match(html, /<pre class="code-block"><code class="language-js">const value = 1;<\/code><\/pre>/);
+  assert.match(html, /task-list/);
+  assert.doesNotMatch(html, /code-fence/);
+  assert.doesNotMatch(html, /```/);
 });
 
-test("renderTaskCommentEditorHighlight keeps source text while emphasizing code and mentions", async () => {
-  const { renderTaskCommentEditorHighlight } = await loadModule();
-  const blocks = renderTaskCommentEditorHighlight("Ping @Ech and @Echo with `code`", ["Echo"], "editor");
+test("getMarkdownTextPreview strips markdown markers into compact plain-text summaries", async () => {
+  const { getMarkdownTextPreview } = await loadModule();
+  const preview = getMarkdownTextPreview("# Heading\n\n- [x] **Ship** the `editor`\n- [ ] Review [docs](https://example.com)\n\n> Keep scope small");
 
-  assert.equal(getType(blocks[0]), "div");
-  assert.equal(flattenText(blocks[0]), "Ping @Ech and @Echo with `code`");
-
-  const inlineNodes = collectNodes(getProps(blocks[0]).children);
-  const partialMention = inlineNodes.find((node) => getType(node) === "span" && flattenText(node) === "@Ech");
-  const exactMention = inlineNodes.find((node) => getType(node) === "span" && flattenText(node) === "@Echo");
-  const codeToken = inlineNodes.find((node) => getType(node) === "code" && flattenText(node) === "code");
-
-  assert.match(String(getProps(partialMention).className ?? ""), /bg-blue-50/);
-  assert.match(String(getProps(exactMention).className ?? ""), /bg-blue-100/);
-  assert.match(String(getProps(codeToken).className ?? ""), /bg-slate-100/);
-  assert.match(String(getProps(codeToken).className ?? ""), /box-shadow/);
-});
-
-test("renderTaskCommentEditorHighlight emphasizes bold, italic, links, headings, lists, and fenced code while preserving source text", async () => {
-  const { renderTaskCommentEditorHighlight } = await loadModule();
-  const blocks = renderTaskCommentEditorHighlight(
-    "# Heading\n- item with **bold** and _italic_\n> https://example.com\n```js\nconst value = 1;\n```",
-    ["Echo"],
-    "editor-rich"
-  );
-
-  assert.equal(flattenText(blocks[0]), "# Heading");
-  assert.match(String(getProps(blocks[0]).className ?? ""), /bg-amber-50/);
-  assert.match(String(getProps(blocks[0]).className ?? ""), /text-shadow/);
-
-  assert.equal(flattenText(blocks[1]), "- item with **bold** and _italic_");
-  const listChildren = collectNodes(getProps(blocks[1]).children);
-  const boldToken = listChildren.find((node) => getType(node) === "span" && flattenText(node) === "bold");
-  const italicToken = listChildren.find((node) => getType(node) === "span" && flattenText(node) === "italic");
-  assert.match(String(getProps(boldToken).className ?? ""), /text-shadow/);
-  assert.match(String(getProps(italicToken).className ?? ""), /skew-x/);
-
-  assert.equal(flattenText(blocks[2]), "> https://example.com");
-  assert.match(String(getProps(blocks[2]).className ?? ""), /bg-slate-50/);
-  const quoteChildren = collectNodes(getProps(blocks[2]).children);
-  const linkToken = quoteChildren.find((node) => getType(node) === "span" && flattenText(node) === "https://example.com");
-  assert.match(String(getProps(linkToken).className ?? ""), /underline/);
-
-  assert.equal(flattenText(blocks[3]), "```js");
-  assert.match(String(getProps(blocks[3]).className ?? ""), /bg-slate-100/);
-  assert.equal(flattenText(blocks[4]), "const value = 1;");
-  assert.match(String(getProps(blocks[4]).className ?? ""), /bg-slate-100/);
-});
-
-test("renderTaskCommentBody groups unordered lists, ordered lists, paragraphs, and spacers", async () => {
-  const { renderTaskCommentBody } = await loadModule();
-  const blocks = renderTaskCommentBody(
-    "Intro line\n\n- first\n- second\n\n1. alpha\n2. beta\n\nFinal `note` for @Echo",
-    ["Echo"],
-    "comment-1"
-  );
-
-  assert.equal(getType(blocks[0]), "p");
-  assert.match(String(getProps(blocks[0]).className ?? ""), /text-sm/);
-  assert.equal(getType(blocks[1]), "div");
-  assert.equal(getType(blocks[2]), "ul");
-  assert.match(String(getProps(blocks[2]).className ?? ""), /text-sm/);
-  assert.match(String(getProps(blocks[2]).className ?? ""), /leading-7/);
-  assert.deepEqual(getProps(blocks[2]).children.map(flattenText), ["first", "second"]);
-  assert.equal(getType(blocks[4]), "ol");
-  assert.match(String(getProps(blocks[4]).className ?? ""), /text-sm/);
-  assert.match(String(getProps(blocks[4]).className ?? ""), /leading-7/);
-  assert.deepEqual(getProps(blocks[4]).children.map(flattenText), ["alpha", "beta"]);
-  assert.equal(getType(blocks.at(-1)), "p");
-  assert.equal(blocks.map(flattenText).join(""), "Intro linefirstsecondalphabetaFinal note for @Echo");
-});
-
-test("renderTaskCommentBody renders OpenClaw-style headings, checklists, fenced code blocks, and inline code", async () => {
-  const { renderTaskCommentBody } = await loadModule();
-  const blocks = renderTaskCommentBody(
-    "🎉✨🚀🛠️📌\n\n# Test task\n\nThis is a simple markdown-formatted response for Mission Control.\n\n## Example checklist\n\n- [x] Emoji parade included\n- [x] Markdown formatting included\n- [x] Scope kept simple\n\n## Example code\n\n```js\nconst status = \"ok\";\nconsole.log(`Task status: ${status}`);\n```\n\n## Note\n\n`Projet test` currently has minimal context, so this response stays explicit and lightweight.",
-    ["Echo"],
-    "comment-echo"
-  );
-
-  assert.equal(flattenText(blocks[0]), "🎉✨🚀🛠️📌");
-  assert.equal(flattenText(blocks[2]), "Test task");
-  assert.equal(flattenText(blocks[6]), "Example checklist");
-  assert.equal(getType(blocks[8]), "ul");
-  assert.deepEqual(getProps(blocks[8]).children.map(flattenText), [
-    "✓Emoji parade included",
-    "✓Markdown formatting included",
-    "✓Scope kept simple"
-  ]);
-  assert.equal(flattenText(blocks[10]), "Example code");
-  assert.equal(getType(blocks[12]), "div");
-  assert.ok(flattenText(blocks[12]).includes('const status = "ok";'));
-  assert.ok(flattenText(blocks[12]).includes('console.log(`Task status: ${status}`);'));
-  assert.equal(flattenText(blocks[14]), "Note");
-  assert.ok(flattenText(blocks[16]).includes("Projet test currently has minimal context"));
+  assert.equal(preview, "Heading Ship the editor Review docs Keep scope small");
 });

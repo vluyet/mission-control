@@ -316,7 +316,6 @@ function formatTaskInstruction(
     attachmentSection,
     [
       t("constructorDispatch.executionRules"),
-      `- ${t("constructorDispatch.ruleUseOnlyPayload")}`,
       `- ${t("constructorDispatch.ruleNoDirectAccess")}`,
       `- ${t("constructorDispatch.ruleNoSelfPosting")}`
     ].join("\n"),

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 import { useI18n } from "@/components/product/i18n-provider";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 
 type ProjectEditValues = {
@@ -99,11 +100,13 @@ export function ProjectEditForm({ project }: { project: ProjectEditValues }) {
             </div>
             <div>
               <label className="section-eyebrow">{t("projectForms.descriptionLabel")}</label>
-              <textarea
+              <MarkdownEditor
                 name="description"
                 defaultValue={project.description}
-                className="input-control mt-2 min-h-[160px] resize-none"
+                className="mt-2"
+                minHeight="160px"
                 placeholder={t("projectForms.descriptionPlaceholder")}
+                ariaLabel={t("projectForms.descriptionLabel")}
               />
             </div>
           </div>

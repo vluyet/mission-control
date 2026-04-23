@@ -10,6 +10,7 @@
     "build": "node scripts/build-live.mjs",
     "start": "node scripts/serve-live.mjs",
     "rebuild:live": "node scripts/rebuild-live.mjs",
+    "clean:local": "node scripts/clean-local-artifacts.mjs",
     "db:bootstrap": "node scripts/bootstrap-db.mjs",
     "lint": "next lint",
     "test:migrations": "node scripts/with-root-env.mjs ./node_modules/.bin/prisma validate && node scripts/with-root-env.mjs ./node_modules/.bin/prisma migrate status",
@@ -32,6 +33,7 @@
     "@prisma/client": "^5.22.0",
     "clsx": "^2.1.1",
     "next": "^14.2.26",
+    "overtype": "^2.3.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.5.4"

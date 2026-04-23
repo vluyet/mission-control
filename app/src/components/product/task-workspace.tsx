@@ -9,6 +9,7 @@ import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
 import { TaskConstructorDispatchCard } from "@/components/product/task-constructor-dispatch-card";
 import { TaskAttachmentsPanel } from "@/components/product/task-attachments-panel";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { useI18n } from "@/components/product/i18n-provider";
 
 function getLocalizedPriorityLabel(priority: TaskRecord["priority"], t: ReturnType<typeof useI18n>["t"]) {
@@ -171,9 +172,10 @@ export function TaskWorkspace({
               <h2 className="text-base font-semibold text-slate-900">{t("taskWorkspace.taskDescription")}</h2>
             </div>
             <div className="mt-4 rounded-3xl border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.03)]">
-              <p className="whitespace-pre-wrap break-words text-[15px] leading-7 text-slate-600">
-                {task.description || t("taskWorkspace.noTaskDescriptionYet")}
-              </p>
+              <MarkdownContent
+                markdown={task.description || t("taskWorkspace.noTaskDescriptionYet")}
+                className="break-words text-[15px] leading-7 text-slate-600"
+              />
             </div>
           </section>
 

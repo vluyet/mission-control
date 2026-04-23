@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Comment, TimelineEvent } from "@/lib/demo-data";
 import { TaskCommentComposer } from "@/components/product/task-comment-composer";
-import { renderTaskCommentBody } from "@/lib/task-comment-markdown";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { useI18n } from "@/components/product/i18n-provider";
 
 export function TaskCommentsPanel({
@@ -139,9 +139,7 @@ export function TaskCommentsPanel({
                   </div>
                 ) : (
                   <>
-                    <div className="mt-4 break-words text-sm leading-7 text-slate-600">
-                      {renderTaskCommentBody(renderedBody, sortedMentions, comment.id)}
-                    </div>
+                    <MarkdownContent markdown={renderedBody} className="mt-4 break-words text-sm leading-7 text-slate-600" testId={`task-comment-body-${comment.id}`} />
                     {isAgentComment && comment.body.length > 320 ? (
                       <button
                         type="button"

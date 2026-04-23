@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 import { useI18n } from "@/components/product/i18n-provider";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 
 type AssigneeOption = {
@@ -127,10 +128,12 @@ export function TaskEditForm({
           </div>
           <div>
             <label className="section-eyebrow">{t("taskForms.descriptionLabel")}</label>
-            <textarea
+            <MarkdownEditor
               name="description"
               defaultValue={task.description}
-              className="input-control mt-2 min-h-[180px] resize-none"
+              className="mt-2"
+              minHeight="180px"
+              ariaLabel={t("taskForms.descriptionLabel")}
             />
           </div>
           <div>

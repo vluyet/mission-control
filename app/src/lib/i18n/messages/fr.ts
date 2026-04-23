@@ -533,7 +533,6 @@ export const fr: Messages = {
     taskTitle: 'Titre de la tâche : {value}',
     untitledTask: 'Tâche sans titre',
     executionRules: 'Règles d’exécution :',
-    ruleUseOnlyPayload: 'Utilisez uniquement les informations fournies dans cette charge utile de tâche.',
     ruleNoDirectAccess: 'N’essayez pas d’accéder directement à Mission Control.',
     ruleNoSelfPosting: 'N’inspectez pas l’application et ne publiez pas vous-même de commentaires.',
     responseRequirements: 'Exigences de réponse :',

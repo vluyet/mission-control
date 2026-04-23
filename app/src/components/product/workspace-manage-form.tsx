@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import type { AttachmentRecord } from "@/lib/demo-data";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { AppButton, Panel, PanelHeader } from "@/components/ui/primitives";
 import { WorkspaceAssetsPanel } from "@/components/product/workspace-assets-panel";
 import { WorkspaceAgentCredentialsPanel } from "@/components/product/workspace-agent-credentials-panel";
@@ -398,19 +399,23 @@ export function WorkspaceManageForm({ workspace }: { workspace: WorkspaceManageV
 
             <div>
               <label className="section-eyebrow">{t("manageWorkspace.contextSummary")}</label>
-              <textarea
+              <MarkdownEditor
                 name="contextSummary"
                 defaultValue={workspace.contextSummary}
-                className="input-control mt-2 min-h-[140px] resize-none"
+                className="mt-2"
+                minHeight="140px"
+                ariaLabel={t("manageWorkspace.contextSummary")}
               />
             </div>
 
             <div>
               <label className="section-eyebrow">{t("manageWorkspace.contextBullets")}</label>
-              <textarea
+              <MarkdownEditor
                 name="contextBullets"
                 defaultValue={workspace.contextBullets.join("\n")}
-                className="input-control mt-2 min-h-[160px] resize-none"
+                className="mt-2"
+                minHeight="160px"
+                ariaLabel={t("manageWorkspace.contextBullets")}
               />
             </div>
 

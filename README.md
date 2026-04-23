@@ -39,6 +39,8 @@ docker compose exec app npm run db:reset
 
 The workspace shell top bar surfaces the current deployed version and, when available, the deployed branch and commit.
 
+Mission Control uses [OverType](https://github.com/panphora/overtype) for markdown-ready editing surfaces in the app.
+
 ## One-line install
 
 Fresh machine install:

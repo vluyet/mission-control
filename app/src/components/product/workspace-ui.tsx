@@ -5,7 +5,9 @@ import type { ReactNode } from "react";
 import { activityFeed, agentDocsSections, ContextBlock, Metric, ProjectSummary, TaskRecord } from "@/lib/demo-data";
 import type { ActivityFeedItem } from "@/lib/demo-data";
 import { getAgentRunHealth } from "@/lib/agent-run-health";
+import { getMarkdownTextPreview } from "@/lib/markdown";
 import { BoardIcon, CalendarIcon, ChartIcon, FolderIcon, SearchIcon, SparkIcon, StackIcon } from "@/components/ui/icons";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import {
   AppButton,
   Panel,
@@ -57,12 +59,12 @@ export function ContextPanel({
         {filtered.map((block) => (
           <div key={block.title + block.summary} className="rounded-3xl border border-[var(--line)] bg-[var(--surface-subtle)] p-4">
             <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--text-dim)]">{block.title}</h3>
-            <p className="mt-3 text-sm leading-7 text-[var(--text-muted)]">{block.summary}</p>
+            <MarkdownContent markdown={block.summary} className="mt-3 text-sm leading-7 text-[var(--text-muted)]" />
             <ul className="mt-4 space-y-2 text-sm text-[var(--text-muted)]">
               {block.bullets.map((bullet) => (
                 <li key={bullet} className="flex gap-2">
                   <span className="mt-[0.5rem] inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-strong)]" />
-                  <span>{bullet}</span>
+                  <MarkdownContent markdown={bullet} className="min-w-0 flex-1 text-sm text-[var(--text-muted)]" />
                 </li>
               ))}
             </ul>
@@ -81,7 +83,7 @@ export function PageHeader({
 }: {
   eyebrow: string;
   title: string;
-  description?: string;
+  description?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
@@ -91,7 +93,7 @@ export function PageHeader({
         <h1 className="mt-1.5 text-[clamp(1.8rem,2.6vw,2.6rem)] font-semibold tracking-[-0.05em] text-[var(--text-strong)]">
           {title}
         </h1>
-        {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">{description}</p> : null}
+        {description ? <div className="mt-2 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">{description}</div> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>
@@ -189,7 +191,7 @@ export function ProjectSnapshotPanel({
             <Link key={project.slug} href={`/projects/${project.slug}`} className="dashboard-list-row">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-[var(--text-strong)]">{project.name}</h3>
-                <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{project.description}</p>
+                <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{getMarkdownTextPreview(project.description)}</p>
                 <p className="mt-2 text-xs uppercase tracking-[0.16em] text-[var(--text-dim)]">
                   {t("common.open")} {project.open} · {t("common.review")} {project.review} · {t("common.blocked")} {project.blocked}
                 </p>
@@ -282,7 +284,7 @@ export function ProjectGrid({ items }: { items: ProjectSummary[] }) {
                   <div className="flex items-center gap-3">
                     <h3 className="truncate text-sm font-semibold text-[var(--text-strong)]">{project.name}</h3>
                   </div>
-                  <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{project.description}</p>
+                    <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{getMarkdownTextPreview(project.description)}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-dim)]">
                     {project.lifecycle ? (
                       <span className="rounded-full border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-1">

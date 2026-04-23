@@ -531,7 +531,6 @@ export type Messages = {
     taskTitle: string;
     untitledTask: string;
     executionRules: string;
-    ruleUseOnlyPayload: string;
     ruleNoDirectAccess: string;
     ruleNoSelfPosting: string;
     responseRequirements: string;
@@ -1597,7 +1596,6 @@ export const en: Messages = {
     taskTitle: 'Task title: {value}',
     untitledTask: 'Untitled task',
     executionRules: 'Execution rules:',
-    ruleUseOnlyPayload: 'Use only the information supplied in this task payload.',
     ruleNoDirectAccess: 'Do not attempt to access Mission Control directly.',
     ruleNoSelfPosting: 'Do not inspect the app or post comments yourself.',
     responseRequirements: 'Response requirements:',
