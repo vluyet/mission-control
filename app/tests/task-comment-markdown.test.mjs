@@ -49,6 +49,15 @@ test("renderMarkdownHtml drops fence marker lines but preserves code blocks and 
   assert.doesNotMatch(html, /```/);
 });
 
+test("renderMarkdownHtml rewrites paragraph divs into semantic paragraphs without spacer blocks", async () => {
+  const { renderMarkdownHtml } = await loadModule();
+  const html = renderMarkdownHtml("First paragraph\n\nSecond paragraph");
+
+  assert.equal(html, "<p>First paragraph</p><p>Second paragraph</p>");
+  assert.doesNotMatch(html, /&nbsp;/);
+  assert.doesNotMatch(html, /<div>/);
+});
+
 test("getMarkdownTextPreview strips markdown markers into compact plain-text summaries", async () => {
   const { getMarkdownTextPreview } = await loadModule();
   const preview = getMarkdownTextPreview("# Heading\n\n- [x] **Ship** the `editor`\n- [ ] Review [docs](https://example.com)\n\n> Keep scope small");

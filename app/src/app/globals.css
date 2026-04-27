@@ -970,6 +970,11 @@ a {
     margin-bottom: 0;
   }
 
+  .markdown-rendered p {
+    margin: 0;
+  }
+
+  .markdown-rendered > p,
   .markdown-rendered > div {
     line-height: inherit;
   }
