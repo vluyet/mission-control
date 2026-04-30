@@ -23,8 +23,9 @@ async function loadRouteModule() {
   const rewritten = transpiled
     .replace('from "@/lib/api-response"', 'from "./stubs/api-response.mjs"')
     .replace('from "@/lib/api-auth"', 'from "./stubs/api-auth.mjs"')
-    .replace('from "@/app/api/tasks/[taskId]/constructor/dispatch/route"', 'from "./stubs/constructor-dispatch-route.mjs"')
-    .replace('from "@/lib/server-data"', 'from "./stubs/server-data.mjs"');
+    .replace('from "@/lib/server/constructor-dispatch"', 'from "./stubs/constructor-dispatch-route.mjs"')
+    .replace('from "@/lib/server-data"', 'from "./stubs/server-data.mjs"')
+    .replace('from "@/lib/api-i18n"', 'from "./stubs/api-i18n.mjs"');
 
   await fs.mkdir(path.join(outdir, "stubs"), { recursive: true });
   await fs.writeFile(path.join(outdir, "route.mjs"), rewritten, "utf8");
@@ -79,6 +80,33 @@ async function loadRouteModule() {
       'export async function appendSystemExecutionLogInDb(taskId, line, label) {\n' +
       '  (globalThis.__commentExecutionLogs ??= []).push({ taskId, line, label });\n' +
       '}\n',
+    "utf8"
+  );
+  await fs.writeFile(
+    path.join(outdir, "stubs", "api-i18n.mjs"),
+    'export function getApiT() { return (key, values) => {\n' +
+      '  const templates = {\n' +
+      '    "api.taskNotFound": "Task not found.",\n' +
+      '    "api.unknownCommentAuthor": "Unknown",\n' +
+      '    "api.commentRoleFallback": "Comment",\n' +
+      '    "api.missingRequiredFields": "Missing required fields",\n' +
+      '    "api.agentRole": "Agent",\n' +
+      '    "api.agentNotAllowedToComment": "Agent not allowed to comment.",\n' +
+      '    "api.untitledTask": "Untitled task",\n' +
+      '    "commentFollowUpDispatch.intro": "You are continuing an existing Mission Control task after a new human follow-up comment.",\n' +
+      '    "commentFollowUpDispatch.originalTaskTitle": "Original task title: {{value}}",\n' +
+      '    "commentFollowUpDispatch.originalRequestedDeliverable": "Original requested deliverable:\\n{{value}}",\n' +
+      '    "commentFollowUpDispatch.latestAgentDraft": "Latest agent draft/output to revise:\\n{{value}}",\n' +
+      '    "commentFollowUpDispatch.recentTaskComments": "Recent task comments:\\n{{value}}",\n' +
+      '    "commentFollowUpDispatch.latestHumanFollowUp": "Latest human follow-up from {{author}}:\\n{{value}}",\n' +
+      '    "commentFollowUpDispatch.treatAsRevision": "Treat the human comment as feedback or a revision request on the existing task, not as a brand new blank request.",\n' +
+      '    "commentFollowUpDispatch.useOriginalGoal": "Use the original task goal and the latest draft/output above to produce the revised final answer directly.",\n' +
+      '    "commentFollowUpDispatch.replyWithDeliverable": "Reply with the improved deliverable itself so Mission Control can post it as the next task comment.",\n' +
+      '    "commentFollowUpDispatch.missingInfoShort": "If something important is genuinely missing, say exactly what is missing in one short sentence."\n' +
+      '  };\n' +
+      '  const template = templates[key] ?? key;\n' +
+      '  return template.replace(/{{(\\w+)}}/g, (_, name) => String(values?.[name] ?? ""));\n' +
+      '}; }\n',
     "utf8"
   );
 

@@ -4,7 +4,7 @@ Mission Control is a task operations app for human teammates and Constructor-bac
 
 ## Release status
 
-Current version: `v0.3`
+Current version: `v0.4`
 
 Current product surface:
 
@@ -13,9 +13,10 @@ Current product surface:
 - projects, tasks, comments, timeline-style activity monitoring, watchers, attachments, and execution logs
 - workspace administration and shared workspace files
 - scoped agent API credentials
-- Constructor public API sync, dispatch, callback, and status polling
+- Constructor public API sync, dispatch, callback, status polling, and task-scoped attachments
+- Constructor upload-limit retrieval with cached max-size feedback before task file upload
 
-Release `v0.3` removes the retired OpenClaw compatibility runtime and keeps Mission Control centered on the active Constructor flow.
+Release `v0.4` adds task-scoped Constructor attachments, cached upload-limit feedback, and a cleaner Constructor task workspace while keeping Mission Control centered on the active Constructor flow.
 
 ## Local development
 
@@ -46,7 +47,7 @@ Mission Control uses [OverType](https://github.com/panphora/overtype) for markdo
 Fresh machine install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.3/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.4/scripts/bootstrap-public.sh | bash
 ```
 
 Optional overrides:
@@ -56,7 +57,7 @@ MC_INSTALL_DIR=/opt/mission-control \
 MC_OWNER_EMAIL=owner@example.com \
 MC_OWNER_PASSWORD='change-me-now' \
 MC_APP_PORT=3000 \
-curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.3/scripts/bootstrap-public.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vluyet/mission-control/v0.4/scripts/bootstrap-public.sh | bash
 ```
 
 ## Production runtime
@@ -77,7 +78,7 @@ Use the production compose file plus the install script.
 From a cloned repo:
 
 ```bash
-./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.3
+./scripts/install.sh --repo https://github.com/vluyet/mission-control.git --dir mission-control --version v0.4
 ```
 
 Optional environment overrides:
@@ -110,7 +111,7 @@ Run this from the installed repo directory:
 Or pin to a specific release:
 
 ```bash
-./scripts/update.sh --version v0.3
+./scripts/update.sh --version v0.4
 ```
 
 The update script will:
@@ -155,9 +156,22 @@ Workspace owners configure Constructor from Manage Workspace with:
 Current upstream calls used by the app:
 
 - `GET /api/v1/agents`
+- `GET /api/v1/capabilities`
 - `POST /api/v1/tasks`
 - `GET /api/v1/tasks/:bridgeExecutionId`
 - `GET /api/v1/tasks/by-external/:externalTaskId`
+- `GET /api/v1/tasks/:externalTaskId/files`
+- `POST /api/v1/tasks/:externalTaskId/files`
+- `DELETE /api/v1/tasks/:externalTaskId/files/:fileId`
+- `GET /api/v1/tasks/:externalTaskId/files/:fileId/download`
+
+Current Mission Control Constructor routes used by the app:
+
+- `GET /api/workspaces/current/constructor/capabilities`
+- `GET /api/tasks/:taskId/constructor/files`
+- `POST /api/tasks/:taskId/constructor/files`
+- `DELETE /api/tasks/:taskId/constructor/files/:fileId`
+- `GET /api/tasks/:taskId/constructor/files/:fileId/download`
 
 Current Mission Control callback ingress:
 
@@ -202,3 +216,4 @@ This plan narrows Mission Control back to a small core product before further ex
 - [project/release-v0.2.2.md](project/release-v0.2.2.md)
 - [project/release-v0.2.3.md](project/release-v0.2.3.md)
 - [project/release-v0.3.md](project/release-v0.3.md)
+- [project/release-v0.4.md](project/release-v0.4.md)

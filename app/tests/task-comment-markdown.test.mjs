@@ -58,6 +58,16 @@ test("renderMarkdownHtml rewrites paragraph divs into semantic paragraphs withou
   assert.doesNotMatch(html, /<div>/);
 });
 
+test("renderMarkdownHtml linkifies bare URLs in regular text while preserving markdown links and code blocks", async () => {
+  const { renderMarkdownHtml } = await loadModule();
+  const html = renderMarkdownHtml("Visit https://example.com and www.example.com.\n\n```txt\nhttps://internal.example.com\n```\n\n[docs](https://docs.example.com)");
+
+  assert.match(html, /<a href="https:\/\/example.com">https:\/\/example.com<\/a>/);
+  assert.match(html, /<a href="https:\/\/www.example.com">www.example.com<\/a>\./);
+  assert.match(html, /<a href="https:\/\/docs.example.com">docs<\/a>/);
+  assert.match(html, /<pre class="code-block"><code class="language-txt">https:\/\/internal.example.com<\/code><\/pre>/);
+});
+
 test("getMarkdownTextPreview strips markdown markers into compact plain-text summaries", async () => {
   const { getMarkdownTextPreview } = await loadModule();
   const preview = getMarkdownTextPreview("# Heading\n\n- [x] **Ship** the `editor`\n- [ ] Review [docs](https://example.com)\n\n> Keep scope small");

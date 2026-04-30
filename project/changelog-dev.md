@@ -1,5 +1,20 @@
 # Dev Changelog
 
+## 2026-04-30
+
+### Release prep for v0.4
+
+- Bumped the release metadata to `v0.4` / `0.4.0` and refreshed README install and update examples for the new tag.
+- Added the `v0.4` changelog and release notes, plus a documentation pass across the active Constructor contract docs.
+
+### Constructor task attachments and upload-limit UX
+
+- Added task-scoped Constructor file proxy routes for list, upload, delete, download, and capability refresh.
+- Added cached Constructor capability retrieval so upload limits stay in sync without refetching on every upload attempt.
+- Updated the task detail surface to show Constructor-managed attachments inline with clear max-size feedback and client-side oversize rejection.
+- Hardened Constructor dispatch/runtime wiring to resolve config from the task workspace with stable task scope identifiers.
+- Added focused regression coverage for capabilities, task-file routing, file normalization, and upload failure handling.
+
 ## 2026-04-13
 
 ### Release prep for v0.3

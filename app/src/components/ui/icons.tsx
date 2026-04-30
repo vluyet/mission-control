@@ -202,3 +202,44 @@ export function PaperclipIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function UploadIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={cls(className)}>
+      <path d="M12 16V5" />
+      <path d="m7.5 9.5 4.5-4.5 4.5 4.5" />
+      <path d="M4 18.5h16" />
+    </svg>
+  );
+}
+
+export function DownloadIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={cls(className)}>
+      <path d="M12 5v11" />
+      <path d="m7.5 12 4.5 4.5 4.5-4.5" />
+      <path d="M4 18.5h16" />
+    </svg>
+  );
+}
+
+export function RefreshIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={cls(className)}>
+      <path d="M20 11a8 8 0 1 0-2.34 5.66" />
+      <path d="M20 5v6h-6" />
+    </svg>
+  );
+}
+
+export function TrashIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={cls(className)}>
+      <path d="M4.5 7.5h15" />
+      <path d="M9.5 3.5h5" />
+      <path d="M8 7.5v11a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-11" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
+}

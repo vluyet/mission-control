@@ -124,10 +124,10 @@ a {
   .product-sidebar {
     display: flex;
     flex-direction: column;
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: linear-gradient(180deg, #0f1729 0%, #111827 100%);
-    padding: 0.9rem 0.75rem;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(180deg, #101828 0%, #131c2e 100%);
+    padding: 0.85rem 0.7rem;
     color: white;
   }
 
@@ -140,13 +140,13 @@ a {
     display: flex;
     align-items: center;
     gap: 0.8rem;
-    padding: 0.1rem 0.35rem 0.8rem;
+    padding: 0.1rem 0.35rem 0.6rem;
   }
 
   .sidebar-brand-mark {
     display: grid;
-    height: 2rem;
-    width: 2rem;
+    height: 1.9rem;
+    width: 1.9rem;
     place-items: center;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -156,7 +156,7 @@ a {
 
   .sidebar-brand-title {
     margin: 0;
-    font-size: 0.92rem;
+    font-size: 0.9rem;
     font-weight: 700;
     letter-spacing: -0.02em;
     color: white;
@@ -171,7 +171,7 @@ a {
   .sidebar-workspace-block {
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 0.8rem 0.35rem 0.85rem;
+    padding: 0.75rem 0.35rem 0.8rem;
   }
 
   .sidebar-workspace-head {
@@ -255,9 +255,9 @@ a {
     align-items: center;
     justify-content: space-between;
     border-radius: 14px;
-    padding: 0.68rem 0.78rem;
+    padding: 0.62rem 0.72rem;
     text-align: left;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     transition: 180ms ease;
   }
 
@@ -278,10 +278,10 @@ a {
 
   .nav-icon {
     display: grid;
-    height: 1.8rem;
-    width: 1.8rem;
+    height: 1.7rem;
+    width: 1.7rem;
     place-items: center;
-    border-radius: 12px;
+    border-radius: 11px;
     background: rgba(255, 255, 255, 0.06);
   }
 
@@ -674,6 +674,22 @@ a {
     backdrop-filter: blur(22px);
   }
 
+  .ai-glow-card {
+    border: 3px solid transparent;
+    border-radius: 24px;
+    background:
+      linear-gradient(#ffffff, #ffffff) padding-box,
+      linear-gradient(
+        135deg,
+        rgba(255, 213, 93, 0.95) 0%,
+        rgba(255, 141, 76, 0.82) 26%,
+        rgba(255, 84, 161, 0.7) 48%,
+        rgba(131, 98, 255, 0.62) 72%,
+        rgba(91, 216, 190, 0.68) 100%
+      ) border-box;
+    box-shadow: none;
+  }
+
   .glow-card::after {
     content: "";
     position: absolute;
@@ -1032,7 +1048,7 @@ a {
   }
 
   .markdown-rendered pre {
-    overflow-x: auto;
+    overflow-x: hidden;
     border-radius: 16px;
     border: 1px solid var(--line);
     background: rgba(15, 23, 42, 0.04);
@@ -1040,8 +1056,12 @@ a {
   }
 
   .markdown-rendered pre code {
+    display: block;
     background: transparent;
     padding: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .markdown-rendered .blockquote {
@@ -1146,7 +1166,7 @@ a {
 
 @media (min-width: 1025px) {
   .product-layout {
-    grid-template-columns: 228px minmax(0, 1fr);
+    grid-template-columns: 216px minmax(0, 1fr);
     align-items: start;
   }
 

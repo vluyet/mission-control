@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { baseUrl, signIn, combineCookies } from "./helpers.mjs";
+import { baseUrl, signIn, combineCookies, json } from "./helpers.mjs";
 
 const appDir = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 
@@ -109,6 +109,32 @@ test("visible task and project status labels render in French", async () => {
 test("project and task detail pages keep user-facing French labels localized", async () => {
   const cookie = await signIn();
   const localizedCookie = combineCookies(cookie, "mission_control_locale=fr");
+  const projectCreate = await json("/api/projects", {
+    method: "POST",
+    cookie,
+    body: {
+      name: `I18n detail validation ${Date.now()}`,
+      description: "Project created to verify localized detail pages."
+    }
+  });
+
+  assert.equal(projectCreate.response.status, 201);
+  const projectSlug = projectCreate.payload?.data?.project?.slug;
+  assert.ok(projectSlug, "expected a project slug for i18n detail validation");
+
+  const taskCreate = await json(`/api/projects/${projectSlug}/tasks`, {
+    method: "POST",
+    cookie,
+    body: {
+      title: `I18n task ${Date.now()}`,
+      description: "Task created to verify localized task detail labels."
+    }
+  });
+
+  assert.equal(taskCreate.response.status, 201);
+  const taskId = taskCreate.payload?.data?.task?.id;
+  assert.ok(taskId, "expected a task id for i18n detail validation");
+
   const projectsResponse = await fetch(`${baseUrl}/projects`, {
     headers: { cookie: localizedCookie }
   });
@@ -130,17 +156,7 @@ test("project and task detail pages keep user-facing French labels localized", a
   assert.ok(!projectHtml.includes("COMMON.PROJECT"));
   assert.ok(!projectHtml.includes("common.project"));
 
-  const tasksResponse = await fetch(`${baseUrl}/my-tasks`, {
-    headers: { cookie: localizedCookie }
-  });
-
-  assert.equal(tasksResponse.status, 200);
-
-  const tasksHtml = await tasksResponse.text();
-  const taskMatch = tasksHtml.match(/href="(\/tasks\/[^"/?#]+)"/);
-  assert.ok(taskMatch, "expected a task link on the my tasks page");
-
-  const taskResponse = await fetch(`${baseUrl}${taskMatch[1]}`, {
+  const taskResponse = await fetch(`${baseUrl}/tasks/${taskId}`, {
     headers: { cookie: localizedCookie }
   });
 

@@ -1,6 +1,4 @@
 import { revalidatePath } from "next/cache";
-import { error, ok } from "@/lib/api-response";
-import { resolveApiActor } from "@/lib/api-auth";
 import { createConstructorDispatchIdempotencyKey, dispatchConstructorTask, getStableConstructorExternalTaskId } from "@/lib/constructor";
 import { db } from "@/lib/db";
 import {
@@ -414,7 +412,7 @@ function parseExecutionLogValues(line: string) {
   return values;
 }
 
-async function getLatestConstructorSession(taskId: string) {
+export async function getLatestConstructorSession(taskId: string) {
   const task = await db.task.findUnique({
     where: { id: taskId },
     select: {
@@ -451,7 +449,7 @@ async function getLatestConstructorSession(taskId: string) {
   return { sessionId: null, externalTaskId: null, idempotencyKey: null };
 }
 
-async function dispatchMissionControlTaskToConstructor(input: ConstructorDispatchOptions) {
+export async function dispatchMissionControlTaskToConstructor(input: ConstructorDispatchOptions) {
   const t = await getApiT();
   const task = await getTaskResourceFromDb(input.taskId);
 
@@ -629,28 +627,4 @@ async function dispatchMissionControlTaskToConstructor(input: ConstructorDispatc
       }
     }
   };
-}
-
-export async function POST(request: Request, { params }: { params: { taskId: string } }) {
-  const t = await getApiT();
-  const auth = await resolveApiActor(request);
-
-  if (!auth.ok) {
-    return error(auth.message, auth.status, { code: auth.error });
-  }
-
-  if (auth.actor.type !== "owner") {
-    return error(t("api.ownerAccessRequired"), 403, { code: "OWNER_ACCESS_REQUIRED" });
-  }
-
-  const result = await dispatchMissionControlTaskToConstructor({
-    requestUrl: request.url,
-    taskId: params.taskId
-  });
-
-  if (!result.ok) {
-    return error(result.message, result.status, result.details);
-  }
-
-  return ok(result.body, { status: result.status });
 }

@@ -4,7 +4,7 @@ import { getApiT } from "@/lib/api-i18n";
 import {
   dispatchMissionControlTaskToConstructor,
   getLatestConstructorSession
-} from "@/app/api/tasks/[taskId]/constructor/dispatch/route";
+} from "@/lib/server/constructor-dispatch";
 import {
   appendSystemExecutionLogInDb,
   createCommentInDb,

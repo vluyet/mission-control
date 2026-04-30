@@ -26,7 +26,9 @@ async function loadRouteModule() {
     .replace('from "@/lib/api-auth"', 'from "./stubs/api-auth.mjs"')
     .replace('from "@/lib/constructor"', 'from "./stubs/constructor.mjs"')
     .replace('from "@/lib/db"', 'from "./stubs/db.mjs"')
-    .replace('from "@/lib/server-data"', 'from "./stubs/server-data.mjs"');
+    .replace('from "@/lib/server-data"', 'from "./stubs/server-data.mjs"')
+    .replace('from "@/lib/server/constructor-task-runtime"', 'from "./stubs/constructor-task-runtime.mjs"')
+    .replace('from "@/lib/api-i18n"', 'from "./stubs/api-i18n.mjs"');
 
   await fs.mkdir(path.join(outdir, "stubs"), { recursive: true });
   await fs.writeFile(path.join(outdir, "route.mjs"), rewritten, "utf8");
@@ -53,6 +55,29 @@ async function loadRouteModule() {
       '  const payload = globalThis.__dispatchPayload ?? { accepted: true, bridgeExecutionId: "constructor:test-exec-1", externalTaskId: "mc-task-test-1", executionState: "queued", message: "execution accepted and queued" };\n' +
       '  const status = globalThis.__dispatchStatus ?? 202;\n' +
       '  return { response: new Response(JSON.stringify(payload), { status, headers: { "content-type": "application/json" } }), payload };\n' +
+      '}\n' +
+      'export function getStableConstructorExternalTaskId(taskId) { return `mc-task-${taskId}`; }\n' +
+      'export function createConstructorDispatchIdempotencyKey(taskId) { return `mc-task-${taskId}-dispatch-test`; }\n',
+    "utf8"
+  );
+  await fs.writeFile(
+    path.join(outdir, "stubs", "constructor-task-runtime.mjs"),
+    'export async function getTaskConstructorRuntime(taskId) {\n' +
+      '  if (globalThis.__taskConstructorRuntime) {\n' +
+      '    return globalThis.__taskConstructorRuntime;\n' +
+      '  }\n' +
+      '  const integration = globalThis.__constructorIntegration ?? null;\n' +
+      '  const base = { taskId, projectSlug: "dispatch-project", externalTaskId: `mc-task-${taskId}` };\n' +
+      '  if (integration?.enabled === false) {\n' +
+      '    return { kind: "disabled", ...base };\n' +
+      '  }\n' +
+      '  if (!integration) {\n' +
+      '    return { kind: "not_configured", ...base };\n' +
+      '  }\n' +
+      '  if (!integration.apiToken) {\n' +
+      '    return { kind: "api_token_required", ...base, baseUrl: integration.baseUrl ?? "http://127.0.0.1:9999" };\n' +
+      '  }\n' +
+      '  return { kind: "ready", ...base, baseUrl: integration.baseUrl ?? "http://127.0.0.1:9999", apiToken: integration.apiToken };\n' +
       '}\n',
     "utf8"
   );
@@ -109,6 +134,63 @@ async function loadRouteModule() {
       '}\n',
     "utf8"
   );
+  await fs.writeFile(
+    path.join(outdir, "stubs", "api-i18n.mjs"),
+    'export function getApiT() { return (key, values) => {\n' +
+      '  const templates = {\n' +
+      '    "api.taskNotFound": "Task not found.",\n' +
+      '    "api.constructorDispatchDisabled": "Constructor dispatch is disabled for this workspace.",\n' +
+      '    "api.constructorDispatchApiTokenRequired": "Constructor API token is required before dispatch.",\n' +
+      '    "api.constructorTargetAgentRequired": "Assign the task to a Constructor agent or sync a default Constructor agent before dispatch.",\n' +
+      '    "api.constructorUnreachable": "Constructor is unreachable.",\n' +
+      '    "api.constructorRejectedTask": "Constructor rejected the task.",\n' +
+      '    "api.constructorTaskAccepted": "Constructor accepted the task.",\n' +
+      '    "constructorDispatch.taskUnderspecified": "Task is underspecified.",\n' +
+      '    "constructorDispatch.taskUnderspecifiedClearer": "Add a clearer task description before dispatch.",\n' +
+      '    "constructorDispatch.contextTitleLabel": "Title: {{value}}",\n' +
+      '    "constructorDispatch.contextSummaryLabel": "Summary: {{value}}",\n' +
+      '    "constructorDispatch.effectiveContext": "Effective context",\n' +
+      '    "constructorDispatch.principleLabel": "Principle: {{value}}",\n' +
+      '    "constructorDispatch.constraintLabel": "Constraint: {{value}}",\n' +
+      '    "constructorDispatch.taskHintLabel": "Task hint: {{value}}",\n' +
+      '    "constructorDispatch.childTasks": "Child tasks",\n' +
+      '    "constructorDispatch.childTaskLine": "{{id}} · {{title}} · {{status}}",\n' +
+      '    "constructorDispatch.recentComments": "Recent comments",\n' +
+      '    "constructorDispatch.commentByline": "{{author}} ({{role}}): {{body}}",\n' +
+      '    "constructorDispatch.attachments": "Attachments",\n' +
+      '    "constructorDispatch.attachmentByline": "{{name}} · {{artifactType}} · {{author}}",\n' +
+      '    "constructorDispatch.taskDetails": "Task details",\n' +
+      '    "constructorDispatch.currentMissionControlStatus": "Status: {{value}}",\n' +
+      '    "constructorDispatch.priorityLabel": "Priority: {{value}}",\n' +
+      '    "constructorDispatch.assigneeLabel": "Assignee: {{value}}",\n' +
+      '    "constructorDispatch.reviewerLabel": "Reviewer: {{value}}",\n' +
+      '    "constructorDispatch.projectLabel": "Project: {{value}}",\n' +
+      '    "constructorDispatch.projectSlugLabel": "Project slug: {{value}}",\n' +
+      '    "constructorDispatch.labelsLabel": "Labels: {{value}}",\n' +
+      '    "constructorDispatch.startDateLabel": "Start date: {{value}}",\n' +
+      '    "constructorDispatch.dueDateLabel": "Due date: {{value}}",\n' +
+      '    "constructorDispatch.blockedReasonLabel": "Blocked reason: {{value}}",\n' +
+      '    "constructorDispatch.parentTaskLabel": "Parent task: {{value}}",\n' +
+      '    "constructorDispatch.workspaceContext": "Workspace context",\n' +
+      '    "constructorDispatch.projectContext": "Project context",\n' +
+      '    "constructorDispatch.taskContext": "Task context",\n' +
+      '    "constructorDispatch.instructionIntro": "You are operating on a Mission Control task.",\n' +
+      '    "constructorDispatch.requestedDeliverable": "Requested deliverable:\\n{{value}}",\n' +
+      '    "constructorDispatch.taskTitle": "Task title: {{value}}",\n' +
+      '    "constructorDispatch.untitledTask": "Untitled task",\n' +
+      '    "constructorDispatch.executionRules": "Response requirements:",\n' +
+      '    "constructorDispatch.ruleNoDirectAccess": "Return the actual deliverable or answer requested above.",\n' +
+      '    "constructorDispatch.ruleNoSelfPosting": "Do not reply with a generic acknowledgement like \\\"Done\\\".",\n' +
+      '    "constructorDispatch.ruleMissingInfo": "If critical information is missing, say exactly what is missing.",\n' +
+      '    "constructorDispatch.ruleTaskContext": "Use the Mission Control task context below as the source of truth.",\n' +
+      '    "constructorDispatch.ruleNoUiNarration": "Do not narrate UI steps or claim actions you cannot perform.",\n' +
+      '    "constructorDispatch.ruleBeSpecific": "Be concrete, operator-ready, and concise."\n' +
+      '  };\n' +
+      '  const template = templates[key] ?? key;\n' +
+      '  return template.replace(/{{(\\w+)}}/g, (_, name) => String(values?.[name] ?? ""));\n' +
+      '}; }\n',
+    "utf8"
+  );
 
   return import(`${pathToFileURL(path.join(outdir, "route.mjs")).href}?t=${Date.now()}-${Math.random()}`);
 }
@@ -124,6 +206,7 @@ function resetGlobals() {
   delete globalThis.__dbTask;
   delete globalThis.__taskResource;
   delete globalThis.__constructorIntegration;
+  delete globalThis.__taskConstructorRuntime;
 }
 
 test("constructor dispatch route submits a public API task request with a server-authored instruction", async () => {
@@ -161,8 +244,9 @@ test("constructor dispatch route submits a public API task request with a server
     const dispatchCall = globalThis.__dispatchCalls[0];
     assert.equal(dispatchCall.baseUrl, "http://127.0.0.1:9999");
     assert.equal(dispatchCall.apiToken, "constructor-public-token");
-    assert.equal(dispatchCall.body.externalTaskId.startsWith("mc-task-task-123-"), true);
-    assert.equal(dispatchCall.body.idempotencyKey.startsWith("mc-task-task-123-"), true);
+    assert.equal(dispatchCall.body.externalTaskId, "mc-task-task-123");
+    assert.equal(dispatchCall.body.idempotencyKey, "mc-task-task-123-dispatch-test");
+    assert.notEqual(dispatchCall.body.idempotencyKey, dispatchCall.body.externalTaskId);
     assert.equal(dispatchCall.body.targetAgent, "constructor-default");
     assert.match(dispatchCall.body.instruction, /Requested deliverable:/);
     assert.match(dispatchCall.body.instruction, /Dispatch route contract verification\./);

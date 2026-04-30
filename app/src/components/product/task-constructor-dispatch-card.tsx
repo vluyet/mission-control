@@ -123,7 +123,13 @@ export function TaskConstructorDispatchCard({
   }
 
   return (
-    <AppButton type="button" tone="primary" onClick={handleSend} disabled={isSubmitting || isPending || isRunActive} className="w-full">
+    <AppButton
+      type="button"
+      tone="primary"
+      onClick={handleSend}
+      disabled={isSubmitting || isPending || isRunActive}
+      className="w-full"
+    >
       {isSubmitting || isPending || isRunActive ? t("constructorDispatch.dispatching") : t("constructorDispatch.dispatchToAgent")}
     </AppButton>
   );

@@ -217,10 +217,25 @@ export type Messages = {
     constructorUnreachable: string;
     constructorTaskLookupFailed: string;
     constructorDispatchDisabled: string;
+    constructorNotConfigured: string;
     constructorDispatchApiTokenRequired: string;
     constructorTargetAgentRequired: string;
     constructorRejectedTask: string;
     constructorTaskAccepted: string;
+    constructorUnauthorized: string;
+    constructorFilesDisabled: string;
+    constructorTaskFilesCapabilityDisabled: string;
+    constructorFilesNotConfigured: string;
+    constructorFilesApiTokenRequired: string;
+    constructorFilesListFailed: string;
+    constructorFileUploadFailed: string;
+    constructorFileTooLarge: string;
+    constructorFileNameRequired: string;
+    constructorFileContentRequired: string;
+    constructorFileContentInvalid: string;
+    constructorFileDeleteFailed: string;
+    constructorFileNotFound: string;
+    constructorFileDownloadFailed: string;
     invalidCallbackPayload: string;
     callbackCommentWriteFailed: string;
     callbackCompletedWithoutResult: string;
@@ -289,6 +304,7 @@ export type Messages = {
     discussion: string;
     commentsAndActivity: string;
     agentRun: string;
+    constructorFiles: string;
     quickActions: string;
     updateTask: string;
     attachments: string;
@@ -491,6 +507,63 @@ export type Messages = {
     chooseFileBeforeUploading: string;
     attachmentUploadFailed: string;
     workspaceOwner: string;
+  };
+  constructorFiles: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    refresh: string;
+    refreshing: string;
+    scopeLabel: string;
+    reusedAcrossRuns: string;
+    disabledTitle: string;
+    notConfiguredTitle: string;
+    apiTokenRequiredTitle: string;
+    inputsEyebrow: string;
+    inputsTitle: string;
+    outputsEyebrow: string;
+    outputsTitle: string;
+    outputsHint: string;
+    dropTitle: string;
+    dropDescription: string;
+    dropActive: string;
+    browse: string;
+    selectedFile: string;
+    noFileSelected: string;
+    uploadHint: string;
+    upload: string;
+    addAttachment: string;
+    uploading: string;
+    chooseFileBeforeUploading: string;
+    taskFilesDisabledTitle: string;
+    maxFileSizeLabel: string;
+    fileTooLargeSelected: string;
+    deduplicatedNotice: string;
+    uploadComplete: string;
+    inputRemoved: string;
+    remove: string;
+    confirmRemove: string;
+    keepFile: string;
+    removing: string;
+    download: string;
+    downloading: string;
+    downloadingProgress: string;
+    updatedLabel: string;
+    createdLabel: string;
+    creatorExecutionLabel: string;
+    recentOutputsGroup: string;
+    executionGroupLabel: string;
+    unknownSize: string;
+    mediaTypeFallback: string;
+    noInputsTitle: string;
+    noInputsDescription: string;
+    noOutputsTitle: string;
+    noOutputsDescription: string;
+    noOutputsWhileRunning: string;
+    loadFailed: string;
+    uploadFailed: string;
+    downloadFailed: string;
+    deleteFailed: string;
   };
   constructorDispatch: {
     genericFailure: string;
@@ -1282,10 +1355,25 @@ export const en: Messages = {
     constructorUnreachable: 'Constructor is unreachable.',
     constructorTaskLookupFailed: 'Constructor task lookup failed.',
     constructorDispatchDisabled: 'Constructor dispatch is disabled for this workspace.',
+    constructorNotConfigured: 'Constructor is not configured for this workspace.',
     constructorDispatchApiTokenRequired: 'Constructor API token is required before dispatch.',
     constructorTargetAgentRequired: 'Assign the task to a Constructor agent or sync a default Constructor agent before dispatch.',
     constructorRejectedTask: 'Constructor rejected the task.',
     constructorTaskAccepted: 'Task accepted by Constructor. Mission Control will post the final answer to task comments after the callback arrives.',
+    constructorUnauthorized: 'Constructor rejected Mission Control credentials.',
+    constructorFilesDisabled: 'Constructor task files are disabled for this workspace.',
+    constructorTaskFilesCapabilityDisabled: 'Task-file uploads are not enabled on this Constructor instance.',
+    constructorFilesNotConfigured: 'Constructor task files are not configured for this workspace yet.',
+    constructorFilesApiTokenRequired: 'Constructor API token is required before task files can be managed.',
+    constructorFilesListFailed: 'Constructor file listing failed.',
+    constructorFileUploadFailed: 'Constructor file upload failed.',
+    constructorFileTooLarge: 'The selected file exceeds the current Constructor upload limit.',
+    constructorFileNameRequired: 'File name is required.',
+    constructorFileContentRequired: 'File content is required.',
+    constructorFileContentInvalid: 'File content must be valid base64.',
+    constructorFileDeleteFailed: 'Constructor file removal failed.',
+    constructorFileNotFound: 'Constructor file not found.',
+    constructorFileDownloadFailed: 'Constructor file download failed.',
     invalidCallbackPayload: 'Invalid callback payload',
     callbackCommentWriteFailed: 'Failed to write callback comment',
     callbackCompletedWithoutResult: 'Task completed, but no result text was included in the callback payload.',
@@ -1354,6 +1442,7 @@ export const en: Messages = {
     discussion: 'Discussion',
     commentsAndActivity: 'Comments and activity',
     agentRun: 'Agent run',
+    constructorFiles: 'Constructor files',
     quickActions: 'Quick actions',
     updateTask: 'Update task',
     attachments: 'Attachments',
@@ -1556,6 +1645,63 @@ export const en: Messages = {
     chooseFileBeforeUploading: 'Choose a file before uploading.',
     attachmentUploadFailed: 'Attachment upload failed.',
     workspaceOwner: 'Workspace Owner'
+  },
+  constructorFiles: {
+    eyebrow: 'Task-scoped files',
+    title: 'Constructor files',
+    description: 'Reusable inputs stay attached to this Constructor task scope across reruns, and generated outputs appear here after completion.',
+    refresh: 'Refresh',
+    refreshing: 'Refreshing...',
+    scopeLabel: 'Task scope: {value}',
+    reusedAcrossRuns: 'Active input set is reused on future runs',
+    disabledTitle: 'Constructor files are disabled',
+    taskFilesDisabledTitle: 'Task files are not enabled',
+    notConfiguredTitle: 'Constructor is not configured',
+    apiTokenRequiredTitle: 'Constructor token is missing',
+    inputsEyebrow: 'Inputs',
+    inputsTitle: 'Reusable input files',
+    outputsEyebrow: 'Outputs',
+    outputsTitle: 'Generated outputs',
+    outputsHint: 'Outputs accumulate under this task scope and stay read-only in Mission Control.',
+    dropTitle: 'Upload a file for future Constructor runs',
+    dropDescription: 'Drag a file here or browse to add it to the active task-scoped input set.',
+    dropActive: 'Drop the file to stage it on this task scope.',
+    browse: 'Browse files',
+    selectedFile: 'Selected: {name}',
+    noFileSelected: 'No file selected yet',
+    uploadHint: 'JSON/base64 upload stays server-side through Mission Control. Duplicate uploads are deduplicated upstream when content matches.',
+    upload: 'Upload input',
+    addAttachment: 'Add attachment',
+    uploading: 'Uploading...',
+    chooseFileBeforeUploading: 'Choose a file before uploading.',
+    maxFileSizeLabel: 'Max file size: {value}',
+    fileTooLargeSelected: 'This file exceeds the {limit} limit.',
+    deduplicatedNotice: '{name} is already attached.',
+    uploadComplete: '{name} added to attachments.',
+    inputRemoved: 'Attachment removed.',
+    remove: 'Remove',
+    confirmRemove: 'Remove attachment',
+    keepFile: 'Cancel',
+    removing: 'Removing...',
+    download: 'Download',
+    downloading: 'Downloading...',
+    downloadingProgress: 'Downloading {value}%',
+    updatedLabel: 'Updated {value}',
+    createdLabel: 'Created {value}',
+    creatorExecutionLabel: 'Generated by execution {value}',
+    recentOutputsGroup: 'Recent outputs',
+    executionGroupLabel: 'Execution {value}',
+    unknownSize: 'Unknown size',
+    mediaTypeFallback: 'Unknown type',
+    noInputsTitle: 'No reusable inputs yet',
+    noInputsDescription: 'Upload briefs, datasets, references, or templates here so future Constructor runs on this task can reuse them automatically.',
+    noOutputsTitle: 'No generated outputs yet',
+    noOutputsDescription: 'When a Constructor run finishes under this task scope, its generated files will appear here.',
+    noOutputsWhileRunning: 'Constructor is still running. Generated outputs will appear here as soon as the run reaches a terminal state.',
+    loadFailed: 'Attachments could not be loaded.',
+    uploadFailed: 'Attachment upload failed.',
+    downloadFailed: 'Attachment download failed.',
+    deleteFailed: 'Attachment removal failed.'
   },
   constructorDispatch: {
     genericFailure: 'Dispatch failed.',

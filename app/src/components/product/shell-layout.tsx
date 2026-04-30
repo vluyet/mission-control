@@ -146,7 +146,6 @@ function ProductShellContent({
             </div>
             <div>
               <p className="sidebar-brand-title">{t("shell.brandTitle")}</p>
-              <p className="sidebar-brand-subtitle">{t("shell.brandSubtitle")}</p>
             </div>
           </div>
 
@@ -230,12 +229,9 @@ function ProductShellContent({
               </span>
             </button>
             {deployment?.version ? (
-              <p className="px-2 pt-3 text-[11px] text-white/42">
-                {t("shell.versionLabel")} {deployment.version}
-                {deployment.shortCommit ? ` (${deployment.shortCommit})` : ""}
-              </p>
+              <p className="px-2 pt-3 text-[11px] text-white/36">{deployment.version}</p>
             ) : deployment?.shortCommit ? (
-              <p className="px-2 pt-3 text-[11px] text-white/42">{t("shell.commitLabel")} {deployment.shortCommit}</p>
+              <p className="px-2 pt-3 text-[11px] text-white/36">{deployment.shortCommit}</p>
             ) : null}
           </div>
         </aside>

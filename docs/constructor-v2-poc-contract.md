@@ -7,14 +7,25 @@ It is intentionally narrower than the older bridge-era docs. It documents the wo
 ## Scope
 
 Current Mission Control integration points:
+- `GET /api/workspaces/current/constructor/capabilities`
 - `POST /api/tasks/:taskId/constructor/dispatch`
 - `GET /api/tasks/:taskId/constructor/status`
 - `POST /api/tasks/:taskId/constructor/callback`
+- `GET /api/tasks/:taskId/constructor/files`
+- `POST /api/tasks/:taskId/constructor/files`
+- `DELETE /api/tasks/:taskId/constructor/files/:fileId`
+- `GET /api/tasks/:taskId/constructor/files/:fileId/download`
 
 Current upstream Constructor ingress:
 - `GET ${CONSTRUCTOR_BASE_URL}/api/v1/agents`
+- `GET ${CONSTRUCTOR_BASE_URL}/api/v1/capabilities`
 - `POST ${CONSTRUCTOR_BASE_URL}/api/v1/tasks`
 - `GET ${CONSTRUCTOR_BASE_URL}/api/v1/tasks/:bridgeExecutionId`
+- `GET ${CONSTRUCTOR_BASE_URL}/api/v1/tasks/by-external/:externalTaskId`
+- `GET ${CONSTRUCTOR_BASE_URL}/api/v1/tasks/:externalTaskId/files`
+- `POST ${CONSTRUCTOR_BASE_URL}/api/v1/tasks/:externalTaskId/files`
+- `DELETE ${CONSTRUCTOR_BASE_URL}/api/v1/tasks/:externalTaskId/files/:fileId`
+- `GET ${CONSTRUCTOR_BASE_URL}/api/v1/tasks/:externalTaskId/files/:fileId/download`
 
 Default local base URL when unset:
 - `CONSTRUCTOR_BASE_URL=http://127.0.0.1:8787`
@@ -25,16 +36,18 @@ When an owner dispatches a task through the Constructor v2 UI card, Mission Cont
 1. loads the task resource and recent comments
 2. resolves `targetAgent` from the assigned Constructor agent or the synced default Constructor agent
 3. builds a final-answer-oriented instruction payload for Constructor
-4. generates a task-scoped callback URL back into Mission Control
-5. sends a public API task request to Constructor
-6. returns `202 Accepted` if Constructor accepts and persists the execution
+4. derives one stable Constructor task scope from the Mission Control task id
+5. generates a fresh idempotency key for the intentional dispatch attempt
+6. generates a task-scoped callback URL back into Mission Control
+7. sends a public API task request to Constructor
+8. returns `202 Accepted` if Constructor accepts and persists the execution
 
 Current request shape sent upstream:
 
 ```json
 {
-  "externalTaskId": "mc-task-<taskId>-<timestamp>",
-  "idempotencyKey": "mc-task-<taskId>-<timestamp>",
+  "externalTaskId": "mc-task-<taskId>",
+  "idempotencyKey": "mc-task-<taskId>-dispatch-<uuid>",
   "targetAgent": "constructor-default",
   "instruction": "Task: ...",
   "context": {
@@ -83,6 +96,11 @@ Required public API fields supplied by Mission Control:
 
 Mission Control also sends optional execution context, metadata, callback instructions, retry policy, and timeout policy with each request.
 
+Stable task scope behavior:
+- `externalTaskId` is now deterministic per Mission Control task and is reused across reruns
+- `idempotencyKey` is fresh for each intentional new dispatch attempt
+- comment-mention follow-up dispatches still use their own explicit comment-scoped ids
+
 ### Important design choice
 
 This Constructor v2 POC is intentionally different from the older bridge-era task execution path.
@@ -111,6 +129,32 @@ Expected success shape:
 ```
 
 Mission Control returns `202` to the UI with the normalized dispatch payload, including the resolved `targetAgent` and whether the request was deduplicated.
+
+## Task-scoped files
+
+Mission Control now proxies Constructor task files through its own task namespace instead of exposing Constructor credentials in the browser.
+
+Current Mission Control file behavior:
+- resolves Constructor credentials from the task workspace on the server
+- uses the stable task `externalTaskId` as the Constructor file scope
+- lists files on demand from Constructor instead of mirroring them locally
+- shows an attachment-style task UI for active reusable inputs on Constructor-assigned tasks
+- refreshes and caches Constructor task-file capabilities server-side so the upload limit can be reused between interactions
+- shows the current human-readable upload limit before task-file upload and rejects obviously too-large files client-side
+- keeps native Mission Control attachments unchanged, but hides them on Constructor-assigned task detail in this pass
+
+Current UI/route behavior:
+- `GET /api/workspaces/current/constructor/capabilities` refreshes the authenticated Constructor capability snapshot, including `taskFiles.uploadMaxBytes`
+- `GET /api/tasks/:taskId/constructor/files` returns either a ready file list or a normalized disabled / not-configured state for the UI
+- `POST /api/tasks/:taskId/constructor/files` accepts JSON with `fileName`, `contentBase64`, and optional `contentType`
+- `DELETE /api/tasks/:taskId/constructor/files/:fileId` removes an input from future runs through Constructor soft-deactivation
+- `GET /api/tasks/:taskId/constructor/files/:fileId/download` streams the Constructor file download through Mission Control
+- oversized uploads are blocked before encoding when the cached max-size limit is present, and upstream `413` responses are still surfaced cleanly if the limit changed or the client-side check was bypassed
+
+First-pass limitations of this file surface:
+- Mission Control does not mirror Constructor task files into Postgres
+- generated outputs remain read-only in Mission Control and are not yet rendered in the simplified attachment-style task UI
+- removing an input affects future runs only and does not remove historical outputs
 
 ## In-flight status polling
 
@@ -182,7 +226,7 @@ For Constructor webhook/system callbacks, those log writes now use a system-leve
 ## Current limitations
 
 - this doc describes the local POC contract, not a stable public API
-- the dispatch route currently generates a fresh `externalTaskId` per dispatch attempt
+- the file list normalization is intentionally defensive because Constructor file payload fields are still newer and less rigidly documented than the task dispatch contract
 
 ## Validation notes
 

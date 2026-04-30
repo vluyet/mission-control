@@ -68,8 +68,298 @@ export type ConstructorTaskSummaryResponse = {
   message?: string;
 };
 
+export type ConstructorTaskFileKind = "input" | "output";
+
+export type ConstructorTaskFile = {
+  id: string;
+  fileName: string;
+  mediaType: string | null;
+  sizeBytes: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  creatorExecutionId: string | null;
+  kind: ConstructorTaskFileKind;
+  active: boolean;
+};
+
+export type ConstructorTaskFileCapabilities = {
+  enabled: boolean;
+  uploadMaxBytes: number | null;
+  uploadTransport: string | null;
+};
+
+export type ConstructorCapabilities = {
+  taskFiles: ConstructorTaskFileCapabilities;
+};
+
+type ConstructorTaskFilesResponse = {
+  items?: unknown[];
+  files?: unknown[];
+  taskFiles?: unknown[];
+  data?: unknown;
+  error?: string;
+  message?: string;
+  deduplicated?: boolean;
+};
+
+type ConstructorCapabilitiesResponse = {
+  taskFiles?: unknown;
+  data?: unknown;
+  error?: string;
+  message?: string;
+};
+
+type ConstructorTaskFileMutationResponse = {
+  item?: unknown;
+  file?: unknown;
+  taskFile?: unknown;
+  data?: unknown;
+  error?: string;
+  message?: string;
+  deduplicated?: boolean;
+};
+
 function normalizeBaseUrl(input: string) {
   return input.trim().replace(/\/+$/, "");
+}
+
+function normalizeString(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function normalizeIdentifier(value: unknown) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+
+  return null;
+}
+
+function normalizeNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function normalizeBoolean(value: unknown) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+
+    if (["true", "1", "yes", "enabled"].includes(normalized)) {
+      return true;
+    }
+
+    if (["false", "0", "no", "disabled"].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return null;
+}
+
+function normalizeLowercaseString(value: unknown) {
+  const normalized = normalizeString(value);
+  return normalized ? normalized.toLowerCase() : null;
+}
+
+function normalizeTimestamp(value: unknown) {
+  return normalizeString(value);
+}
+
+function pickRecordValue(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    if (key in record) {
+      return record[key];
+    }
+  }
+
+  return undefined;
+}
+
+function hasTruthyString(record: Record<string, unknown>, keys: string[]) {
+  return keys.some((key) => Boolean(normalizeString(record[key])));
+}
+
+function extractArrayPayload(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  for (const key of ["items", "files", "taskFiles"]) {
+    if (Array.isArray(record[key])) {
+      return record[key] as unknown[];
+    }
+  }
+
+  return extractArrayPayload(record.data);
+}
+
+function extractItemPayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  for (const key of ["item", "file", "taskFile"]) {
+    if (record[key] !== undefined) {
+      return record[key];
+    }
+  }
+
+  if (record.data !== undefined) {
+    return extractItemPayload(record.data);
+  }
+
+  return payload;
+}
+
+function normalizeConstructorCapabilities(payload: unknown): ConstructorCapabilities {
+  const record = payload && typeof payload === "object" && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {};
+  const nestedData = record.data && typeof record.data === "object" && !Array.isArray(record.data)
+    ? (record.data as Record<string, unknown>)
+    : null;
+  const taskFilesRecord = (() => {
+    const candidate = record.taskFiles ?? nestedData?.taskFiles ?? nestedData;
+
+    return candidate && typeof candidate === "object" && !Array.isArray(candidate)
+      ? (candidate as Record<string, unknown>)
+      : null;
+  })();
+
+  return {
+    taskFiles: {
+      enabled: normalizeBoolean(taskFilesRecord?.enabled) ?? false,
+      uploadMaxBytes: normalizeNumber(taskFilesRecord?.uploadMaxBytes),
+      uploadTransport: normalizeString(taskFilesRecord?.uploadTransport)
+    }
+  };
+}
+
+function normalizeTaskFileKind(record: Record<string, unknown>): ConstructorTaskFileKind {
+  const rawKinds = [
+    record.kind,
+    record.fileKind,
+    record.role,
+    record.fileRole,
+    record.category,
+    record.origin,
+    record.originType,
+    record.type
+  ]
+    .map(normalizeLowercaseString)
+    .filter((value): value is string => Boolean(value));
+
+  if (
+    record.isOutput === true ||
+    record.generated === true ||
+    hasTruthyString(record, ["creatorExecutionId", "executionId", "sourceExecutionId"]) ||
+    rawKinds.some((value) => /(^|[_:-])(output|generated|result|artifact|deliverable)(s)?$/.test(value))
+  ) {
+    return "output";
+  }
+
+  return "input";
+}
+
+function normalizeTaskFileActive(record: Record<string, unknown>, kind: ConstructorTaskFileKind) {
+  if (kind === "output") {
+    return true;
+  }
+
+  if (typeof record.active === "boolean") {
+    return record.active;
+  }
+
+  if (typeof record.enabled === "boolean") {
+    return record.enabled;
+  }
+
+  if (typeof record.deleted === "boolean") {
+    return !record.deleted;
+  }
+
+  if (hasTruthyString(record, ["deletedAt", "deactivatedAt", "removedAt"])) {
+    return false;
+  }
+
+  const rawState = normalizeLowercaseString(record.status) ?? normalizeLowercaseString(record.state);
+
+  if (rawState && ["deleted", "deactivated", "disabled", "inactive", "removed"].includes(rawState)) {
+    return false;
+  }
+
+  return true;
+}
+
+function normalizeTaskFile(value: unknown): ConstructorTaskFile | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const id = normalizeIdentifier(pickRecordValue(record, ["id", "taskFileId", "fileId"]));
+
+  if (!id) {
+    return null;
+  }
+
+  const fileName =
+    normalizeString(pickRecordValue(record, ["fileName", "name", "originalName", "downloadName", "title"])) ??
+    `file-${id}`;
+  const kind = normalizeTaskFileKind(record);
+
+  return {
+    id,
+    fileName,
+    mediaType: normalizeString(pickRecordValue(record, ["contentType", "mediaType", "mimeType", "type"])),
+    sizeBytes: normalizeNumber(pickRecordValue(record, ["sizeBytes", "byteSize", "size", "contentLength"])),
+    createdAt: normalizeTimestamp(pickRecordValue(record, ["createdAt", "uploadedAt", "generatedAt"])),
+    updatedAt: normalizeTimestamp(pickRecordValue(record, ["updatedAt", "modifiedAt", "lastModifiedAt", "createdAt"])),
+    creatorExecutionId:
+      normalizeIdentifier(pickRecordValue(record, ["creatorExecutionId", "executionId", "sourceExecutionId"])) ?? null,
+    kind,
+    active: normalizeTaskFileActive(record, kind)
+  };
+}
+
+export function getStableConstructorExternalTaskId(taskId: string) {
+  return `mc-task-${taskId}`;
+}
+
+export function createConstructorDispatchIdempotencyKey(taskId: string) {
+  return `${getStableConstructorExternalTaskId(taskId)}-dispatch-${crypto.randomUUID()}`;
 }
 
 export function normalizeConstructorPublicApiBaseUrl(input: string) {
@@ -153,6 +443,24 @@ export async function fetchConstructorAgents(input: { baseUrl: string; apiToken:
     .filter((agent): agent is ConstructorAgentDescriptor => Boolean(agent));
 }
 
+export async function fetchConstructorCapabilities(input: { baseUrl: string; apiToken: string }) {
+  const response = await fetch(`${normalizeConstructorPublicApiBaseUrl(input.baseUrl)}/capabilities`, {
+    method: "GET",
+    headers: {
+      authorization: `Bearer ${input.apiToken}`
+    },
+    cache: "no-store"
+  });
+
+  const payload = (await response.json().catch(() => null)) as ConstructorCapabilitiesResponse | null;
+
+  return {
+    response,
+    payload,
+    capabilities: normalizeConstructorCapabilities(payload)
+  };
+}
+
 export async function dispatchConstructorTask(input: {
   baseUrl: string;
   apiToken: string;
@@ -208,5 +516,112 @@ export async function fetchConstructorTaskSummary(input: {
   return {
     response,
     payload
+  };
+}
+
+export async function fetchConstructorTaskFiles(input: {
+  baseUrl: string;
+  apiToken: string;
+  externalTaskId: string;
+}) {
+  const response = await fetch(
+    `${normalizeConstructorPublicApiBaseUrl(input.baseUrl)}/tasks/${encodeURIComponent(input.externalTaskId)}/files`,
+    {
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${input.apiToken}`
+      },
+      cache: "no-store"
+    }
+  );
+
+  const payload = (await response.json().catch(() => null)) as ConstructorTaskFilesResponse | null;
+  const items = extractArrayPayload(payload).map(normalizeTaskFile).filter((item): item is ConstructorTaskFile => Boolean(item));
+
+  return {
+    response,
+    payload,
+    items
+  };
+}
+
+export async function uploadConstructorTaskFile(input: {
+  baseUrl: string;
+  apiToken: string;
+  externalTaskId: string;
+  body: {
+    fileName: string;
+    contentBase64: string;
+    contentType?: string;
+  };
+}) {
+  const response = await fetch(
+    `${normalizeConstructorPublicApiBaseUrl(input.baseUrl)}/tasks/${encodeURIComponent(input.externalTaskId)}/files`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${input.apiToken}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(input.body),
+      cache: "no-store"
+    }
+  );
+
+  const payload = (await response.json().catch(() => null)) as ConstructorTaskFileMutationResponse | null;
+  const item = normalizeTaskFile(extractItemPayload(payload));
+
+  return {
+    response,
+    payload,
+    item
+  };
+}
+
+export async function deleteConstructorTaskFile(input: {
+  baseUrl: string;
+  apiToken: string;
+  externalTaskId: string;
+  fileId: string;
+}) {
+  const response = await fetch(
+    `${normalizeConstructorPublicApiBaseUrl(input.baseUrl)}/tasks/${encodeURIComponent(input.externalTaskId)}/files/${encodeURIComponent(input.fileId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        authorization: `Bearer ${input.apiToken}`
+      },
+      cache: "no-store"
+    }
+  );
+
+  const payload = (await response.json().catch(() => null)) as ConstructorTaskFileMutationResponse | null;
+
+  return {
+    response,
+    payload,
+    item: normalizeTaskFile(extractItemPayload(payload))
+  };
+}
+
+export async function downloadConstructorTaskFile(input: {
+  baseUrl: string;
+  apiToken: string;
+  externalTaskId: string;
+  fileId: string;
+}) {
+  const response = await fetch(
+    `${normalizeConstructorPublicApiBaseUrl(input.baseUrl)}/tasks/${encodeURIComponent(input.externalTaskId)}/files/${encodeURIComponent(input.fileId)}/download`,
+    {
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${input.apiToken}`
+      },
+      cache: "no-store"
+    }
+  );
+
+  return {
+    response
   };
 }

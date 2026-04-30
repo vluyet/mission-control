@@ -32,6 +32,21 @@ docker compose exec app node scripts/with-root-env.mjs node --test tests/auth-ac
 
 CI mirrors this flow with `docker compose --env-file .env.ci up -d --build --wait db app`, then `npm run db:reset`, `npm run test:migrations`, `npm run test`, and `npm run build`.
 
+Live production deploys are different from local Docker builds. The live app is host-run from `app/` as the user systemd service `mission-control-app.service`, serving the promoted `.next-build` bundle on port 3000. When asked to deploy or rebuild the live app, do not use `docker compose exec app npm run build`.
+
+Use this host workflow instead:
+
+```bash
+cd app
+systemctl --user stop mission-control-app.service
+npm run build
+systemctl --user start mission-control-app.service
+systemctl --user is-active mission-control-app.service
+curl -fsS http://127.0.0.1:3000/api/health
+```
+
+Use `npm run rebuild:live` only when intentionally doing a direct host cutover that manages the live listener itself. The safer default for routine live deploys is stop service, build on host, start service, then verify `/api/health`.
+
 ## High-level architecture
 
 - `app/` is a Next.js 14 App Router application. UI routes are under `app/src/app/(workspace)` and API routes are under `app/src/app/api`.
@@ -46,6 +61,7 @@ CI mirrors this flow with `docker compose --env-file .env.ci up -d --build --wai
 
 - Keep runtime commands aligned with the repo-root env. App-level scripts that touch the database or runtime should use `app/scripts/with-root-env.mjs` rather than assuming an app-local `.env`.
 - Do not edit `.next-build`, `.next-build-prev`, or `.next-dev`. They are generated build outputs. Use `npm run build`, `npm run rebuild:live`, or the scripts in `app/scripts/` instead.
+- For live production cutovers on this host, prefer the host service workflow: stop `mission-control-app.service`, run `npm run build` in `app/`, start the service again, then verify `http://127.0.0.1:3000/api/health`. Do not treat the Docker app container as the source of truth for live deploys.
 - API routes use the shared response envelope from `app/src/lib/api-response.ts` (`ok: true/false`, plus `meta`) and authenticate through `app/src/lib/api-auth.ts`. Owner access comes from the signed session cookie; agent access comes from hashed bearer tokens with explicit scopes.
 - User-facing strings are localized. Server components use `getRequestI18n()`, API routes use `getApiT()`, and locale is resolved from the locale cookie or `Accept-Language`. Follow that path instead of hardcoding new English-only strings.
 - Workspace selection is cookie-driven. Many server helpers resolve the active workspace from `mission_control_workspace` and fall back to the default slug `north-star-lab`.

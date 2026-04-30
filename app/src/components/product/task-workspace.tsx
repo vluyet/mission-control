@@ -8,6 +8,7 @@ import { Panel, PanelHeader, PriorityBadge, StatusBadge } from "@/components/ui/
 import { TaskCommentsPanel } from "@/components/product/task-comments-panel";
 import { TaskStatusActions } from "@/components/product/task-status-actions";
 import { TaskConstructorDispatchCard } from "@/components/product/task-constructor-dispatch-card";
+import { TaskConstructorFilesPanel } from "@/components/product/task-constructor-files-panel";
 import { TaskAttachmentsPanel } from "@/components/product/task-attachments-panel";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { useI18n } from "@/components/product/i18n-provider";
@@ -42,17 +43,25 @@ function MetadataItem({
   );
 }
 
-function SidebarSection({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function SidebarSection({
+  title,
+  children,
+  defaultOpen = true
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
   return (
     <details
       open={defaultOpen}
       className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.04)]"
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-slate-900 marker:content-none">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-semibold text-slate-900 marker:content-none">
         <span>{title}</span>
         <span className="text-slate-400 transition group-open:rotate-180">⌄</span>
       </summary>
-      <div className="border-t border-slate-100 px-5 py-4">{children}</div>
+      <div className="border-t border-slate-100 px-4 py-4">{children}</div>
     </details>
   );
 }
@@ -131,11 +140,12 @@ export function TaskWorkspace({
   const { t } = useI18n();
   const rawAssigneeType = task.rawAssigneeType ?? task.assigneeType;
   const isAgentTask = rawAssigneeType === "Agent";
+  const isConstructorTask = isAgentTask && task.assigneeSourceSystem === "constructor";
   const localizedPriority = getLocalizedPriorityLabel(task.priority, t);
 
   return (
     <Panel className="border border-white/70 bg-white/90 shadow-[0_18px_60px_rgba(15,23,42,0.05)]" data-testid="task-workspace-root">
-      <div className={`grid gap-0 ${compact ? "2xl:grid-cols-[minmax(0,1fr),360px]" : "xl:grid-cols-[minmax(0,1fr),360px]"}`}>
+      <div className={`grid gap-0 ${compact ? "2xl:grid-cols-[minmax(0,1fr),320px]" : "xl:grid-cols-[minmax(0,1fr),320px]"}`}>
         <div className="p-6 xl:border-r xl:border-slate-200">
           <header className="border-b border-slate-200 pb-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -179,6 +189,14 @@ export function TaskWorkspace({
             </div>
           </section>
 
+          {isConstructorTask ? (
+            <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.03)]">
+              <div className="p-5">
+                <TaskConstructorFilesPanel taskId={task.id} />
+              </div>
+            </section>
+          ) : null}
+
           <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.03)]">
             <PanelHeader eyebrow={t("taskWorkspace.discussion")} title={t("taskWorkspace.commentsAndActivity")} />
             <TaskCommentsPanel
@@ -190,7 +208,7 @@ export function TaskWorkspace({
           </section>
         </div>
 
-        <aside className="space-y-5 bg-slate-50/70 p-5">
+        <aside className="space-y-4 bg-slate-50/40 p-5 xl:sticky xl:top-6 xl:self-start">
           {isAgentTask ? (
             <SidebarSection title={t("taskWorkspace.agentRun")}>
               <AgentDispatchBlock task={task} />
@@ -201,16 +219,18 @@ export function TaskWorkspace({
             <QuickActions task={task} />
           </SidebarSection>
 
-          <SidebarSection title={t("taskWorkspace.attachments")} defaultOpen={false}>
-            <TaskAttachmentsPanel
-              taskId={task.id}
-              attachments={attachments}
-              agentActorName={isAgentTask ? task.assignee : undefined}
-              agentActorEnabled={isAgentTask ? task.assigneeEnabled ?? false : false}
-            />
-          </SidebarSection>
+          {!isConstructorTask ? (
+            <SidebarSection title={t("taskWorkspace.attachments")} defaultOpen={false}>
+              <TaskAttachmentsPanel
+                taskId={task.id}
+                attachments={attachments}
+                agentActorName={isAgentTask ? task.assignee : undefined}
+                agentActorEnabled={isAgentTask ? task.assigneeEnabled ?? false : false}
+              />
+            </SidebarSection>
+          ) : null}
 
-          {(watchers.length || resolvedContext) ? (
+          {watchers.length ? (
             <SidebarSection title={t("taskWorkspace.support")} defaultOpen={false}>
               <div className="space-y-3">
                 {watchers.length ? (
@@ -220,11 +240,6 @@ export function TaskWorkspace({
                       <p className="text-sm font-semibold text-slate-900">{t("taskWorkspace.watchers")}</p>
                     </div>
                     <p className="mt-2 text-sm text-slate-600">{watchers.map((watcher) => watcher.name).join(", ")}</p>
-                  </div>
-                ) : null}
-                {resolvedContext ? (
-                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
-                    {t("taskWorkspace.contextInheritanceEnabled")}
                   </div>
                 ) : null}
               </div>

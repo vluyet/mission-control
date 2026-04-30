@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.4 - 2026-04-30
+
+Constructor task attachments, upload-limit safety, and task workspace polish.
+
+- Added task-scoped Constructor attachment routes for list, upload, delete, download, and workspace capability refresh without exposing Constructor credentials to the browser.
+- Stabilized Constructor dispatch and task-file scope handling around one deterministic `externalTaskId` per Mission Control task plus a fresh idempotency key per intentional dispatch.
+- Added server-cached Constructor capability retrieval from `GET /api/v1/capabilities`, surfaced the current max upload size in the task UI, blocked obviously too-large files before base64 encoding, and mapped upstream `413 task_file_too_large` errors cleanly.
+- Simplified the Constructor task detail file surface into an attachment-style row and flat file list inside the main task workspace.
+- Added focused regression coverage for Constructor capability retrieval, task-file routing, download/delete flows, numeric file-id normalization, dispatch runtime wiring, and markdown bare URL linkification.
+- Refined repo and operator docs for the host-run deployment workflow, Constructor task-file contract, and the new `v0.4` release/update path.
+
 ## v0.3 - 2026-04-13
 
 Constructor-only runtime release and CI hardening.
